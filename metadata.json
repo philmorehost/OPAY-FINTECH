@@ -1,0 +1,7 @@
+{
+  "name": "O-Pay Clone Fintech App",
+  "description": "A comprehensive Fintech application inspired by the OPay mobile experience, featuring VTU services, bulk processing, reward systems, and a powerful admin dashboard.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

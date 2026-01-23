@@ -1,0 +1,77 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>O-Pay Clone</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.ckeditor.com/ckeditor5/41.0.0/classic/ckeditor.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .opay-green { color: #00c689; }
+        .bg-opay-green { background-color: #00c689; }
+        .border-opay-green { border-color: #00c689; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Global fix for input text visibility */
+        input, select, textarea {
+            color: #111827 !important; /* Tailwind gray-900 */
+        }
+        
+        /* Dark mode overrides for Admin if needed */
+        .dark-admin input, .dark-admin select, .dark-admin textarea {
+            color: #f9fafb !important; /* gray-50 */
+        }
+
+        @keyframes slideDown {
+          from { transform: translateY(-100%); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        .animate-slide-down {
+          animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Prevent background from scrolling when modal is open */
+        body.modal-open {
+          overflow: hidden;
+        }
+
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          #printable-receipt, #printable-receipt * {
+            visibility: visible;
+          }
+          #printable-receipt {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+          }
+          .print\:hidden {
+            display: none !important;
+          }
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "recharts": "https://esm.sh/recharts@^3.7.0",
+    "react-router-dom": "https://esm.sh/react-router-dom@^7.12.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+    "html2canvas": "https://esm.sh/html2canvas@^1.4.1"
+  }
+}
+</script>
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
+</body>
+</html>
