@@ -1,0 +1,3 @@
+<?php require_once 'includes/header.php'; require_login(); $user = get_current_user_data(); ?>
+<div class="max-w-md mx-auto min-h-screen bg-gray-50 flex flex-col pb-10 animate-fade-in"><div class="bg-white p-4 flex items-center gap-4 border-b sticky top-0 z-20 shadow-sm"><a href="profile"><i data-lucide="arrow-left"></i></a><h1 class="text-lg font-black text-gray-900">Login Settings</h1></div><div class="p-6 space-y-6 flex-1"><div class="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100"><h3 class="text-sm font-black mb-4">Update Security</h3><p class="text-gray-400 text-xs">Security settings are managed by your device biometrics.</p></div></div><?php include 'includes/nav.php'; ?></div>
+<?php require_once 'includes/footer.php'; ?>
