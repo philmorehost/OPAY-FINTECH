@@ -1,0 +1,3 @@
+<?php require_once 'includes/header.php'; require_login(); $user = get_current_user_data(); ?>
+<div class="max-w-md mx-auto min-h-screen bg-gray-50 flex flex-col pb-10 animate-fade-in"><div class="bg-white p-4 flex items-center justify-between border-b shadow-sm sticky top-0 z-20"><div class="flex items-center gap-4"><a href="dashboard"><i data-lucide="arrow-left"></i></a><h1 class="text-lg font-black text-gray-900">Virtual Cards</h1></div></div><div class="p-6 space-y-6 flex-1"><div class="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100"><p class="text-gray-400 text-center py-20 font-bold uppercase text-xs">No active cards</p></div></div><?php include 'includes/nav.php'; ?></div>
+<?php require_once 'includes/footer.php'; ?>

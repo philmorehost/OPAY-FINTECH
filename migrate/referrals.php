@@ -1,0 +1,3 @@
+<?php require_once 'includes/header.php'; require_login(); $user = get_current_user_data(); ?>
+<div class="max-w-md mx-auto min-h-screen bg-gray-50 flex flex-col pb-10 animate-fade-in"><div class="bg-white p-4 flex items-center gap-4 sticky top-0 z-10 border-b shadow-sm"><a href="dashboard"><i data-lucide="arrow-left"></i></a><h1 class="text-lg font-black text-gray-900">Referrals</h1></div><div class="p-6 flex-1 space-y-6"><div class="bg-indigo-600 p-8 rounded-[40px] text-white shadow-xl"><div>Total Earnings</div><div class="text-3xl font-black"><?php echo format_currency($user['referralEarnings']); ?></div></div></div><?php include 'includes/nav.php'; ?></div>
+<?php require_once 'includes/footer.php'; ?>
