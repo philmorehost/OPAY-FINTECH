@@ -1,17 +1,21 @@
 <?php
 // migrate/includes/config.php
 session_start();
-define('DB_PATH', __DIR__ . '/../database.db');
+define('DB_CONFIG', __DIR__ . '/db.php');
 try {
-    $pdo = new PDO('sqlite:' . DB_PATH);
+    if (!file_exists(DB_CONFIG)) { throw new Exception("Not installed"); }
+    require_once DB_CONFIG;
+    if (DB_TYPE === 'sqlite') {
+        $pdo = new PDO('sqlite:' . __DIR__ . '/../' . DB_NAME);
+    } else {
+        $pdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+    }
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 
-    // Check if installed by checking for settings table
-    $check = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='settings'");
-    if (!$check->fetch()) {
-        throw new Exception("Not installed");
-    }
+    // Quick check if fully installed
+    $check = $pdo->query("SELECT id FROM settings LIMIT 1");
+    if (!$check) { throw new Exception("Incomplete installation"); }
 
     $stmt = $pdo->query("SELECT * FROM settings LIMIT 1");
     $settings = $stmt->fetch();
