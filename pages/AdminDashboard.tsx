@@ -7,10 +7,10 @@ import {
   LayoutDashboard, Users, Settings as SettingsIcon, Database, 
   Mail, LogOut, CreditCard, CheckCircle, 
   Trash2, Lock, Unlock, Plus, RefreshCcw, 
-  Eye, ShieldCheck, Wallet, Landmark, Check, Ban, MessageCircle, Gift, LayoutGrid, Phone, Tv, Wifi, Key, ShieldAlert, Zap, Percent, Shield, GraduationCap, ArrowUpDown, ChevronDown, Save, MessageSquare, Send, Bitcoin, TrendingUp, Globe
+  Eye, ShieldCheck, Wallet, Landmark, Check, Ban, MessageCircle, Gift, LayoutGrid, Phone, Tv, Wifi, Key, ShieldAlert, Zap, Percent, Shield, GraduationCap, ArrowUpDown, ChevronDown, ChevronRight, Save, MessageSquare, Send, Bitcoin, TrendingUp, Globe, Coins, ShieldHalf, Search, X, MoreVertical, UserMinus, UserCheck, ArrowUpRight, ArrowDownLeft
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { User, KYCSubmission, DepositRequest, SmsSenderId, GiftCardRequest, Offer, ExamProvider, DataProduct, CableProvider, Transaction, SupportTicket } from '../types';
+import { User, KYCSubmission, DepositRequest, SmsSenderId, GiftCardRequest, Offer, ExamProvider, DataProduct, CableProvider, Transaction, SupportTicket, ElectricProvider } from '../types';
 
 interface AdminSubPageProps {
   showToast: (msg: string) => void;
@@ -30,7 +30,7 @@ const AdminOverview: React.FC = () => {
     { date: '07 May', vol: 2400000 },
   ];
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-8 animate-fade-in text-gray-900">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, i) => (
           <div key={i} className="bg-white p-7 rounded-3xl shadow-sm border border-gray-100 flex items-center gap-5">
@@ -43,7 +43,7 @@ const AdminOverview: React.FC = () => {
         ))}
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm overflow-hidden text-gray-900">
+        <div className="lg:col-span-2 bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm overflow-hidden">
           <div className="flex justify-between items-center mb-8">
             <h3 className="text-sm font-black uppercase tracking-widest">Revenue Growth</h3>
             <span className="px-3 py-1 bg-green-50 text-green-600 text-[10px] font-black rounded-full">+12.5% Today</span>
@@ -59,12 +59,12 @@ const AdminOverview: React.FC = () => {
             </ResponsiveContainer>
           </div>
         </div>
-        <div className="bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm text-gray-900">
+        <div className="bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm">
           <h3 className="text-sm font-black uppercase tracking-widest mb-6">Quick Access</h3>
           <div className="grid grid-cols-2 gap-4">
             <Link to="/admin/deposits" className="flex flex-col items-center p-6 bg-gray-50 rounded-3xl hover:bg-opay-green/10 transition-colors"><Wallet className="text-purple-500 mb-3" /><span className="text-[9px] font-black uppercase">Deposits</span></Link>
             <Link to="/admin/support" className="flex flex-col items-center p-6 bg-gray-50 rounded-3xl hover:bg-opay-green/10 transition-colors"><MessageSquare className="text-blue-500 mb-3" /><span className="text-[9px] font-black uppercase">Support</span></Link>
-            <Link to="/admin/users" className="flex flex-col items-center p-6 bg-gray-50 rounded-3xl hover:bg-opay-green/10 transition-colors"><Users className="text-blue-500 mb-3" /><span className="text-[9px] font-black uppercase">Users</span></Link>
+            <Link to="/admin/api-manager" className="flex flex-col items-center p-6 bg-gray-50 rounded-3xl hover:bg-opay-green/10 transition-colors"><Database className="text-orange-500 mb-3" /><span className="text-[9px] font-black uppercase">API Hub</span></Link>
             <Link to="/admin/settings" className="flex flex-col items-center p-6 bg-gray-50 rounded-3xl hover:bg-opay-green/10 transition-colors"><SettingsIcon className="text-blue-500 mb-3" /><span className="text-[9px] font-black uppercase">Settings</span></Link>
           </div>
         </div>
@@ -73,264 +73,451 @@ const AdminOverview: React.FC = () => {
   );
 };
 
-// --- Support Ticket Component ---
+// --- User Management ---
+const UserHub: React.FC<AdminSubPageProps> = ({ showToast }) => {
+  const { users, setUsers } = useApp();
+  const [search, setSearch] = useState('');
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [adjustAmount, setAdjustAmount] = useState('');
+  const [adjustType, setAdjustType] = useState<'credit' | 'debit'>('credit');
 
-const SupportManager: React.FC<AdminSubPageProps> = ({ showToast }) => {
-  const { tickets, setTickets, users } = useApp();
-  const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
-  const [replyMessage, setReplyMessage] = useState('');
+  const filteredUsers = users.filter(u => 
+    u.fullName.toLowerCase().includes(search.toLowerCase()) || 
+    u.username.toLowerCase().includes(search.toLowerCase()) ||
+    u.phone.includes(search)
+  );
 
-  const handleSendReply = () => {
-    if (!selectedTicket || !replyMessage.trim()) return;
-
-    const updatedTickets = tickets.map(t => {
-      if (t.id === selectedTicket.id) {
-        return {
-          ...t,
-          replies: [
-            ...t.replies,
-            { author: 'Admin Support', message: replyMessage, date: new Date().toISOString() }
-          ]
-        };
-      }
-      return t;
-    });
-
-    setTickets(updatedTickets);
-    setSelectedTicket(updatedTickets.find(t => t.id === selectedTicket.id) || null);
-    setReplyMessage('');
-    showToast("Reply sent successfully.");
+  const handleToggleSuspend = (id: string) => {
+    setUsers(prev => prev.map(u => u.id === id ? { ...u, isSuspended: !u.isSuspended } : u));
+    showToast("User status updated");
   };
 
-  const toggleTicketStatus = (id: string) => {
-    setTickets(prev => prev.map(t => {
-      if (t.id === id) return { ...t, status: t.status === 'open' ? 'closed' : 'open' };
-      return t;
-    }));
-    showToast("Ticket status updated.");
+  const handleAdjustBalance = () => {
+    if (!selectedUser || !adjustAmount) return;
+    const amount = parseFloat(adjustAmount);
+    const multiplier = adjustType === 'credit' ? 1 : -1;
+    
+    setUsers(prev => prev.map(u => u.id === selectedUser.id ? { ...u, walletBalance: u.walletBalance + (amount * multiplier) } : u));
+    showToast(`Successfully ${adjustType}ed ${formatCurrency(amount)}`);
+    setSelectedUser(null);
+    setAdjustAmount('');
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in text-gray-900 h-[calc(100vh-180px)]">
-      <div className="bg-white rounded-[40px] border border-gray-100 shadow-sm flex flex-col overflow-hidden">
-        <div className="p-6 border-b border-gray-50 flex justify-between items-center">
-           <h3 className="text-sm font-black uppercase tracking-widest">Inbox</h3>
-           <span className="bg-opay-green/10 text-opay-green px-3 py-1 rounded-full text-[10px] font-black">{tickets.length} TOTAL</span>
+    <div className="space-y-6 animate-fade-in">
+      <div className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100 flex items-center justify-between">
+        <div className="flex flex-col">
+          <h2 className="text-2xl font-black uppercase tracking-tighter">User Directory</h2>
+          <span className="text-[10px] font-bold text-gray-400 uppercase">{users.length} Active Accounts</span>
         </div>
-        <div className="flex-1 overflow-y-auto scrollbar-hide divide-y divide-gray-50">
-          {tickets.map(ticket => (
-            <div 
-              key={ticket.id} 
-              onClick={() => setSelectedTicket(ticket)}
-              className={`p-5 cursor-pointer transition-all hover:bg-gray-50 ${selectedTicket?.id === ticket.id ? 'bg-gray-50 border-l-4 border-opay-green' : ''}`}
-            >
-              <div className="flex justify-between items-start mb-1">
-                <span className="text-xs font-black truncate max-w-[120px]">{ticket.subject}</span>
-                <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase ${ticket.status === 'open' ? 'bg-amber-100 text-amber-600' : 'bg-green-100 text-green-600'}`}>
-                  {ticket.status}
-                </span>
-              </div>
-              <div className="text-[10px] text-gray-400 font-bold truncate">From: {users.find(u => u.id === ticket.userId)?.username || 'User'}</div>
-              <div className="text-[9px] text-gray-300 uppercase mt-2 font-black">{new Date(ticket.createdAt).toLocaleDateString()}</div>
-            </div>
-          ))}
-          {tickets.length === 0 && (
-             <div className="p-10 text-center text-gray-300 font-black uppercase text-[10px] tracking-widest">No tickets found</div>
-          )}
+        <div className="relative w-64">
+          <input 
+            className="w-full bg-gray-50 p-3 pl-10 rounded-2xl outline-none font-bold text-xs" 
+            placeholder="Search users..." 
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={16} />
         </div>
       </div>
 
-      <div className="lg:col-span-2 bg-white rounded-[40px] border border-gray-100 shadow-sm flex flex-col overflow-hidden">
-        {selectedTicket ? (
-          <>
-            <div className="p-6 border-b border-gray-50 flex justify-between items-center">
-               <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-gray-100 rounded-2xl flex items-center justify-center text-gray-400">
-                     <MessageSquare size={20} />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {filteredUsers.map(user => (
+          <div key={user.id} className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm flex items-center justify-between group">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-opay-green/10 rounded-2xl flex items-center justify-center text-opay-green font-black">
+                {user.fullName[0]}
+              </div>
+              <div>
+                <div className="text-sm font-black text-gray-800">{user.fullName}</div>
+                <div className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">@{user.username} • Tier {user.tier}</div>
+                <div className="text-[10px] text-opay-green font-black mt-1">{formatCurrency(user.walletBalance)}</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setSelectedUser(user)}
+                className="p-3 bg-blue-50 text-blue-500 rounded-xl hover:bg-blue-100 transition-colors"
+                title="Adjust Balance"
+              >
+                <ArrowUpDown size={18} />
+              </button>
+              <button 
+                onClick={handleToggleSuspend(user.id)}
+                className={`p-3 rounded-xl transition-colors ${user.isSuspended ? 'bg-green-50 text-green-500 hover:bg-green-100' : 'bg-red-50 text-red-500 hover:bg-red-100'}`}
+                title={user.isSuspended ? "Unsuspend" : "Suspend"}
+              >
+                {user.isSuspended ? <UserCheck size={18} /> : <UserMinus size={18} />}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {selectedUser && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
+          <div className="bg-white w-full max-w-sm rounded-[40px] p-8 space-y-6 shadow-2xl animate-slide-up">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-black uppercase">Adjust Balance</h3>
+              <button onClick={() => setSelectedUser(null)} className="p-2 bg-gray-50 rounded-full"><X size={18} /></button>
+            </div>
+            <p className="text-xs text-gray-400 font-bold uppercase">Adjusting balance for <span className="text-gray-800">{selectedUser.fullName}</span></p>
+            
+            <div className="flex bg-gray-100 p-1 rounded-2xl">
+              <button onClick={() => setAdjustType('credit')} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${adjustType === 'credit' ? 'bg-white shadow-sm text-opay-green' : 'text-gray-400'}`}>Credit</button>
+              <button onClick={() => setAdjustType('debit')} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${adjustType === 'debit' ? 'bg-white shadow-sm text-red-500' : 'text-gray-400'}`}>Debit</button>
+            </div>
+
+            <div className="relative">
+              <input 
+                type="number" 
+                placeholder="0.00" 
+                className="w-full p-5 bg-gray-50 rounded-2xl outline-none font-black text-2xl"
+                value={adjustAmount}
+                onChange={(e) => setAdjustAmount(e.target.value)}
+              />
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 font-black text-lg">₦</span>
+            </div>
+
+            <button 
+              onClick={handleAdjustBalance}
+              className={`w-full py-5 rounded-[24px] font-black uppercase tracking-widest text-white shadow-xl ${adjustType === 'credit' ? 'bg-opay-green' : 'bg-red-500'}`}
+            >
+              Confirm Adjustment
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- Deposit Management ---
+const DepositManager: React.FC<AdminSubPageProps> = ({ showToast }) => {
+  const { depositRequests, setDepositRequests, users, setUsers, setTransactions } = useApp();
+  const [activeTab, setActiveTab] = useState<'pending' | 'processed'>('pending');
+
+  const filtered = depositRequests.filter(r => 
+    activeTab === 'pending' ? r.status === 'pending' : r.status !== 'pending'
+  );
+
+  const handleAction = (id: string, status: 'successful' | 'rejected') => {
+    const req = depositRequests.find(r => r.id === id);
+    if (!req) return;
+
+    if (status === 'successful') {
+      const creditAmount = req.amount - req.charge;
+      setUsers(prev => prev.map(u => u.id === req.userId ? { ...u, walletBalance: u.walletBalance + creditAmount } : u));
+      
+      const newTx: any = {
+        id: generateId(),
+        userId: req.userId,
+        type: 'Wallet Funding',
+        amount: creditAmount,
+        status: 'successful',
+        date: new Date().toISOString(),
+        details: `Manual Deposit Approved (Ref: ${req.id})`,
+        recipient: 'Wallet'
+      };
+      setTransactions(prev => [newTx, ...prev]);
+    }
+
+    setDepositRequests(prev => prev.map(r => r.id === id ? { ...r, status } : r));
+    showToast(`Deposit ${status}`);
+  };
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100 flex items-center justify-between">
+        <div className="flex flex-col">
+          <h2 className="text-2xl font-black uppercase tracking-tighter">Deposits Hub</h2>
+          <span className="text-[10px] font-bold text-gray-400 uppercase">{depositRequests.filter(r => r.status === 'pending').length} Action Required</span>
+        </div>
+        <div className="flex bg-gray-100 p-1 rounded-2xl">
+          <button onClick={() => setActiveTab('pending')} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${activeTab === 'pending' ? 'bg-white shadow-sm text-opay-green' : 'text-gray-400'}`}>Pending</button>
+          <button onClick={() => setActiveTab('processed')} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${activeTab === 'processed' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-400'}`}>Processed</button>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        {filtered.length === 0 ? (
+          <div className="py-24 bg-white rounded-[40px] border border-dashed border-gray-200 text-center text-gray-300 font-black uppercase text-xs">No records found</div>
+        ) : (
+          filtered.map(req => {
+            const user = users.find(u => u.id === req.userId);
+            return (
+              <div key={req.id} className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm flex items-center justify-between">
+                <div className="flex items-center gap-5">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${req.method === 'manual' ? 'bg-indigo-50 text-indigo-500' : 'bg-emerald-50 text-emerald-500'}`}>
+                    {req.method === 'manual' ? <Landmark size={24} /> : <CreditCard size={24} />}
                   </div>
                   <div>
-                    <h3 className="text-sm font-black uppercase tracking-tight">{selectedTicket.subject}</h3>
-                    <span className="text-[9px] font-bold text-gray-400 uppercase">Ticket ID: {selectedTicket.id}</span>
+                    <div className="text-sm font-black text-gray-800">{user?.fullName || 'Unknown User'}</div>
+                    <div className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">{req.method} • {new Date(req.date).toLocaleString()}</div>
+                    {req.senderName && <div className="text-[9px] text-indigo-500 font-black uppercase mt-1">Sender: {req.senderName}</div>}
                   </div>
-               </div>
-               <button 
-                onClick={() => toggleTicketStatus(selectedTicket.id)}
-                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${selectedTicket.status === 'open' ? 'border-red-100 text-red-500 hover:bg-red-50' : 'border-green-100 text-green-500 hover:bg-green-50'}`}
-               >
-                 {selectedTicket.status === 'open' ? 'Close Ticket' : 'Reopen'}
-               </button>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-gray-50/50 scrollbar-hide">
-               {/* User's Original Message */}
-               <div className="flex flex-col items-start max-w-[85%]">
-                  <div className="bg-white p-5 rounded-[32px] rounded-tl-none shadow-sm border border-gray-100">
-                     <div className="text-[11px] font-bold text-gray-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: selectedTicket.message }} />
+                </div>
+                <div className="flex items-center gap-8">
+                  <div className="text-right">
+                    <div className="text-sm font-black text-gray-900">{formatCurrency(req.amount)}</div>
+                    <div className="text-[9px] text-gray-400 font-bold uppercase">Fee: {formatCurrency(req.charge)}</div>
                   </div>
-                  <span className="text-[9px] font-black text-gray-300 uppercase mt-2 ml-2">User • {new Date(selectedTicket.createdAt).toLocaleTimeString()}</span>
-               </div>
-
-               {/* Replies */}
-               {selectedTicket.replies.map((reply, i) => (
-                 <div key={i} className={`flex flex-col max-w-[85%] ${reply.author.includes('Admin') ? 'items-end ml-auto' : 'items-start'}`}>
-                    <div className={`p-5 rounded-[32px] shadow-sm border ${reply.author.includes('Admin') ? 'bg-opay-green text-white border-opay-green rounded-tr-none' : 'bg-white text-gray-700 border-gray-100 rounded-tl-none'}`}>
-                       <p className="text-[11px] font-bold leading-relaxed">{reply.message}</p>
+                  {req.status === 'pending' ? (
+                    <div className="flex gap-2">
+                      <button onClick={() => handleAction(req.id, 'successful')} className="p-3 bg-green-50 text-green-600 rounded-xl hover:bg-green-100 transition-colors"><Check size={20} /></button>
+                      <button onClick={() => handleAction(req.id, 'rejected')} className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors"><Ban size={20} /></button>
                     </div>
-                    <span className="text-[9px] font-black text-gray-300 uppercase mt-2 mx-2">{reply.author} • {new Date(reply.date).toLocaleTimeString()}</span>
-                 </div>
-               ))}
-            </div>
-
-            <div className="p-6 bg-white border-t border-gray-50 flex gap-4">
-               <input 
-                type="text" 
-                placeholder="Type your response here..." 
-                className="flex-1 bg-gray-50 rounded-2xl px-6 py-4 outline-none font-bold text-sm border-2 border-transparent focus:border-opay-green transition-all"
-                value={replyMessage}
-                onChange={e => setReplyMessage(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSendReply()}
-               />
-               <button 
-                onClick={handleSendReply}
-                disabled={!replyMessage.trim()}
-                className="bg-opay-green text-white p-4 rounded-2xl shadow-lg shadow-green-100 active:scale-95 transition-all disabled:opacity-50"
-               >
-                 <Send size={24} />
-               </button>
-            </div>
-          </>
-        ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-center p-10">
-             <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center text-gray-100 mb-6">
-                <MessageSquare size={48} />
-             </div>
-             <h4 className="text-sm font-black text-gray-300 uppercase tracking-widest">Select a ticket to join the conversation</h4>
-          </div>
+                  ) : (
+                    <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase ${req.status === 'successful' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>{req.status}</span>
+                  )}
+                </div>
+              </div>
+            );
+          })
         )}
       </div>
     </div>
   );
 };
 
-// --- API Sub-Pages ---
+// --- Support Hub ---
+const SupportManager: React.FC<AdminSubPageProps> = ({ showToast }) => {
+  const { tickets, setTickets, users } = useApp();
+  const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
+  const [reply, setReply] = useState('');
 
-const AirtimeApiSettings: React.FC<AdminSubPageProps> = ({ showToast }) => {
+  const handleReply = () => {
+    if (!selectedTicket || !reply) return;
+    const updatedTickets = tickets.map(t => {
+      if (t.id === selectedTicket.id) {
+        return {
+          ...t,
+          replies: [...t.replies, { author: 'Admin', message: reply, date: new Date().toISOString() }]
+        };
+      }
+      return t;
+    });
+    setTickets(updatedTickets);
+    showToast("Reply sent");
+    setReply('');
+    setSelectedTicket(null);
+  };
+
+  const handleClose = (id: string) => {
+    setTickets(prev => prev.map(t => t.id === id ? { ...t, status: 'closed' } : t));
+    showToast("Ticket closed");
+  };
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100 flex items-center justify-between">
+        <div className="flex flex-col">
+          <h2 className="text-2xl font-black uppercase tracking-tighter">Support Command</h2>
+          <span className="text-[10px] font-bold text-gray-400 uppercase">{tickets.filter(t => t.status === 'open').length} Unresolved Issues</span>
+        </div>
+        <button className="p-3 bg-gray-50 text-gray-400 rounded-xl"><RefreshCcw size={20} /></button>
+      </div>
+
+      <div className="space-y-4">
+        {tickets.map(ticket => {
+          const user = users.find(u => u.id === ticket.userId);
+          return (
+            <div key={ticket.id} className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm flex items-center justify-between group cursor-pointer hover:border-opay-green transition-all" onClick={() => setSelectedTicket(ticket)}>
+              <div className="flex items-center gap-5">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${ticket.status === 'open' ? 'bg-amber-50 text-amber-500' : 'bg-gray-100 text-gray-400'}`}>
+                  <MessageSquare size={24} />
+                </div>
+                <div>
+                  <div className="text-sm font-black text-gray-800">{ticket.subject}</div>
+                  <div className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">{user?.fullName || 'User'} • {new Date(ticket.createdAt).toLocaleDateString()}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase ${ticket.status === 'open' ? 'bg-amber-50 text-amber-600' : 'bg-green-50 text-green-600'}`}>{ticket.status}</span>
+                <ChevronRight size={18} className="text-gray-300 group-hover:text-opay-green transition-colors" />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {selectedTicket && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
+          <div className="bg-white w-full max-w-lg rounded-[40px] overflow-hidden shadow-2xl animate-slide-up flex flex-col max-h-[85vh]">
+            <div className="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50">
+              <div>
+                <h3 className="text-lg font-black uppercase tracking-tight">{selectedTicket.subject}</h3>
+                <p className="text-[10px] font-bold text-gray-400 uppercase">TICKET ID: {selectedTicket.id}</p>
+              </div>
+              <button onClick={() => setSelectedTicket(null)} className="p-2 bg-white rounded-full shadow-sm"><X size={20} /></button>
+            </div>
+            
+            <div className="p-8 overflow-y-auto space-y-6 flex-1 scrollbar-hide">
+              <div className="bg-opay-green/5 p-5 rounded-3xl border border-opay-green/10">
+                <div className="text-[10px] font-black text-opay-green uppercase mb-2">Original Message</div>
+                <div className="text-sm text-gray-800 leading-relaxed font-medium" dangerouslySetInnerHTML={{ __html: selectedTicket.message }} />
+              </div>
+
+              {selectedTicket.replies.map((r, i) => (
+                <div key={i} className={`flex flex-col ${r.author === 'Admin' ? 'items-end' : 'items-start'}`}>
+                  <div className={`max-w-[80%] p-4 rounded-2xl text-xs font-bold ${r.author === 'Admin' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-800'}`}>
+                    {r.message}
+                  </div>
+                  <span className="text-[8px] font-black text-gray-300 uppercase mt-1">{new Date(r.date).toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="p-8 border-t border-gray-50 space-y-4">
+              <textarea 
+                className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold text-xs min-h-[100px] border border-transparent focus:border-opay-green" 
+                placeholder="Type your response..."
+                value={reply}
+                onChange={(e) => setReply(e.target.value)}
+              />
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => handleClose(selectedTicket.id)}
+                  className="flex-1 py-4 border-2 border-red-50 text-red-500 rounded-2xl font-black text-[10px] uppercase tracking-widest active:scale-95"
+                >
+                  Close Ticket
+                </button>
+                <button 
+                  onClick={handleReply}
+                  className="flex-[2] py-4 bg-opay-green text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-green-100 active:scale-95"
+                >
+                  Send Reply
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- API Hub Hub Sub-Pages (Existing but moved for clarity) ---
+
+const AirtimeBettingSettings: React.FC<AdminSubPageProps> = ({ showToast }) => {
   const { settings, setSettings } = useApp();
   return (
     <div className="space-y-8 animate-fade-in text-gray-900">
       <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
-        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3">
-          <Phone className="text-blue-500" /> Airtime (Nellobyte)
-        </h3>
+        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><Phone className="text-blue-500" /> Nellobyte (Airtime & Betting)</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div>
-            <label className="text-[10px] font-black text-gray-400 uppercase">User ID</label>
-            <input className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold text-gray-900 mt-2 border-2 border-transparent focus:border-blue-500" 
-              value={settings.nellobyteUserId} onChange={e => setSettings({...settings, nellobyteUserId: e.target.value})} />
-          </div>
-          <div>
-            <label className="text-[10px] font-black text-gray-400 uppercase">API Key</label>
-            <input type="password" placeholder="nellobyte key" className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold text-gray-900 mt-2 border-2 border-transparent focus:border-blue-500" 
-              value={settings.nellobyteApiKey} onChange={e => setSettings({...settings, nellobyteApiKey: e.target.value})} />
-          </div>
+          <div><label className="text-[10px] font-black text-gray-400 uppercase">User ID</label><input className="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2" value={settings.nellobyteUserId} onChange={e => setSettings({...settings, nellobyteUserId: e.target.value})} /></div>
+          <div><label className="text-[10px] font-black text-gray-400 uppercase">API Key</label><input type="password" placeholder="key" className="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2" value={settings.nellobyteApiKey} onChange={e => setSettings({...settings, nellobyteApiKey: e.target.value})} /></div>
         </div>
       </div>
       <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
-        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3">
-          <Percent className="text-blue-500" /> User Discounts (%)
-        </h3>
+        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><Percent className="text-blue-500" /> Airtime User Discounts (%)</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
            {['mtn', 'glo', 'airtel', 'nineMobile'].map(net => (
              <div key={net} className="bg-gray-50 p-6 rounded-3xl border border-gray-100">
-                <label className="text-[10px] font-black text-gray-400 uppercase block mb-3">{net === 'nineMobile' ? '9mobile' : net}</label>
-                <input type="number" step="0.1" className="w-full bg-white p-3 rounded-xl outline-none font-black text-sm text-blue-600 border border-gray-100" value={settings.airtimeDiscounts[net as keyof typeof settings.airtimeDiscounts]} onChange={e => setSettings({...settings, airtimeDiscounts: { ...settings.airtimeDiscounts, [net]: parseFloat(e.target.value) || 0 }})} />
+                <label className="text-[10px] font-black text-gray-400 uppercase mb-3 block">{net}</label>
+                <input type="number" step="0.1" className="w-full bg-white p-3 rounded-xl font-black text-blue-600" value={settings.airtimeDiscounts[net as keyof typeof settings.airtimeDiscounts]} onChange={e => setSettings({...settings, airtimeDiscounts: { ...settings.airtimeDiscounts, [net]: parseFloat(e.target.value) || 0 }})} />
              </div>
            ))}
         </div>
       </div>
-      <button onClick={() => showToast("Airtime settings saved.")} className="w-full bg-gray-900 text-white py-5 rounded-[32px] font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all">Save Config</button>
     </div>
   );
 };
 
 const DataApiSettings: React.FC<AdminSubPageProps> = ({ showToast }) => {
   const { settings, setSettings } = useApp();
-  const [newDataProduct, setNewDataProduct] = useState<Partial<DataProduct>>({ networkId: '', type: 'sme-data', size: '', apiQuantityCode: '', userPrice: 0, enabled: true });
-  const addDataProduct = () => {
-    if (!newDataProduct.networkId || !newDataProduct.size || !newDataProduct.apiQuantityCode) { showToast("Fill all fields"); return; }
-    const product: DataProduct = { id: generateId(), networkId: newDataProduct.networkId!, type: newDataProduct.type!, size: newDataProduct.size!, apiQuantityCode: newDataProduct.apiQuantityCode!, userPrice: newDataProduct.userPrice!, enabled: true };
-    setSettings({ ...settings, dataProducts: [...settings.dataProducts, product] });
-    setNewDataProduct({ networkId: '', type: 'sme-data', size: '', apiQuantityCode: '', userPrice: 0, enabled: true });
-    showToast("Plan added.");
+  const [newData, setNewData] = useState<Partial<DataProduct>>({ networkId: '', type: 'sme-data', size: '', apiQuantityCode: '', userPrice: 0, enabled: true });
+  const addData = () => {
+    if (!newData.networkId || !newData.size) { showToast("Fill all fields"); return; }
+    setSettings({ ...settings, dataProducts: [...settings.dataProducts, { ...newData, id: generateId() } as DataProduct] });
+    setNewData({ networkId: '', type: 'sme-data', size: '', apiQuantityCode: '', userPrice: 0, enabled: true });
+    showToast("Data package added.");
   };
   return (
     <div className="space-y-8 animate-fade-in text-gray-900">
       <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
-        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><Wifi className="text-emerald-500" /> Data Gifting API Token</h3>
-        <input type="password" placeholder="API Token" className="w-full p-5 bg-gray-50 rounded-2xl outline-none font-bold text-gray-900 border-2 border-transparent focus:border-emerald-500" value={settings.dataGiftingApiKey} onChange={e => setSettings({...settings, dataGiftingApiKey: e.target.value})} />
+        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><Wifi className="text-emerald-500" /> Data Gifting (v6) Key</h3>
+        <input type="password" placeholder="API Token" className="w-full p-5 bg-gray-50 rounded-2xl outline-none font-bold" value={settings.dataGiftingApiKey} onChange={e => setSettings({...settings, dataGiftingApiKey: e.target.value})} />
       </div>
       <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
-        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><Database className="text-emerald-500" /> Data Plan Management</h3>
-        <div className="bg-gray-50 p-8 rounded-[32px] space-y-6 mb-10">
+        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><Plus className="text-emerald-500" /> Manage Plans</h3>
+        <div className="bg-gray-50 p-8 rounded-[32px] space-y-6">
            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <select className="p-3 bg-white rounded-xl font-bold text-xs" value={newDataProduct.networkId} onChange={e => setNewDataProduct({...newDataProduct, networkId: e.target.value})}><option value="">Select Network</option>{settings.dataNetworks.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}</select>
-              <input placeholder="Size (1GB)" className="p-3 bg-white rounded-xl font-bold text-xs" value={newDataProduct.size} onChange={e => setNewDataProduct({...newDataProduct, size: e.target.value})} />
-              <select className="p-3 bg-white rounded-xl font-bold text-xs" value={newDataProduct.type} onChange={e => setNewDataProduct({...newDataProduct, type: e.target.value})}><option value="sme-data">SME</option><option value="cg-data">CG</option><option value="direct-data">Direct</option></select>
-              <input placeholder="API Code" className="p-3 bg-white rounded-xl font-bold text-xs" value={newDataProduct.apiQuantityCode} onChange={e => setNewDataProduct({...newDataProduct, apiQuantityCode: e.target.value})} />
-              <input type="number" placeholder="Price (₦)" className="p-3 bg-white rounded-xl font-bold text-xs" value={newDataProduct.userPrice || ''} onChange={e => setNewDataProduct({...newDataProduct, userPrice: parseFloat(e.target.value) || 0})} />
+              <select className="p-3 bg-white rounded-xl font-bold text-xs" value={newData.networkId} onChange={e => setNewData({...newData, networkId: e.target.value})}><option value="">Select Network</option>{settings.dataNetworks.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}</select>
+              <input placeholder="Size (1GB)" className="p-3 bg-white rounded-xl font-bold text-xs" value={newData.size} onChange={e => setNewData({...newData, size: e.target.value})} />
+              <select className="p-3 bg-white rounded-xl font-bold text-xs" value={newData.type} onChange={e => setNewData({...newData, type: e.target.value})}><option value="sme-data">SME</option><option value="cg-data">CG</option><option value="direct-data">Direct</option></select>
+              <input placeholder="API Code" className="p-3 bg-white rounded-xl font-bold text-xs" value={newData.apiQuantityCode} onChange={e => setNewData({...newData, apiQuantityCode: e.target.value})} />
+              <input type="number" placeholder="Price (₦)" className="p-3 bg-white rounded-xl font-bold text-xs" value={newData.userPrice || ''} onChange={e => setNewData({...newData, userPrice: parseFloat(e.target.value) || 0})} />
            </div>
-           <button onClick={addDataProduct} className="w-full bg-emerald-500 text-white py-4 rounded-xl font-black text-[10px] uppercase shadow-lg shadow-emerald-100 active:scale-95 transition-all">Add Plan</button>
+           <button onClick={addData} className="w-full bg-emerald-500 text-white py-4 rounded-xl font-black text-[10px] uppercase">Add Data Plan</button>
         </div>
       </div>
     </div>
   );
 };
 
-const CableApiSettings: React.FC<AdminSubPageProps> = ({ showToast }) => {
+const CableTVApiSettings: React.FC<AdminSubPageProps> = ({ showToast }) => {
   const { settings, setSettings } = useApp();
   const [isSyncing, setIsSyncing] = useState(false);
-  const getAuthHeaders = () => {
-    const headers: any = { 'Content-Type': 'application/json' };
-    if (settings.vtPassEmail && settings.vtPassPassword) { headers['Authorization'] = 'Basic ' + btoa(`${settings.vtPassEmail}:${settings.vtPassPassword}`); }
-    else { headers['api-key'] = settings.vtPassApiKey; headers['public-key'] = settings.vtPassPublicKey; }
-    return headers;
-  };
-  const syncCableVariations = async (serviceId: string) => {
+  const syncCable = async (serviceId: string) => {
     setIsSyncing(true);
     try {
-      const response = await fetch(`https://vtpass.com/api/service-variations?serviceID=${serviceId}`, { headers: getAuthHeaders() });
-      const data = await response.json();
-      if (data.response_description === "000") {
+      const headers = { 'api-key': settings.vtPassApiKey, 'public-key': settings.vtPassPublicKey, 'Content-Type': 'application/json' };
+      const res = await fetch(`https://vtpass.com/api/service-variations?serviceID=${serviceId}`, { headers });
+      const data = await res.json();
+      if (data.code === '000' || data.response_description === '000') {
         setSettings(prev => ({ ...prev, cableProviders: prev.cableProviders.map(p => p.serviceId === serviceId ? { ...p, variations: data.content.variations } : p) }));
         showToast(`Synced ${serviceId.toUpperCase()}`);
-      } else { showToast("Sync failed"); }
-    } catch (err) { showToast("Error connecting"); }
+      }
+    } catch (e) { showToast("Sync failed"); }
     finally { setIsSyncing(false); }
   };
   return (
     <div className="space-y-8 animate-fade-in text-gray-900">
       <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
-        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><Key className="text-indigo-500" /> VTpass Credentials</h3>
-        <div className="grid grid-cols-2 gap-8 mb-8">
-           <div className="space-y-4">
-              <input type="email" placeholder="Email" className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold" value={settings.vtPassEmail || ''} onChange={e => setSettings({...settings, vtPassEmail: e.target.value})} />
-              <input type="password" placeholder="Password" className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold" value={settings.vtPassPassword || ''} onChange={e => setSettings({...settings, vtPassPassword: e.target.value})} />
-           </div>
-           <div className="grid grid-cols-1 gap-4">
-              <input type="password" placeholder="API Key" className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold" value={settings.vtPassApiKey} onChange={e => setSettings({...settings, vtPassApiKey: e.target.value})} />
-              <input type="password" placeholder="Public Key" className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold" value={settings.vtPassPublicKey} onChange={e => setSettings({...settings, vtPassPublicKey: e.target.value})} />
-           </div>
+        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><Tv className="text-red-500" /> VTpass Credentials</h3>
+        <div className="grid grid-cols-2 gap-8">
+           <input type="password" placeholder="API Key" className="w-full p-4 bg-gray-50 rounded-2xl font-bold" value={settings.vtPassApiKey} onChange={e => setSettings({...settings, vtPassApiKey: e.target.value})} />
+           <input type="password" placeholder="Public Key" className="w-full p-4 bg-gray-50 rounded-2xl font-bold" value={settings.vtPassPublicKey} onChange={e => setSettings({...settings, vtPassPublicKey: e.target.value})} />
         </div>
       </div>
       <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
-        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><Tv className="text-red-500" /> Bouquet Sync Control</h3>
+        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><RefreshCcw className="text-red-500" /> Synced Packages</h3>
         <div className="grid grid-cols-4 gap-4">
-           {settings.cableProviders.map(cp => (
-              <div key={cp.id} className="p-6 bg-gray-50 rounded-3xl flex flex-col items-center gap-2">
-                 <span className="text-xs font-black uppercase">{cp.name}</span>
-                 <button onClick={() => syncCableVariations(cp.serviceId)} className="p-3 bg-white rounded-xl shadow-sm text-opay-green"><RefreshCcw size={16} className={isSyncing ? 'animate-spin' : ''} /></button>
-              </div>
+           {settings.cableProviders.map(p => (
+             <div key={p.id} className="p-5 bg-gray-50 rounded-[32px] flex flex-col items-center gap-3 border border-gray-100">
+                <span className="text-[10px] font-black uppercase">{p.name}</span>
+                <button onClick={() => syncCable(p.serviceId)} className="p-3 bg-white text-opay-green rounded-xl shadow-sm"><RefreshCcw size={16} className={isSyncing ? 'animate-spin' : ''} /></button>
+             </div>
            ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ElectricApiSettings: React.FC<AdminSubPageProps> = ({ showToast }) => {
+  const { settings, setSettings } = useApp();
+  return (
+    <div className="space-y-8 animate-fade-in text-gray-900">
+      <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
+        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><Zap className="text-yellow-500" /> VTpass Electricity Control</h3>
+        <div className="grid grid-cols-1 gap-6">
+           <div className="overflow-x-auto">
+             <table className="w-full text-left">
+                <thead><tr className="text-[10px] font-black text-gray-400 uppercase border-b border-gray-50"><th className="pb-4">Disco Provider</th><th className="pb-4">User Discount (%)</th><th className="pb-4 text-right">Status</th></tr></thead>
+                <tbody className="divide-y divide-gray-50">
+                   {settings.electricProviders.map(p => (
+                     <tr key={p.id}>
+                        <td className="py-4 font-bold">{p.name}</td>
+                        <td className="py-4"><input type="number" step="0.1" className="w-20 bg-gray-100 p-2 rounded-lg font-black text-xs" value={p.discountPercent} onChange={e => setSettings({...settings, electricProviders: settings.electricProviders.map(ep => ep.id === p.id ? {...ep, discountPercent: parseFloat(e.target.value) || 0} : ep)})} /></td>
+                        <td className="py-4 text-right"><button className={`px-4 py-2 rounded-xl text-[10px] font-black ${p.enabled ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`} onClick={() => setSettings({...settings, electricProviders: settings.electricProviders.map(ep => ep.id === p.id ? {...ep, enabled: !ep.enabled} : ep)})}>{p.enabled ? 'ENABLED' : 'DISABLED'}</button></td>
+                     </tr>
+                   ))}
+                </tbody>
+             </table>
+           </div>
         </div>
       </div>
     </div>
@@ -339,30 +526,29 @@ const CableApiSettings: React.FC<AdminSubPageProps> = ({ showToast }) => {
 
 const ExamApiSettings: React.FC<AdminSubPageProps> = ({ showToast }) => {
   const { settings, setSettings } = useApp();
-  const [newExamProduct, setNewExamProduct] = useState<Partial<ExamProvider>>({ name: '', unitAmount: 0, userPrice: 0, enabled: true, routingProvider: 'naija', serviceId: '', variationCode: '' });
-  const addExamProduct = () => {
-    if (!newExamProduct.name || !newExamProduct.userPrice) { showToast("Fill fields"); return; }
-    const product: ExamProvider = { id: generateId(), name: newExamProduct.name!, unitAmount: newExamProduct.unitAmount || 0, userPrice: newExamProduct.userPrice!, enabled: true, availability: 'Available', routingProvider: newExamProduct.routingProvider as any, serviceId: newExamProduct.serviceId, variationCode: newExamProduct.variationCode };
-    setSettings({ ...settings, examProviders: [...settings.examProviders, product] });
-    setNewExamProduct({ name: '', unitAmount: 0, userPrice: 0, enabled: true, routingProvider: 'naija', serviceId: '', variationCode: '' });
+  const [newExam, setNewExam] = useState<Partial<ExamProvider>>({ name: '', unitAmount: 0, userPrice: 0, enabled: true, routingProvider: 'naija', serviceId: '', variationCode: '' });
+  const addExam = () => {
+    if (!newExam.name || !newExam.userPrice) { showToast("Fill fields"); return; }
+    setSettings({ ...settings, examProviders: [...settings.examProviders, { ...newExam, id: generateId(), availability: 'Available' } as ExamProvider] });
+    setNewExam({ name: '', unitAmount: 0, userPrice: 0, enabled: true, routingProvider: 'naija', serviceId: '', variationCode: '' });
     showToast("Exam PIN added.");
   };
   return (
     <div className="space-y-8 animate-fade-in text-gray-900">
       <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
-        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><ShieldCheck className="text-purple-500" /> NaijaResultPins Key</h3>
-        <input type="password" placeholder="Naija Token" className="w-full p-5 bg-gray-50 rounded-2xl outline-none font-bold text-gray-900 border-2 border-transparent focus:border-purple-500" value={settings.examApiKey} onChange={e => setSettings({...settings, examApiKey: e.target.value})} />
+        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><GraduationCap className="text-purple-500" /> Exam PIN (NaijaResult)</h3>
+        <input type="password" placeholder="Naija API Token" className="w-full p-4 bg-gray-50 rounded-2xl font-bold" value={settings.examApiKey} onChange={e => setSettings({...settings, examApiKey: e.target.value})} />
       </div>
       <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
-        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><GraduationCap className="text-indigo-500" /> Manage Exam PINs</h3>
-        <div className="bg-gray-50 p-8 rounded-[32px] space-y-6 mb-10">
+        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><Plus className="text-purple-500" /> Add New Exam Product</h3>
+        <div className="bg-gray-50 p-8 rounded-[32px] space-y-6">
            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <input placeholder="Exam Name" className="p-3 bg-white rounded-xl font-bold text-xs" value={newExamProduct.name} onChange={e => setNewExamProduct({...newExamProduct, name: e.target.value})} />
-              <select className="p-3 bg-white rounded-xl font-bold text-xs" value={newExamProduct.routingProvider} onChange={e => setNewExamProduct({...newExamProduct, routingProvider: e.target.value as any})}><option value="naija">NaijaResult</option><option value="vtpass">VTPass</option></select>
-              <input type="number" placeholder="Cost" className="p-3 bg-white rounded-xl font-bold text-xs" value={newExamProduct.unitAmount || ''} onChange={e => setNewExamProduct({...newExamProduct, unitAmount: parseFloat(e.target.value) || 0})} />
-              <input type="number" placeholder="Selling" className="p-3 bg-white rounded-xl font-bold text-xs" value={newExamProduct.userPrice || ''} onChange={e => setNewExamProduct({...newExamProduct, userPrice: parseFloat(e.target.value) || 0})} />
+              <input placeholder="Exam (e.g. WAEC)" className="p-3 bg-white rounded-xl text-xs" value={newExam.name} onChange={e => setNewExam({...newExam, name: e.target.value})} />
+              <select className="p-3 bg-white rounded-xl text-xs" value={newExam.routingProvider} onChange={e => setNewExam({...newExam, routingProvider: e.target.value as any})}><option value="naija">NaijaResult</option><option value="vtpass">VTPass</option></select>
+              <input type="number" placeholder="Cost Price" className="p-3 bg-white rounded-xl text-xs" value={newExam.unitAmount || ''} onChange={e => setNewExam({...newExam, unitAmount: parseFloat(e.target.value) || 0})} />
+              <input type="number" placeholder="Sale Price" className="p-3 bg-white rounded-xl text-xs" value={newExam.userPrice || ''} onChange={e => setNewExam({...newExam, userPrice: parseFloat(e.target.value) || 0})} />
            </div>
-           <button onClick={addExamProduct} className="w-full bg-indigo-500 text-white py-3 rounded-xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all">Add Exam</button>
+           <button onClick={addExam} className="w-full bg-indigo-500 text-white py-4 rounded-xl font-black text-[10px] uppercase">Register Exam PIN</button>
         </div>
       </div>
     </div>
@@ -370,101 +556,52 @@ const ExamApiSettings: React.FC<AdminSubPageProps> = ({ showToast }) => {
 };
 
 const BulkSmsApiSettings: React.FC<AdminSubPageProps> = ({ showToast }) => {
-  const { settings, setSettings } = useApp();
+  const { settings, setSettings, smsSenderIds, setSmsSenderIds } = useApp();
+  const handleReview = (id: string, status: 'approved' | 'rejected') => {
+    setSmsSenderIds(prev => prev.map(s => s.id === id ? { ...s, status } : s));
+    showToast(`Sender ID ${status}`);
+  };
   return (
     <div className="space-y-8 animate-fade-in text-gray-900">
       <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
-        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><MessageSquare className="text-blue-500" /> Kudisms API Integration</h3>
+        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><MessageSquare className="text-blue-500" /> KudiSms Gateway</h3>
+        <input type="password" placeholder="KudiSms Token" className="w-full p-4 bg-gray-50 rounded-2xl font-bold" value={settings.kudiSmsToken} onChange={e => setSettings({...settings, kudiSmsToken: e.target.value})} />
+      </div>
+      <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
+        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><ShieldCheck className="text-blue-500" /> Manual Sender ID Review</h3>
         <div className="space-y-4">
-          <label className="text-[10px] font-black text-gray-400 uppercase">KudiSms Token</label>
-          <input type="password" placeholder="Enter Token" className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold" value={settings.kudiSmsToken} onChange={e => setSettings({...settings, kudiSmsToken: e.target.value})} />
-          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Used for Bulk SMS sending and automated Sender ID registration.</p>
+           {smsSenderIds.filter(s => s.status === 'pending').map(s => (
+             <div key={s.id} className="p-6 bg-gray-50 rounded-[32px] flex justify-between items-center border border-gray-100">
+                <div><div className="text-sm font-black uppercase">{s.name}</div><p className="text-[10px] text-gray-400 font-bold italic mt-1">Sample: "{s.sampleMessage}"</p></div>
+                <div className="flex gap-2">
+                   <button onClick={() => handleReview(s.id, 'approved')} className="p-3 bg-green-50 text-green-600 rounded-2xl hover:bg-green-100"><Check size={18} /></button>
+                   <button onClick={() => handleReview(s.id, 'rejected')} className="p-3 bg-red-50 text-red-600 rounded-2xl hover:bg-red-100"><Ban size={18} /></button>
+                </div>
+             </div>
+           ))}
+           {smsSenderIds.filter(s => s.status === 'pending').length === 0 && <div className="py-12 text-center text-gray-300 font-black uppercase text-xs">No pending requests</div>}
         </div>
       </div>
-      <button onClick={() => showToast("SMS config saved.")} className="w-full bg-gray-900 text-white py-5 rounded-[32px] font-black uppercase tracking-widest">Save Config</button>
     </div>
   );
 };
 
-const BettingApiSettings: React.FC<AdminSubPageProps> = ({ showToast }) => {
+const GlobalGatewaySettings: React.FC<AdminSubPageProps> = ({ showToast }) => {
   const { settings, setSettings } = useApp();
   return (
     <div className="space-y-8 animate-fade-in text-gray-900">
       <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
-        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><TrendingUp className="text-orange-500" /> Nellobyte Betting Credentials</h3>
-        <div className="grid grid-cols-2 gap-8">
-           <div><label className="text-[10px] font-black text-gray-400 uppercase">User ID</label><input className="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2" value={settings.nellobyteUserId} onChange={e => setSettings({...settings, nellobyteUserId: e.target.value})} /></div>
-           <div><label className="text-[10px] font-black text-gray-400 uppercase">API Key</label><input type="password" className="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2" value={settings.nellobyteApiKey} onChange={e => setSettings({...settings, nellobyteApiKey: e.target.value})} /></div>
-        </div>
+        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><Globe className="text-indigo-600" /> Stripe (Cards & Transfer)</h3>
+        <input type="password" placeholder="sk_live_..." className="w-full p-4 bg-gray-50 rounded-2xl font-bold" value={settings.stripeSecretKey} onChange={e => setSettings({...settings, stripeSecretKey: e.target.value})} />
       </div>
-      <button onClick={() => showToast("Betting config saved.")} className="w-full bg-gray-900 text-white py-5 rounded-[32px] font-black uppercase tracking-widest">Save Config</button>
-    </div>
-  );
-};
-
-const VirtualCardApiSettings: React.FC<AdminSubPageProps> = ({ showToast }) => {
-  const { settings, setSettings } = useApp();
-  return (
-    <div className="space-y-8 animate-fade-in text-gray-900">
       <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
-        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><CreditCard className="text-blue-600" /> Stripe Issuing Credentials</h3>
-        <div className="space-y-4">
-          <label className="text-[10px] font-black text-gray-400 uppercase">Stripe Secret Key</label>
-          <input type="password" placeholder="sk_live_..." className="w-full p-4 bg-gray-50 rounded-2xl font-bold" value={settings.stripeSecretKey} onChange={e => setSettings({...settings, stripeSecretKey: e.target.value})} />
-          <div className="p-4 bg-blue-50 text-blue-700 text-[10px] font-bold uppercase rounded-2xl border border-blue-100">Ensure Issuing capability is enabled on your Stripe account.</div>
-        </div>
+        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><Gift className="text-pink-500" /> Tremendous (Gift Cards)</h3>
+        <input type="password" placeholder="Tremendous API Key" className="w-full p-4 bg-gray-50 rounded-2xl font-bold" value={settings.tremendousApiKey} onChange={e => setSettings({...settings, tremendousApiKey: e.target.value})} />
       </div>
-      <button onClick={() => showToast("V-Card config saved.")} className="w-full bg-gray-900 text-white py-5 rounded-[32px] font-black uppercase tracking-widest">Save Config</button>
-    </div>
-  );
-};
-
-const GiftCardApiSettings: React.FC<AdminSubPageProps> = ({ showToast }) => {
-  const { settings, setSettings } = useApp();
-  return (
-    <div className="space-y-8 animate-fade-in text-gray-900">
       <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
-        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><Gift className="text-pink-500" /> Tremendous.com Integration</h3>
-        <div className="space-y-4">
-          <label className="text-[10px] font-black text-gray-400 uppercase">Tremendous API Key</label>
-          <input type="password" placeholder="Bearer Key" className="w-full p-4 bg-gray-50 rounded-2xl font-bold" value={settings.tremendousApiKey} onChange={e => setSettings({...settings, tremendousApiKey: e.target.value})} />
-        </div>
+        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><Bitcoin className="text-orange-500" /> JuicyWay (Crypto)</h3>
+        <input type="password" placeholder="JuicyWay API Token" className="w-full p-4 bg-gray-50 rounded-2xl font-bold" value={settings.juicywayApiKey} onChange={e => setSettings({...settings, juicywayApiKey: e.target.value})} />
       </div>
-      <button onClick={() => showToast("Gift Card config saved.")} className="w-full bg-gray-900 text-white py-5 rounded-[32px] font-black uppercase tracking-widest">Save Config</button>
-    </div>
-  );
-};
-
-const TransferApiSettings: React.FC<AdminSubPageProps> = ({ showToast }) => {
-  const { settings, setSettings } = useApp();
-  return (
-    <div className="space-y-8 animate-fade-in text-gray-900">
-      <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
-        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><Globe className="text-indigo-600" /> Global Transfer (Stripe)</h3>
-        <div className="space-y-4">
-          <label className="text-[10px] font-black text-gray-400 uppercase">Stripe Secret Key (Payouts)</label>
-          <input type="password" placeholder="sk_live_..." className="w-full p-4 bg-gray-50 rounded-2xl font-bold" value={settings.stripeSecretKey} onChange={e => setSettings({...settings, stripeSecretKey: e.target.value})} />
-          <p className="text-[10px] text-gray-400 font-bold uppercase">Stripe Connect is used for automated global bank payouts.</p>
-        </div>
-      </div>
-      <button onClick={() => showToast("Transfer config saved.")} className="w-full bg-gray-900 text-white py-5 rounded-[32px] font-black uppercase tracking-widest">Save Config</button>
-    </div>
-  );
-};
-
-const CryptoApiSettings: React.FC<AdminSubPageProps> = ({ showToast }) => {
-  const { settings, setSettings } = useApp();
-  return (
-    <div className="space-y-8 animate-fade-in text-gray-900">
-      <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
-        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><Bitcoin className="text-orange-500" /> JuicyWay API Integration</h3>
-        <div className="space-y-4">
-          <label className="text-[10px] font-black text-gray-400 uppercase">JuicyWay API Token</label>
-          <input type="password" placeholder="API Key" className="w-full p-4 bg-gray-50 rounded-2xl font-bold" value={settings.juicywayApiKey} onChange={e => setSettings({...settings, juicywayApiKey: e.target.value})} />
-          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Routes conversion, swapping, and address generation for all coins.</p>
-        </div>
-      </div>
-      <button onClick={() => showToast("Crypto config saved.")} className="w-full bg-gray-900 text-white py-5 rounded-[32px] font-black uppercase tracking-widest">Save Config</button>
     </div>
   );
 };
@@ -474,32 +611,25 @@ const ApiManagerLayout: React.FC<AdminSubPageProps> = ({ showToast }) => {
   const [showDropdown, setShowDropdown] = useState(false);
 
   const apiOptions = [
-    { id: 'airtime', label: 'Airtime (Nellobyte)', icon: <Phone size={16} /> },
-    { id: 'data', label: 'Data Gifting (v6)', icon: <Wifi size={16} /> },
-    { id: 'cable', label: 'Cable TV (VTpass)', icon: <Tv size={16} /> },
-    { id: 'exam', label: 'Exam PIN (NaijaResult)', icon: <GraduationCap size={16} /> },
-    { id: 'sms', label: 'Bulk SMS (KudiSms)', icon: <MessageSquare size={16} /> },
-    { id: 'betting', label: 'Betting (Nellobyte)', icon: <TrendingUp size={16} /> },
-    { id: 'electricity', label: 'Electricity (VTpass)', icon: <Zap size={16} /> },
-    { id: 'vcard', label: 'Virtual Card (Stripe)', icon: <CreditCard size={16} /> },
-    { id: 'giftcards', label: 'Gift Cards (Tremendous)', icon: <Gift size={16} /> },
-    { id: 'transfer', label: 'Transfer (Stripe)', icon: <Landmark size={16} /> },
-    { id: 'crypto', label: 'Crypto (JuicyWay)', icon: <Bitcoin size={16} /> },
+    { id: 'airtime', label: '1. Airtime & Betting (Nellobyte)', icon: <Phone size={16} /> },
+    { id: 'data', label: '2. Data Hub (v6)', icon: <Wifi size={16} /> },
+    { id: 'cable', label: '3. Cable TV (VTpass)', icon: <Tv size={16} /> },
+    { id: 'electricity', label: '4. Electricity (VTpass)', icon: <Zap size={16} /> },
+    { id: 'exam', label: '5. Education PINs (Exam)', icon: <GraduationCap size={16} /> },
+    { id: 'sms', label: '6. Bulk SMS (KudiSms)', icon: <MessageSquare size={16} /> },
+    { id: 'gateways', label: '7. Global Hub (Stripe/JuicyWay)', icon: <Globe size={16} /> },
   ];
 
   return (
     <div className="space-y-6">
        <div className="flex justify-between items-center mb-8 bg-white p-6 rounded-[32px] shadow-sm border border-gray-100">
-          <div className="flex flex-col">
-             <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tighter">API Gateways</h2>
-             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Independent Protocol Control</span>
-          </div>
+          <div className="flex flex-col text-gray-900"><h2 className="text-2xl font-black uppercase tracking-tighter">Independent API Hub</h2><span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Fintech Protocol Routing</span></div>
           <div className="relative">
              <button onClick={() => setShowDropdown(!showDropdown)} className="bg-gray-900 text-white px-8 py-4 rounded-2xl flex items-center gap-4 text-[11px] font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all">
                 {apiOptions.find(o => o.id === activeApi)?.icon} {apiOptions.find(o => o.id === activeApi)?.label} <ChevronDown size={14} className={`transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
              </button>
              {showDropdown && (
-                <div className="absolute right-0 mt-3 w-72 bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-y-auto max-h-80 z-50 animate-slide-up scrollbar-hide">
+                <div className="absolute right-0 mt-3 w-80 bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden z-50 animate-slide-up">
                    {apiOptions.map(option => (
                       <button key={option.id} onClick={() => { setActiveApi(option.id); setShowDropdown(false); }} className={`w-full flex items-center gap-4 px-6 py-4 text-[10px] font-black uppercase tracking-widest transition-colors ${activeApi === option.id ? 'bg-opay-green text-white' : 'text-gray-500 hover:bg-gray-50'}`}>{option.icon} {option.label}</button>
                    ))}
@@ -508,17 +638,13 @@ const ApiManagerLayout: React.FC<AdminSubPageProps> = ({ showToast }) => {
           </div>
        </div>
        <div className="animate-fade-in pb-20">
-          {activeApi === 'airtime' && <AirtimeApiSettings showToast={showToast} />}
+          {activeApi === 'airtime' && <AirtimeBettingSettings showToast={showToast} />}
           {activeApi === 'data' && <DataApiSettings showToast={showToast} />}
-          {activeApi === 'cable' && <CableApiSettings showToast={showToast} />}
+          {activeApi === 'cable' && <CableTVApiSettings showToast={showToast} />}
+          {activeApi === 'electricity' && <ElectricApiSettings showToast={showToast} />}
           {activeApi === 'exam' && <ExamApiSettings showToast={showToast} />}
           {activeApi === 'sms' && <BulkSmsApiSettings showToast={showToast} />}
-          {activeApi === 'betting' && <BettingApiSettings showToast={showToast} />}
-          {activeApi === 'electricity' && <CableApiSettings showToast={showToast} />}
-          {activeApi === 'vcard' && <VirtualCardApiSettings showToast={showToast} />}
-          {activeApi === 'giftcards' && <GiftCardApiSettings showToast={showToast} />}
-          {activeApi === 'transfer' && <TransferApiSettings showToast={showToast} />}
-          {activeApi === 'crypto' && <CryptoApiSettings showToast={showToast} />}
+          {activeApi === 'gateways' && <GlobalGatewaySettings showToast={showToast} />}
        </div>
     </div>
   );
@@ -526,243 +652,55 @@ const ApiManagerLayout: React.FC<AdminSubPageProps> = ({ showToast }) => {
 
 const SettingsManager: React.FC<AdminSubPageProps> = ({ showToast }) => {
   const { settings, setSettings } = useApp();
-  
   return (
     <div className="space-y-10 animate-fade-in pb-20 text-gray-900">
+      {/* SMTP Configuration */}
+      <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
+        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><Mail className="text-indigo-500" /> SMTP Configuration</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+           <div><label className="text-[10px] font-black text-gray-400 uppercase">Host</label><input type="text" className="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2" value={settings.smtpHost} onChange={e => setSettings({...settings, smtpHost: e.target.value})} /></div>
+           <div><label className="text-[10px] font-black text-gray-400 uppercase">Port</label><input type="text" className="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2" value={settings.smtpPort} onChange={e => setSettings({...settings, smtpPort: e.target.value})} /></div>
+           <div><label className="text-[10px] font-black text-gray-400 uppercase">User</label><input type="text" className="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2" value={settings.smtpUser} onChange={e => setSettings({...settings, smtpUser: e.target.value})} /></div>
+           <div><label className="text-[10px] font-black text-gray-400 uppercase">Password</label><input type="password" className="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2" value={settings.smtpPass} onChange={e => setSettings({...settings, smtpPass: e.target.value})} /></div>
+           <div><label className="text-[10px] font-black text-gray-400 uppercase">Sender Name</label><input type="text" className="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2" value={settings.senderName} onChange={e => setSettings({...settings, senderName: e.target.value})} /></div>
+        </div>
+      </div>
+
       {/* Global System Control */}
       <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
-        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3">
-          <Shield className="text-indigo-500" /> Global System Control
-        </h3>
+        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><ShieldAlert className="text-red-500" /> Global System Control</h3>
         <div className="flex items-center justify-between p-6 bg-gray-50 rounded-3xl border border-gray-100">
-           <div>
-              <div className="text-sm font-black text-gray-800 uppercase">Frontend Maintenance Mode</div>
-              <p className="text-[10px] text-gray-400 font-bold mt-1 uppercase">If enabled, all user features will be disabled except Login.</p>
-           </div>
-           <div 
-              onClick={() => setSettings({...settings, isMaintenanceMode: !settings.isMaintenanceMode})}
-              className={`w-14 h-8 rounded-full relative transition-colors cursor-pointer ${settings.isMaintenanceMode ? 'bg-red-500' : 'bg-gray-300'}`}
-            >
-              <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all shadow-sm ${settings.isMaintenanceMode ? 'left-7' : 'left-1'}`} />
-           </div>
+           <div><div className="text-sm font-black text-gray-800 uppercase">Frontend Maintenance Mode</div><p className="text-[10px] text-gray-400 font-bold uppercase">Disables all user features except login.</p></div>
+           <div onClick={() => setSettings({...settings, isMaintenanceMode: !settings.isMaintenanceMode})} className={`w-14 h-8 rounded-full relative transition-colors cursor-pointer ${settings.isMaintenanceMode ? 'bg-red-500' : 'bg-gray-300'}`}><div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all shadow-sm ${settings.isMaintenanceMode ? 'left-7' : 'left-1'}`} /></div>
         </div>
       </div>
 
       {/* Loyalty & Rewards Engine */}
       <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
-        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3">
-          <Gift className="text-amber-500" /> Loyalty & Rewards Engine
-        </h3>
+        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><Coins className="text-yellow-500" /> Loyalty & Rewards Engine</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-           <div>
-              <label className="text-[10px] font-black text-gray-400 uppercase">Daily Check-in (Coins)</label>
-              <input type="number" className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold mt-2" 
-                value={settings.bonusPerDay} onChange={e => setSettings({...settings, bonusPerDay: parseInt(e.target.value) || 0})} />
-           </div>
-           <div>
-              <label className="text-[10px] font-black text-gray-400 uppercase">Referral Reward (Coins)</label>
-              <input type="number" className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold mt-2" 
-                value={settings.referralBonus} onChange={e => setSettings({...settings, referralBonus: parseInt(e.target.value) || 100})} />
-           </div>
-           <div>
-              <label className="text-[10px] font-black text-gray-400 uppercase">Welcome Bonus (Coins)</label>
-              <input type="number" className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold mt-2" 
-                value={settings.welcomeBonus} onChange={e => setSettings({...settings, welcomeBonus: parseInt(e.target.value) || 0})} />
-           </div>
-           <div>
-              <label className="text-[10px] font-black text-gray-400 uppercase">Rate (₦1 = X Coins)</label>
-              <input type="number" className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold mt-2" 
-                value={settings.conversionRate} onChange={e => setSettings({...settings, conversionRate: parseInt(e.target.value) || 20})} />
-           </div>
+           <div><label className="text-[10px] font-black text-gray-400 uppercase">Daily Check-in (Coins)</label><input type="number" className="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2" value={settings.bonusPerDay} onChange={e => setSettings({...settings, bonusPerDay: parseInt(e.target.value) || 0})} /></div>
+           <div><label className="text-[10px] font-black text-gray-400 uppercase">Referral Reward (Coins)</label><input type="number" className="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2" value={settings.referralBonus} onChange={e => setSettings({...settings, referralBonus: parseInt(e.target.value) || 0})} /></div>
+           <div><label className="text-[10px] font-black text-gray-400 uppercase">Welcome Bonus (Coins)</label><input type="number" className="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2" value={settings.welcomeBonus} onChange={e => setSettings({...settings, welcomeBonus: parseInt(e.target.value) || 0})} /></div>
+           <div><label className="text-[10px] font-black text-gray-400 uppercase">Rate (₦1 = X Coins)</label><input type="number" className="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2" value={settings.conversionRate} onChange={e => setSettings({...settings, conversionRate: parseInt(e.target.value) || 0})} /></div>
         </div>
       </div>
 
       {/* Security & System Guard */}
       <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
-        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3">
-          <ShieldAlert className="text-red-500" /> Security & System Guard
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-           <div>
-              <label className="text-[10px] font-black text-gray-400 uppercase">Min. Wallet Deposit (₦)</label>
-              <input type="number" className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold mt-2 border-2 border-transparent focus:border-red-500" 
-                value={settings.minDepositAmount} onChange={e => setSettings({...settings, minDepositAmount: parseInt(e.target.value) || 100})} />
-           </div>
-           <div>
-              <label className="text-[10px] font-black text-gray-400 uppercase">Min. Airtime Purchase (₦)</label>
-              <input type="number" className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold mt-2 border-2 border-transparent focus:border-red-500" 
-                value={settings.minAirtimePurchase} onChange={e => setSettings({...settings, minAirtimePurchase: parseInt(e.target.value) || 50})} />
-           </div>
+        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><ShieldHalf className="text-opay-green" /> Security & System Guard</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+           <div><label className="text-[10px] font-black text-gray-400 uppercase">Min. Wallet Deposit (₦)</label><input type="number" className="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2" value={settings.minDepositAmount} onChange={e => setSettings({...settings, minDepositAmount: parseInt(e.target.value) || 0})} /></div>
+           <div><label className="text-[10px] font-black text-gray-400 uppercase">Min. Airtime Purchase (₦)</label><input type="number" className="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2" value={settings.minAirtimePurchase} onChange={e => setSettings({...settings, minAirtimePurchase: parseInt(e.target.value) || 0})} /></div>
            <div>
               <label className="text-[10px] font-black text-gray-400 uppercase">Max Daily Tx Per ID</label>
-              <input type="number" className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold mt-2 border-2 border-transparent focus:border-red-500" 
-                value={settings.maxDailyTxPerId} onChange={e => setSettings({...settings, maxDailyTxPerId: parseInt(e.target.value) || 3})} />
-              <p className="text-[8px] font-bold text-gray-400 mt-2 uppercase tracking-tighter">Prevents spam on a single Meter/Phone/IUC daily</p>
+              <input type="number" className="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2" value={settings.maxDailyTxPerId} onChange={e => setSettings({...settings, maxDailyTxPerId: parseInt(e.target.value) || 0})} />
+              <p className="text-[8px] font-bold text-gray-400 uppercase mt-2">Prevents spam on a single Meter/Phone/IUC daily</p>
            </div>
         </div>
       </div>
 
-      {/* SMTP Server Configuration */}
-      <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
-        <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3">
-          <Mail className="text-indigo-500" /> Email (SMTP) Configuration
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-           <div>
-              <label className="text-[10px] font-black text-gray-400 uppercase">SMTP Host</label>
-              <input type="text" placeholder="smtp.gmail.com" className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold text-xs mt-2" 
-                value={settings.smtpHost} onChange={e => setSettings({...settings, smtpHost: e.target.value})} />
-           </div>
-           <div>
-              <label className="text-[10px] font-black text-gray-400 uppercase">SMTP Port</label>
-              <input type="text" placeholder="587" className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold text-xs mt-2" 
-                value={settings.smtpPort} onChange={e => setSettings({...settings, smtpPort: e.target.value})} />
-           </div>
-           <div>
-              <label className="text-[10px] font-black text-gray-400 uppercase">SMTP User</label>
-              <input type="text" placeholder="noreply@domain.com" className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold text-xs mt-2" 
-                value={settings.smtpUser} onChange={e => setSettings({...settings, smtpUser: e.target.value})} />
-           </div>
-           <div>
-              <label className="text-[10px] font-black text-gray-400 uppercase">SMTP Password</label>
-              <input type="password" placeholder="••••••••" className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold text-xs mt-2" 
-                value={settings.smtpPass} onChange={e => setSettings({...settings, smtpPass: e.target.value})} />
-           </div>
-           <div>
-              <label className="text-[10px] font-black text-gray-400 uppercase">Sender Name</label>
-              <input type="text" placeholder="OPay Support" className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold text-xs mt-2" 
-                value={settings.senderName} onChange={e => setSettings({...settings, senderName: e.target.value})} />
-           </div>
-           <div>
-              <label className="text-[10px] font-black text-gray-400 uppercase">From Email</label>
-              <input type="email" placeholder="support@domain.com" className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold text-xs mt-2" 
-                value={settings.fromEmail} onChange={e => setSettings({...settings, fromEmail: e.target.value})} />
-           </div>
-        </div>
-      </div>
-
-      <button onClick={() => showToast("Global settings saved.")} className="w-full bg-gray-900 text-white py-5 rounded-[32px] font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all">Save Global Settings</button>
-    </div>
-  );
-};
-
-const UserHub: React.FC<AdminSubPageProps> = ({ showToast }) => {
-  const { users, setUsers } = useApp();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [fundAction, setFundAction] = useState<{ userId: string, type: 'credit' | 'debit' } | null>(null);
-  const [fundAmount, setFundAmount] = useState('');
-
-  const filteredUsers = users.filter(u => 
-    u.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.phone.includes(searchTerm)
-  );
-
-  const handleFund = () => {
-    if (!fundAction || !fundAmount) return;
-    const amt = parseFloat(fundAmount);
-    setUsers(prev => prev.map(u => {
-      if (u.id === fundAction.userId) {
-        const newBalance = fundAction.type === 'credit' ? u.walletBalance + amt : u.walletBalance - amt;
-        return { ...u, walletBalance: newBalance };
-      }
-      return u;
-    }));
-    setFundAction(null);
-    setFundAmount('');
-    showToast(`User wallet ${fundAction.type}ed.`);
-  };
-
-  return (
-    <div className="space-y-6 animate-fade-in text-gray-900">
-       <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-          <h3 className="text-xl font-black uppercase tracking-widest mb-6">User Directory</h3>
-          <div className="relative mb-6">
-             <input type="text" placeholder="Search by name, phone or username..." className="w-full p-4 pl-12 bg-gray-50 rounded-2xl outline-none font-bold text-sm" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-             <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={20} />
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-               <thead><tr className="bg-gray-50 text-[10px] font-black text-gray-400 uppercase"><th className="px-8 py-4">User</th><th className="px-8 py-4">Balance</th><th className="px-8 py-4 text-right">Actions</th></tr></thead>
-               <tbody className="divide-y divide-gray-50">
-                  {filteredUsers.map(u => (
-                     <tr key={u.id} className="hover:bg-gray-50/50">
-                        <td className="px-8 py-5 flex flex-col"><span className="text-xs font-bold">{u.fullName}</span><span className="text-[9px] text-gray-400">@{u.username} • {u.phone}</span></td>
-                        <td className="px-8 py-5 text-xs font-black text-opay-green">{formatCurrency(u.walletBalance)}</td>
-                        <td className="px-8 py-5 text-right flex justify-end gap-2">
-                          <button onClick={() => setFundAction({ userId: u.id, type: 'credit' })} className="p-2 text-indigo-500 bg-indigo-50 rounded-xl" title="Credit Wallet"><Plus size={16} /></button>
-                          <button onClick={() => setFundAction({ userId: u.id, type: 'debit' })} className="p-2 text-orange-500 bg-orange-50 rounded-xl" title="Debit Wallet"><ArrowUpDown size={16} /></button>
-                          <button onClick={() => setUsers(prev => prev.map(usr => usr.id === u.id ? {...usr, isSuspended: !usr.isSuspended} : usr))} className={`p-2 rounded-xl ${u.isSuspended ? 'text-green-500 bg-green-50' : 'text-red-500 bg-red-50'}`}>{u.isSuspended ? <Unlock size={16}/> : <Lock size={16}/>}</button>
-                        </td>
-                     </tr>
-                  ))}
-               </tbody>
-            </table>
-          </div>
-       </div>
-
-       {fundAction && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-sm rounded-[40px] p-10 space-y-6 shadow-2xl animate-slide-up">
-            <h3 className="text-xl font-black uppercase tracking-tight">Manual {fundAction.type}</h3>
-            <input type="number" placeholder="Amount" className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-black text-xl" value={fundAmount} onChange={e => setFundAmount(e.target.value)} />
-            <div className="flex gap-4">
-              <button onClick={() => setFundAction(null)} className="flex-1 py-4 text-[10px] font-black uppercase text-gray-400">Cancel</button>
-              <button onClick={handleFund} className="flex-1 py-4 bg-gray-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest">Confirm</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-const DepositManager: React.FC<AdminSubPageProps> = ({ showToast }) => {
-  const { depositRequests, setDepositRequests, setUsers, setTransactions, users } = useApp();
-  
-  const handleAction = (req: DepositRequest, status: 'successful' | 'rejected') => {
-    if (status === 'successful') {
-      const creditAmount = req.amount - req.charge;
-      setUsers(prev => prev.map(u => u.id === req.userId ? { ...u, walletBalance: u.walletBalance + creditAmount } : u));
-      setTransactions(prev => [{ 
-        id: generateId(), 
-        userId: req.userId, 
-        type: 'Deposit', 
-        amount: creditAmount, 
-        status: 'successful', 
-        date: new Date().toISOString(), 
-        details: `${req.method.toUpperCase()} Deposit Verified`, 
-        recipient: 'Wallet' 
-      }, ...prev]);
-    }
-    setDepositRequests(prev => prev.map(r => r.id === req.id ? { ...r, status } : r));
-    showToast(`Deposit ${status}`);
-  };
-
-  const pendingDeposits = depositRequests.filter(r => r.status === 'pending');
-
-  return (
-    <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden animate-fade-in text-gray-900">
-       <div className="p-8 border-b border-gray-50 font-black uppercase tracking-widest text-xs flex justify-between items-center">
-          <span>Pending Deposits</span>
-          <span className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full">{pendingDeposits.length}</span>
-       </div>
-       <table className="w-full text-left">
-          <thead><tr className="bg-gray-50 text-[10px] font-black text-gray-400 uppercase"><th className="px-8 py-4">User</th><th className="px-8 py-4">Amount</th><th className="px-8 py-4 text-right">Actions</th></tr></thead>
-          <tbody className="divide-y divide-gray-50">
-              {pendingDeposits.map(req => (
-                <tr key={req.id} className="hover:bg-gray-50/50">
-                  <td className="px-8 py-5 flex flex-col"><span className="text-xs font-bold">{users.find(u => u.id === req.userId)?.fullName}</span><span className="text-[9px] uppercase">{req.method}</span></td>
-                  <td className="px-8 py-5 text-xs font-black text-indigo-600">{formatCurrency(req.amount)}</td>
-                  <td className="px-8 py-5 text-right flex justify-end gap-2">
-                    <button onClick={() => handleAction(req, 'successful')} className="p-2 text-green-500 bg-green-50 rounded-xl"><Check size={16}/></button>
-                    <button onClick={() => handleAction(req, 'rejected')} className="p-2 text-red-500 bg-red-50 rounded-xl"><Ban size={16}/></button>
-                  </td>
-                </tr>
-              ))}
-          </tbody>
-       </table>
-       {pendingDeposits.length === 0 && <div className="py-20 text-center text-gray-300 font-black uppercase text-[10px] tracking-widest">No pending deposits</div>}
+      <button onClick={() => showToast("Global config saved.")} className="w-full bg-gray-900 text-white py-5 rounded-[32px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-gray-200">Save Config</button>
     </div>
   );
 };
@@ -778,15 +716,15 @@ const AdminDashboard: React.FC = () => {
     { label: 'Users', icon: <Users size={20} />, path: '/admin/users' },
     { label: 'Deposits', icon: <Wallet size={20} />, path: '/admin/deposits' },
     { label: 'Support', icon: <MessageSquare size={20} />, path: '/admin/support' },
-    { label: 'API Manager', icon: <Database size={20} />, path: '/admin/api-manager' },
+    { label: 'API Hub', icon: <Database size={20} />, path: '/admin/api-manager' },
     { label: 'Settings', icon: <SettingsIcon size={20} />, path: '/admin/settings' },
   ];
   return (
-    <div className={`flex min-h-screen ${settings.adminTheme === 'dark' ? 'bg-gray-950 text-white' : 'bg-gray-50 text-gray-900'}`}>
+    <div className="flex min-h-screen bg-gray-50 text-gray-900">
       <aside className="w-72 border-r flex flex-col fixed h-full z-40 bg-white border-gray-100">
-        <div className="p-8 flex items-center gap-3"><div className="w-10 h-10 bg-opay-green rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg shadow-green-100">O</div><span className="font-black text-lg">Admin Hub</span></div>
+        <div className="p-8 flex items-center gap-3"><div className="w-10 h-10 bg-opay-green rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg">O</div><span className="font-black text-lg">Admin Hub</span></div>
         <nav className="flex-1 px-4 py-4 space-y-1">{menuItems.map(item => (
-            <Link key={item.path} to={item.path} className={`flex items-center gap-4 px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${location.pathname === item.path ? 'bg-opay-green text-white shadow-lg shadow-green-100' : 'text-gray-400 hover:bg-gray-50'}`}>{item.icon} {item.label}</Link>
+            <Link key={item.path} to={item.path} className={`flex items-center gap-4 px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${location.pathname.startsWith(item.path) && (item.path !== '/admin' || location.pathname === '/admin') ? 'bg-opay-green text-white shadow-lg' : 'text-gray-400 hover:bg-gray-50'}`}>{item.icon} {item.label}</Link>
         ))}</nav>
         <div className="p-6 border-t border-gray-100"><button onClick={() => { setCurrentUser(null); navigate('/login'); }} className="w-full flex items-center gap-4 px-6 py-4 text-red-500 font-black text-[10px] uppercase tracking-widest hover:bg-red-50 rounded-2xl transition-all"><LogOut size={20} /> Sign Out</button></div>
       </aside>

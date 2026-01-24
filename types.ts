@@ -1,4 +1,5 @@
 
+
 export type UserRole = 'user' | 'admin';
 export type KYCStatus = 'none' | 'pending' | 'verified' | 'rejected';
 export type UserTier = 1 | 2 | 3;
@@ -88,6 +89,15 @@ export interface CableProvider {
   enabled: boolean;
   discountPercent: number;
   variations: CableVariation[];
+}
+
+// Fixed: Added ElectricProvider interface to resolve the missing export error
+export interface ElectricProvider {
+  id: string;
+  name: string;
+  serviceId: string;
+  enabled: boolean;
+  discountPercent: number;
 }
 
 export interface GiftCardRequest {
@@ -186,6 +196,8 @@ export interface Settings {
   dataNetworks: DataNetwork[];
   dataProducts: DataProduct[];
   cableProviders: CableProvider[];
+  // Fixed: Added electricProviders to Settings interface
+  electricProviders: ElectricProvider[];
   airtimeDiscounts: {
     mtn: number;
     glo: number;

@@ -132,16 +132,28 @@ const Crypto: React.FC = () => {
     ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [transactions, currentUser]);
 
+  // Integrated real-time prices from CoinGecko
   useEffect(() => {
-    const interval = setInterval(() => {
-      setPrices(prev => ({
-        BTC: prev.BTC + (Math.random() - 0.5) * 40,
-        ETH: prev.ETH + (Math.random() - 0.5) * 10,
-        SOL: prev.SOL + (Math.random() - 0.5) * 2,
-        ADA: prev.ADA + (Math.random() - 0.5) * 0.05,
-        USDT: 1.00
-      }));
-    }, 5000);
+    const fetchPrices = async () => {
+      try {
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,cardano,tether&vs_currencies=usd');
+        const data = await response.json();
+        if (data) {
+          setPrices({
+            BTC: data.bitcoin.usd,
+            ETH: data.ethereum.usd,
+            SOL: data.solana.usd,
+            ADA: data.cardano.usd,
+            USDT: data.tether.usd
+          });
+        }
+      } catch (error) {
+        console.error("Failed to fetch crypto prices", error);
+      }
+    };
+
+    fetchPrices();
+    const interval = setInterval(fetchPrices, 30000); // 30 seconds update interval
     return () => clearInterval(interval);
   }, []);
 
