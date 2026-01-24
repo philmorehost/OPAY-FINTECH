@@ -16,6 +16,12 @@ interface AdminSubPageProps {
   showToast: (msg: string) => void;
 }
 
+const VOLUME_DATA = [
+  { date: '01 May', vol: 1200000 }, { date: '02 May', vol: 1500000 }, { date: '03 May', vol: 1100000 },
+  { date: '04 May', vol: 2200000 }, { date: '05 May', vol: 1800000 }, { date: '06 May', vol: 2900000 },
+  { date: '07 May', vol: 2400000 },
+];
+
 const AdminOverview: React.FC = () => {
   const { users, giftCardRequests, smsSenderIds, tickets } = useApp();
   const stats = [
@@ -24,11 +30,7 @@ const AdminOverview: React.FC = () => {
     { label: 'Open Tickets', value: tickets.filter(t => t.status === 'open').length, icon: <MessageSquare className="text-purple-500" />, color: 'bg-purple-50' },
     { label: 'Pending SMS IDs', value: smsSenderIds.filter(r => r.status === 'pending').length, icon: <MessageCircle className="text-amber-500" />, color: 'bg-amber-50' },
   ];
-  const volumeData = [
-    { date: '01 May', vol: 1200000 }, { date: '02 May', vol: 1500000 }, { date: '03 May', vol: 1100000 },
-    { date: '04 May', vol: 2200000 }, { date: '05 May', vol: 1800000 }, { date: '06 May', vol: 2900000 },
-    { date: '07 May', vol: 2400000 },
-  ];
+  
   return (
     <div className="space-y-8 animate-fade-in text-gray-900">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -50,7 +52,7 @@ const AdminOverview: React.FC = () => {
           </div>
           <div className="h-[300px] w-full relative">
             <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-              <AreaChart data={volumeData}>
+              <AreaChart data={VOLUME_DATA}>
                 <defs><linearGradient id="colorVol" x1="0" x2="0" y2="1"><stop offset="5%" stopColor="#00c689" stopOpacity={0.3}/><stop offset="95%" stopColor="#00c689" stopOpacity={0}/></linearGradient></defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                 <XAxis dataKey="date" stroke="#999" fontSize={10} axisLine={false} tickLine={false} />
@@ -73,7 +75,6 @@ const AdminOverview: React.FC = () => {
   );
 };
 
-// --- User Management ---
 const UserHub: React.FC<AdminSubPageProps> = ({ showToast }) => {
   const { users, setUsers } = useApp();
   const [search, setSearch] = useState('');
@@ -135,20 +136,8 @@ const UserHub: React.FC<AdminSubPageProps> = ({ showToast }) => {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button 
-                onClick={() => setSelectedUser(user)}
-                className="p-3 bg-blue-50 text-blue-500 rounded-xl hover:bg-blue-100 transition-colors"
-                title="Adjust Balance"
-              >
-                <ArrowUpDown size={18} />
-              </button>
-              <button 
-                onClick={handleToggleSuspend(user.id)}
-                className={`p-3 rounded-xl transition-colors ${user.isSuspended ? 'bg-green-50 text-green-500 hover:bg-green-100' : 'bg-red-50 text-red-500 hover:bg-red-100'}`}
-                title={user.isSuspended ? "Unsuspend" : "Suspend"}
-              >
-                {user.isSuspended ? <UserCheck size={18} /> : <UserMinus size={18} />}
-              </button>
+              <button onClick={() => setSelectedUser(user)} className="p-3 bg-blue-50 text-blue-500 rounded-xl hover:bg-blue-100 transition-colors"><ArrowUpDown size={18} /></button>
+              <button onClick={() => handleToggleSuspend(user.id)} className={`p-3 rounded-xl transition-colors ${user.isSuspended ? 'bg-green-50 text-green-500' : 'bg-red-50 text-red-500'}`}>{user.isSuspended ? <UserCheck size={18} /> : <UserMinus size={18} />}</button>
             </div>
           </div>
         ))}
@@ -162,29 +151,15 @@ const UserHub: React.FC<AdminSubPageProps> = ({ showToast }) => {
               <button onClick={() => setSelectedUser(null)} className="p-2 bg-gray-50 rounded-full"><X size={18} /></button>
             </div>
             <p className="text-xs text-gray-400 font-bold uppercase">Adjusting balance for <span className="text-gray-800">{selectedUser.fullName}</span></p>
-            
             <div className="flex bg-gray-100 p-1 rounded-2xl">
               <button onClick={() => setAdjustType('credit')} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${adjustType === 'credit' ? 'bg-white shadow-sm text-opay-green' : 'text-gray-400'}`}>Credit</button>
               <button onClick={() => setAdjustType('debit')} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${adjustType === 'debit' ? 'bg-white shadow-sm text-red-500' : 'text-gray-400'}`}>Debit</button>
             </div>
-
             <div className="relative">
-              <input 
-                type="number" 
-                placeholder="0.00" 
-                className="w-full p-5 bg-gray-50 rounded-2xl outline-none font-black text-2xl"
-                value={adjustAmount}
-                onChange={(e) => setAdjustAmount(e.target.value)}
-              />
+              <input type="number" placeholder="0.00" className="w-full p-5 bg-gray-50 rounded-2xl outline-none font-black text-2xl" value={adjustAmount} onChange={(e) => setAdjustAmount(e.target.value)} />
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 font-black text-lg">₦</span>
             </div>
-
-            <button 
-              onClick={handleAdjustBalance}
-              className={`w-full py-5 rounded-[24px] font-black uppercase tracking-widest text-white shadow-xl ${adjustType === 'credit' ? 'bg-opay-green' : 'bg-red-500'}`}
-            >
-              Confirm Adjustment
-            </button>
+            <button onClick={handleAdjustBalance} className={`w-full py-5 rounded-[24px] font-black uppercase tracking-widest text-white shadow-xl ${adjustType === 'credit' ? 'bg-opay-green' : 'bg-red-500'}`}>Confirm Adjustment</button>
           </div>
         </div>
       )}
@@ -192,7 +167,6 @@ const UserHub: React.FC<AdminSubPageProps> = ({ showToast }) => {
   );
 };
 
-// --- Deposit Management ---
 const DepositManager: React.FC<AdminSubPageProps> = ({ showToast }) => {
   const { depositRequests, setDepositRequests, users, setUsers, setTransactions } = useApp();
   const [activeTab, setActiveTab] = useState<'pending' | 'processed'>('pending');
@@ -204,24 +178,12 @@ const DepositManager: React.FC<AdminSubPageProps> = ({ showToast }) => {
   const handleAction = (id: string, status: 'successful' | 'rejected') => {
     const req = depositRequests.find(r => r.id === id);
     if (!req) return;
-
     if (status === 'successful') {
       const creditAmount = req.amount - req.charge;
       setUsers(prev => prev.map(u => u.id === req.userId ? { ...u, walletBalance: u.walletBalance + creditAmount } : u));
-      
-      const newTx: any = {
-        id: generateId(),
-        userId: req.userId,
-        type: 'Wallet Funding',
-        amount: creditAmount,
-        status: 'successful',
-        date: new Date().toISOString(),
-        details: `Manual Deposit Approved (Ref: ${req.id})`,
-        recipient: 'Wallet'
-      };
+      const newTx: any = { id: generateId(), userId: req.userId, type: 'Wallet Funding', amount: creditAmount, status: 'successful', date: new Date().toISOString(), details: `Manual Deposit Approved`, recipient: 'Wallet' };
       setTransactions(prev => [newTx, ...prev]);
     }
-
     setDepositRequests(prev => prev.map(r => r.id === id ? { ...r, status } : r));
     showToast(`Deposit ${status}`);
   };
@@ -238,49 +200,24 @@ const DepositManager: React.FC<AdminSubPageProps> = ({ showToast }) => {
           <button onClick={() => setActiveTab('processed')} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${activeTab === 'processed' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-400'}`}>Processed</button>
         </div>
       </div>
-
       <div className="space-y-4">
-        {filtered.length === 0 ? (
-          <div className="py-24 bg-white rounded-[40px] border border-dashed border-gray-200 text-center text-gray-300 font-black uppercase text-xs">No records found</div>
-        ) : (
-          filtered.map(req => {
-            const user = users.find(u => u.id === req.userId);
-            return (
+        {filtered.length === 0 ? <div className="py-24 bg-white rounded-[40px] text-center text-gray-300 font-black uppercase text-xs">No records found</div> : filtered.map(req => (
               <div key={req.id} className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm flex items-center justify-between">
                 <div className="flex items-center gap-5">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${req.method === 'manual' ? 'bg-indigo-50 text-indigo-500' : 'bg-emerald-50 text-emerald-500'}`}>
-                    {req.method === 'manual' ? <Landmark size={24} /> : <CreditCard size={24} />}
-                  </div>
-                  <div>
-                    <div className="text-sm font-black text-gray-800">{user?.fullName || 'Unknown User'}</div>
-                    <div className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">{req.method} • {new Date(req.date).toLocaleString()}</div>
-                    {req.senderName && <div className="text-[9px] text-indigo-500 font-black uppercase mt-1">Sender: {req.senderName}</div>}
-                  </div>
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${req.method === 'manual' ? 'bg-indigo-50 text-indigo-500' : 'bg-emerald-50 text-emerald-500'}`}>{req.method === 'manual' ? <Landmark size={24} /> : <CreditCard size={24} />}</div>
+                  <div><div className="text-sm font-black text-gray-800">{users.find(u => u.id === req.userId)?.fullName || 'Unknown'}</div><div className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">{req.method} • {new Date(req.date).toLocaleString()}</div></div>
                 </div>
                 <div className="flex items-center gap-8">
-                  <div className="text-right">
-                    <div className="text-sm font-black text-gray-900">{formatCurrency(req.amount)}</div>
-                    <div className="text-[9px] text-gray-400 font-bold uppercase">Fee: {formatCurrency(req.charge)}</div>
-                  </div>
-                  {req.status === 'pending' ? (
-                    <div className="flex gap-2">
-                      <button onClick={() => handleAction(req.id, 'successful')} className="p-3 bg-green-50 text-green-600 rounded-xl hover:bg-green-100 transition-colors"><Check size={20} /></button>
-                      <button onClick={() => handleAction(req.id, 'rejected')} className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors"><Ban size={20} /></button>
-                    </div>
-                  ) : (
-                    <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase ${req.status === 'successful' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>{req.status}</span>
-                  )}
+                  <div className="text-right"><div className="text-sm font-black text-gray-900">{formatCurrency(req.amount)}</div><div className="text-[9px] text-gray-400 font-bold uppercase">Fee: {formatCurrency(req.charge)}</div></div>
+                  {req.status === 'pending' ? <div className="flex gap-2"><button onClick={() => handleAction(req.id, 'successful')} className="p-3 bg-green-50 text-green-600 rounded-xl hover:bg-green-100 transition-colors"><Check size={20} /></button><button onClick={() => handleAction(req.id, 'rejected')} className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors"><Ban size={20} /></button></div> : <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase ${req.status === 'successful' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>{req.status}</span>}
                 </div>
               </div>
-            );
-          })
-        )}
+        ))}
       </div>
     </div>
   );
 };
 
-// --- Support Hub ---
 const SupportManager: React.FC<AdminSubPageProps> = ({ showToast }) => {
   const { tickets, setTickets, users } = useApp();
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
@@ -288,16 +225,7 @@ const SupportManager: React.FC<AdminSubPageProps> = ({ showToast }) => {
 
   const handleReply = () => {
     if (!selectedTicket || !reply) return;
-    const updatedTickets = tickets.map(t => {
-      if (t.id === selectedTicket.id) {
-        return {
-          ...t,
-          replies: [...t.replies, { author: 'Admin', message: reply, date: new Date().toISOString() }]
-        };
-      }
-      return t;
-    });
-    setTickets(updatedTickets);
+    setTickets(prev => prev.map(t => t.id === selectedTicket.id ? { ...t, replies: [...t.replies, { author: 'Admin', message: reply, date: new Date().toISOString() }] } : t));
     showToast("Reply sent");
     setReply('');
     setSelectedTicket(null);
@@ -311,93 +239,29 @@ const SupportManager: React.FC<AdminSubPageProps> = ({ showToast }) => {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100 flex items-center justify-between">
-        <div className="flex flex-col">
-          <h2 className="text-2xl font-black uppercase tracking-tighter">Support Command</h2>
-          <span className="text-[10px] font-bold text-gray-400 uppercase">{tickets.filter(t => t.status === 'open').length} Unresolved Issues</span>
-        </div>
+        <div className="flex flex-col"><h2 className="text-2xl font-black uppercase tracking-tighter">Support Hub</h2><span className="text-[10px] font-bold text-gray-400 uppercase">{tickets.filter(t => t.status === 'open').length} Open Tickets</span></div>
         <button className="p-3 bg-gray-50 text-gray-400 rounded-xl"><RefreshCcw size={20} /></button>
       </div>
-
       <div className="space-y-4">
-        {tickets.map(ticket => {
-          const user = users.find(u => u.id === ticket.userId);
-          return (
-            <div key={ticket.id} className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm flex items-center justify-between group cursor-pointer hover:border-opay-green transition-all" onClick={() => setSelectedTicket(ticket)}>
-              <div className="flex items-center gap-5">
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${ticket.status === 'open' ? 'bg-amber-50 text-amber-500' : 'bg-gray-100 text-gray-400'}`}>
-                  <MessageSquare size={24} />
-                </div>
-                <div>
-                  <div className="text-sm font-black text-gray-800">{ticket.subject}</div>
-                  <div className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">{user?.fullName || 'User'} • {new Date(ticket.createdAt).toLocaleDateString()}</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase ${ticket.status === 'open' ? 'bg-amber-50 text-amber-600' : 'bg-green-50 text-green-600'}`}>{ticket.status}</span>
-                <ChevronRight size={18} className="text-gray-300 group-hover:text-opay-green transition-colors" />
-              </div>
-            </div>
-          );
-        })}
+        {tickets.map(ticket => (
+          <div key={ticket.id} className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm flex items-center justify-between group cursor-pointer hover:border-opay-green transition-all" onClick={() => setSelectedTicket(ticket)}>
+            <div className="flex items-center gap-5"><div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${ticket.status === 'open' ? 'bg-amber-50 text-amber-500' : 'bg-gray-100 text-gray-400'}`}><MessageSquare size={24} /></div><div><div className="text-sm font-black text-gray-800">{ticket.subject}</div><div className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">{users.find(u => u.id === ticket.userId)?.fullName || 'User'} • {new Date(ticket.createdAt).toLocaleDateString()}</div></div></div>
+            <div className="flex items-center gap-4"><span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase ${ticket.status === 'open' ? 'bg-amber-50 text-amber-600' : 'bg-green-50 text-green-600'}`}>{ticket.status}</span><ChevronRight size={18} className="text-gray-300" /></div>
+          </div>
+        ))}
       </div>
-
       {selectedTicket && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
           <div className="bg-white w-full max-w-lg rounded-[40px] overflow-hidden shadow-2xl animate-slide-up flex flex-col max-h-[85vh]">
-            <div className="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50">
-              <div>
-                <h3 className="text-lg font-black uppercase tracking-tight">{selectedTicket.subject}</h3>
-                <p className="text-[10px] font-bold text-gray-400 uppercase">TICKET ID: {selectedTicket.id}</p>
-              </div>
-              <button onClick={() => setSelectedTicket(null)} className="p-2 bg-white rounded-full shadow-sm"><X size={20} /></button>
-            </div>
-            
-            <div className="p-8 overflow-y-auto space-y-6 flex-1 scrollbar-hide">
-              <div className="bg-opay-green/5 p-5 rounded-3xl border border-opay-green/10">
-                <div className="text-[10px] font-black text-opay-green uppercase mb-2">Original Message</div>
-                <div className="text-sm text-gray-800 leading-relaxed font-medium" dangerouslySetInnerHTML={{ __html: selectedTicket.message }} />
-              </div>
-
-              {selectedTicket.replies.map((r, i) => (
-                <div key={i} className={`flex flex-col ${r.author === 'Admin' ? 'items-end' : 'items-start'}`}>
-                  <div className={`max-w-[80%] p-4 rounded-2xl text-xs font-bold ${r.author === 'Admin' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-800'}`}>
-                    {r.message}
-                  </div>
-                  <span className="text-[8px] font-black text-gray-300 uppercase mt-1">{new Date(r.date).toLocaleString()}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="p-8 border-t border-gray-50 space-y-4">
-              <textarea 
-                className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold text-xs min-h-[100px] border border-transparent focus:border-opay-green" 
-                placeholder="Type your response..."
-                value={reply}
-                onChange={(e) => setReply(e.target.value)}
-              />
-              <div className="flex gap-4">
-                <button 
-                  onClick={() => handleClose(selectedTicket.id)}
-                  className="flex-1 py-4 border-2 border-red-50 text-red-500 rounded-2xl font-black text-[10px] uppercase tracking-widest active:scale-95"
-                >
-                  Close Ticket
-                </button>
-                <button 
-                  onClick={handleReply}
-                  className="flex-[2] py-4 bg-opay-green text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-green-100 active:scale-95"
-                >
-                  Send Reply
-                </button>
-              </div>
-            </div>
+            <div className="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50"><div><h3 className="text-lg font-black uppercase">{selectedTicket.subject}</h3><p className="text-[10px] font-bold text-gray-400 uppercase">ID: {selectedTicket.id}</p></div><button onClick={() => setSelectedTicket(null)} className="p-2 bg-white rounded-full shadow-sm"><X size={20} /></button></div>
+            <div className="p-8 overflow-y-auto space-y-6 flex-1"><div className="bg-opay-green/5 p-5 rounded-3xl border border-opay-green/10 text-sm" dangerouslySetInnerHTML={{ __html: selectedTicket.message }} />{selectedTicket.replies.map((r, i) => (<div key={i} className={`flex flex-col ${r.author === 'Admin' ? 'items-end' : 'items-start'}`}><div className={`max-w-[80%] p-4 rounded-2xl text-xs font-bold ${r.author === 'Admin' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-800'}`}>{r.message}</div><span className="text-[8px] font-black text-gray-300 uppercase mt-1">{new Date(r.date).toLocaleString()}</span></div>))}</div>
+            <div className="p-8 border-t border-gray-50 space-y-4"><textarea className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold text-xs min-h-[100px]" placeholder="Reply..." value={reply} onChange={(e) => setReply(e.target.value)} /><div className="flex gap-4"><button onClick={() => handleClose(selectedTicket.id)} className="flex-1 py-4 text-red-500 font-black text-[10px] uppercase">Close</button><button onClick={handleReply} className="flex-[2] py-4 bg-opay-green text-white rounded-2xl font-black text-[10px] uppercase shadow-xl">Send</button></div></div>
           </div>
         </div>
       )}
     </div>
   );
 };
-
-// --- API Hub Hub Sub-Pages (Existing but moved for clarity) ---
 
 const AirtimeBettingSettings: React.FC<AdminSubPageProps> = ({ showToast }) => {
   const { settings, setSettings } = useApp();
@@ -654,7 +518,6 @@ const SettingsManager: React.FC<AdminSubPageProps> = ({ showToast }) => {
   const { settings, setSettings } = useApp();
   return (
     <div className="space-y-10 animate-fade-in pb-20 text-gray-900">
-      {/* SMTP Configuration */}
       <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
         <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><Mail className="text-indigo-500" /> SMTP Configuration</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -665,8 +528,6 @@ const SettingsManager: React.FC<AdminSubPageProps> = ({ showToast }) => {
            <div><label className="text-[10px] font-black text-gray-400 uppercase">Sender Name</label><input type="text" className="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2" value={settings.senderName} onChange={e => setSettings({...settings, senderName: e.target.value})} /></div>
         </div>
       </div>
-
-      {/* Global System Control */}
       <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
         <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><ShieldAlert className="text-red-500" /> Global System Control</h3>
         <div className="flex items-center justify-between p-6 bg-gray-50 rounded-3xl border border-gray-100">
@@ -674,8 +535,6 @@ const SettingsManager: React.FC<AdminSubPageProps> = ({ showToast }) => {
            <div onClick={() => setSettings({...settings, isMaintenanceMode: !settings.isMaintenanceMode})} className={`w-14 h-8 rounded-full relative transition-colors cursor-pointer ${settings.isMaintenanceMode ? 'bg-red-500' : 'bg-gray-300'}`}><div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all shadow-sm ${settings.isMaintenanceMode ? 'left-7' : 'left-1'}`} /></div>
         </div>
       </div>
-
-      {/* Loyalty & Rewards Engine */}
       <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
         <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><Coins className="text-yellow-500" /> Loyalty & Rewards Engine</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -685,28 +544,21 @@ const SettingsManager: React.FC<AdminSubPageProps> = ({ showToast }) => {
            <div><label className="text-[10px] font-black text-gray-400 uppercase">Rate (₦1 = X Coins)</label><input type="number" className="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2" value={settings.conversionRate} onChange={e => setSettings({...settings, conversionRate: parseInt(e.target.value) || 0})} /></div>
         </div>
       </div>
-
-      {/* Security & System Guard */}
       <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
         <h3 className="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><ShieldHalf className="text-opay-green" /> Security & System Guard</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
            <div><label className="text-[10px] font-black text-gray-400 uppercase">Min. Wallet Deposit (₦)</label><input type="number" className="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2" value={settings.minDepositAmount} onChange={e => setSettings({...settings, minDepositAmount: parseInt(e.target.value) || 0})} /></div>
            <div><label className="text-[10px] font-black text-gray-400 uppercase">Min. Airtime Purchase (₦)</label><input type="number" className="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2" value={settings.minAirtimePurchase} onChange={e => setSettings({...settings, minAirtimePurchase: parseInt(e.target.value) || 0})} /></div>
-           <div>
-              <label className="text-[10px] font-black text-gray-400 uppercase">Max Daily Tx Per ID</label>
-              <input type="number" className="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2" value={settings.maxDailyTxPerId} onChange={e => setSettings({...settings, maxDailyTxPerId: parseInt(e.target.value) || 0})} />
-              <p className="text-[8px] font-bold text-gray-400 uppercase mt-2">Prevents spam on a single Meter/Phone/IUC daily</p>
-           </div>
+           <div><label className="text-[10px] font-black text-gray-400 uppercase">Max Daily Tx Per ID</label><input type="number" className="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2" value={settings.maxDailyTxPerId} onChange={e => setSettings({...settings, maxDailyTxPerId: parseInt(e.target.value) || 0})} /><p className="text-[8px] font-bold text-gray-400 uppercase mt-2">Prevents spam on a single Meter/Phone/IUC daily</p></div>
         </div>
       </div>
-
-      <button onClick={() => showToast("Global config saved.")} className="w-full bg-gray-900 text-white py-5 rounded-[32px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-gray-200">Save Config</button>
+      <button onClick={() => showToast("Global config saved.")} className="w-full bg-gray-900 text-white py-5 rounded-[32px] font-black uppercase shadow-xl">Save Config</button>
     </div>
   );
 };
 
 const AdminDashboard: React.FC = () => {
-  const { setCurrentUser, settings } = useApp();
+  const { setCurrentUser } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const [toast, setToast] = useState<string | null>(null);
@@ -723,9 +575,7 @@ const AdminDashboard: React.FC = () => {
     <div className="flex min-h-screen bg-gray-50 text-gray-900">
       <aside className="w-72 border-r flex flex-col fixed h-full z-40 bg-white border-gray-100">
         <div className="p-8 flex items-center gap-3"><div className="w-10 h-10 bg-opay-green rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg">O</div><span className="font-black text-lg">Admin Hub</span></div>
-        <nav className="flex-1 px-4 py-4 space-y-1">{menuItems.map(item => (
-            <Link key={item.path} to={item.path} className={`flex items-center gap-4 px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${location.pathname.startsWith(item.path) && (item.path !== '/admin' || location.pathname === '/admin') ? 'bg-opay-green text-white shadow-lg' : 'text-gray-400 hover:bg-gray-50'}`}>{item.icon} {item.label}</Link>
-        ))}</nav>
+        <nav className="flex-1 px-4 py-4 space-y-1">{menuItems.map(item => (<Link key={item.path} to={item.path} className={`flex items-center gap-4 px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${location.pathname.startsWith(item.path) && (item.path !== '/admin' || location.pathname === '/admin') ? 'bg-opay-green text-white shadow-lg' : 'text-gray-400 hover:bg-gray-50'}`}>{item.icon} {item.label}</Link>))}</nav>
         <div className="p-6 border-t border-gray-100"><button onClick={() => { setCurrentUser(null); navigate('/login'); }} className="w-full flex items-center gap-4 px-6 py-4 text-red-500 font-black text-[10px] uppercase tracking-widest hover:bg-red-50 rounded-2xl transition-all"><LogOut size={20} /> Sign Out</button></div>
       </aside>
       <main className="flex-1 ml-72 p-12 overflow-y-auto">

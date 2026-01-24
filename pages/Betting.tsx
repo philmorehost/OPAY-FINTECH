@@ -5,6 +5,26 @@ import { useApp } from '../store';
 import { formatCurrency, generateId } from '../utils';
 import { ArrowLeft, TrendingUp, User, ShieldAlert, CheckCircle2, AlertCircle, ChevronDown, RotateCcw } from 'lucide-react';
 
+const PROVIDERS = [
+  { id: 'msport', name: 'MSport' },
+  { id: 'naijabet', name: 'NaijaBet' },
+  { id: 'nairabet', name: 'NairaBet' },
+  { id: 'bet9ja-agent', name: 'Bet9ja Agent' },
+  { id: 'betland', name: 'Betland' },
+  { id: 'betlion', name: 'Betlion' },
+  { id: 'supabet', name: 'SupaBet' },
+  { id: 'bet9ja', name: 'Bet9ja' },
+  { id: 'bangbet', name: 'BangBet' },
+  { id: 'betking', name: 'BetKing' },
+  { id: '1xbet', name: '1xBet' },
+  { id: 'betway', name: 'Betway' },
+  { id: 'merrybet', name: 'MerryBet' },
+  { id: 'mlotto', name: 'MLotto' },
+  { id: 'western-lotto', name: 'Western Lotto' },
+  { id: 'hallabet', name: 'HallaBet' },
+  { id: 'green-lotto', name: 'Green Lotto' }
+].sort((a, b) => a.name.localeCompare(b.name));
+
 const Betting: React.FC = () => {
   const { currentUser, setCurrentUser, setUsers, setTransactions, settings, transactions } = useApp();
   const navigate = useNavigate();
@@ -16,26 +36,6 @@ const Betting: React.FC = () => {
   const [isVerifying, setIsVerifying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-
-  const providers = [
-    { id: 'msport', name: 'MSport' },
-    { id: 'naijabet', name: 'NaijaBet' },
-    { id: 'nairabet', name: 'NairaBet' },
-    { id: 'bet9ja-agent', name: 'Bet9ja Agent' },
-    { id: 'betland', name: 'Betland' },
-    { id: 'betlion', name: 'Betlion' },
-    { id: 'supabet', name: 'SupaBet' },
-    { id: 'bet9ja', name: 'Bet9ja' },
-    { id: 'bangbet', name: 'BangBet' },
-    { id: 'betking', name: 'BetKing' },
-    { id: '1xbet', name: '1xBet' },
-    { id: 'betway', name: 'Betway' },
-    { id: 'merrybet', name: 'MerryBet' },
-    { id: 'mlotto', name: 'MLotto' },
-    { id: 'western-lotto', name: 'Western Lotto' },
-    { id: 'hallabet', name: 'HallaBet' },
-    { id: 'green-lotto', name: 'Green Lotto' }
-  ].sort((a, b) => a.name.localeCompare(b.name));
 
   const checkAndApplyLoyaltyBonus = (user: any) => {
     const today = new Date().toISOString().split('T')[0];
@@ -85,7 +85,6 @@ const Betting: React.FC = () => {
       return;
     }
 
-    // 1. Debit First
     setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, walletBalance: u.walletBalance - numAmount } : u));
     setCurrentUser({ ...currentUser, walletBalance: currentUser.walletBalance - numAmount });
     setIsLoading(true);
@@ -93,10 +92,9 @@ const Betting: React.FC = () => {
     setTimeout(() => {
       const isSecurityFail = !validateSecurity(bettingId);
       const isRandomFail = Math.random() < 0.05; 
-      const selectedProviderName = providers.find(p => p.id === provider)?.name || provider;
+      const selectedProviderName = PROVIDERS.find(p => p.id === provider)?.name || provider;
 
       if (isSecurityFail || isRandomFail) {
-        // 2. Automated Refund
         setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, walletBalance: u.walletBalance + numAmount } : u));
         setCurrentUser(prev => prev ? { ...prev, walletBalance: prev.walletBalance + numAmount } : null);
         
@@ -107,14 +105,14 @@ const Betting: React.FC = () => {
           amount: numAmount,
           status: 'failed',
           date: new Date().toISOString(),
-          details: isSecurityFail ? `Security Trigger: Daily limit exceeded for Betting ID ${bettingId}` : `Automated Refund: ${selectedProviderName} Gateway Timeout.`,
+          details: isSecurityFail ? `Security Trigger: Daily limit exceeded` : `Gateway Timeout. Refund Issued.`,
           recipient: bettingId,
           provider: selectedProviderName,
           refunded: true
         };
         setTransactions(prev => [failTx, ...prev]);
         setIsLoading(false);
-        setMessage({ type: 'error', text: 'Betting wallet funding failed. Amount has been automatically refunded to your wallet.' });
+        setMessage({ type: 'error', text: 'Funding failed. Amount has been refunded.' });
       } else {
         const earned = checkAndApplyLoyaltyBonus(currentUser);
         const successTx: any = {
@@ -131,7 +129,7 @@ const Betting: React.FC = () => {
 
         setTransactions(prev => [successTx, ...prev]);
         setIsLoading(false);
-        setMessage({ type: 'success', text: `Wallet funded successfully for ${customerName}! ${earned ? `+${settings.bonusPerDay} Coins awarded.` : ''}` });
+        setMessage({ type: 'success', text: `Wallet funded successfully! ${earned ? `+${settings.bonusPerDay} Coins awarded.` : ''}` });
         setBettingId('');
         setCustomerName('');
         setAmount('');
@@ -148,7 +146,7 @@ const Betting: React.FC = () => {
 
       <div className="p-4 flex-1 space-y-6 pb-20">
         {message && (
-          <div className={`p-4 rounded-2xl flex items-center gap-3 animate-fade-in ${message.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
+          <div className={`p-4 rounded-2xl flex items-center gap-3 animate-fade-in ${message.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
             {message.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
             <span className="text-sm font-bold">{message.text}</span>
           </div>
@@ -163,8 +161,8 @@ const Betting: React.FC = () => {
                 value={provider}
                 onChange={(e) => { setProvider(e.target.value); setCustomerName(''); }}
               >
-                <option value="" disabled>Choose Betting Provider</option>
-                {providers.map(p => (
+                <option value="" disabled>Choose Provider</option>
+                {PROVIDERS.map(p => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
@@ -200,7 +198,7 @@ const Betting: React.FC = () => {
                 <button
                   key={amt}
                   onClick={() => setAmount(amt.toString())}
-                  className={`py-2 rounded-xl text-[10px] font-black border transition-all ${amount === amt.toString() ? 'border-opay-green bg-green-50 text-opay-green' : 'border-gray-100 text-gray-500'}`}
+                  className={`py-2 rounded-xl text-[10px] font-black border transition-all ${amount === amt.toString() ? 'border-opay-green bg-green-50 text-opay-green' : 'border-gray-100 text-gray-50'}`}
                 >
                   ₦{amt}
                 </button>
@@ -209,12 +207,12 @@ const Betting: React.FC = () => {
             <div className="relative">
               <input
                 type="number"
-                placeholder="Enter Custom Amount"
+                placeholder="Enter Amount"
                 className="w-full p-4 bg-gray-50 text-gray-900 border-2 border-transparent focus:border-opay-green outline-none rounded-2xl font-black text-xl"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
               />
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 font-black text-xl pointer-events-none">₦</span>
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 font-black text-xl">₦</span>
             </div>
           </div>
 
@@ -223,15 +221,8 @@ const Betting: React.FC = () => {
             disabled={isLoading || !amount || !customerName || !provider}
             className="w-full bg-opay-green text-white font-black py-5 rounded-2xl shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50"
           >
-            {isLoading ? 'Automated Processing...' : `Fund Wallet (${formatCurrency(parseFloat(amount || '0'))})`}
+            {isLoading ? 'Processing...' : `Fund Wallet (${formatCurrency(parseFloat(amount || '0'))})`}
           </button>
-        </div>
-
-        <div className="bg-red-50 p-5 rounded-3xl border border-red-100 flex gap-4">
-           <RotateCcw className="text-red-600 shrink-0" size={20} />
-           <div className="text-[10px] font-bold text-red-700 leading-relaxed">
-             Safe Guarantee: All funding requests are debited first. If the betting provider gateway reports a timeout or error, the system performs an <span className="font-black">Instant Automated Refund</span> to your balance.
-           </div>
         </div>
       </div>
     </div>
