@@ -12,6 +12,21 @@ if (isset($_GET['action']) && $_GET['action'] === 'return_to_admin' && isset($_S
 
 require_admin();
 
+// Auto-migrate settings table for missing columns
+try {
+    $pdo->query("SELECT dailyLimitPhone FROM settings LIMIT 1");
+} catch (Exception $e) {
+    try { $pdo->exec("ALTER TABLE settings ADD COLUMN dailyLimitPhone INTEGER DEFAULT 10"); } catch(Exception $e2) {}
+    try { $pdo->exec("ALTER TABLE settings ADD COLUMN dailyLimitSmartCard INTEGER DEFAULT 5"); } catch(Exception $e2) {}
+    try { $pdo->exec("ALTER TABLE settings ADD COLUMN dailyLimitBetting INTEGER DEFAULT 5"); } catch(Exception $e2) {}
+    try { $pdo->exec("ALTER TABLE settings ADD COLUMN dailyLimitMeter INTEGER DEFAULT 5"); } catch(Exception $e2) {}
+    try { $pdo->exec("ALTER TABLE settings ADD COLUMN referralBonusFirstTx DECIMAL(20,2) DEFAULT 100"); } catch(Exception $e2) {}
+    try { $pdo->exec("ALTER TABLE settings ADD COLUMN darkModeEnabled INTEGER DEFAULT 0"); } catch(Exception $e2) {}
+    // Refresh settings global
+    $stmt = $pdo->query("SELECT * FROM settings LIMIT 1");
+    $settings = $stmt->fetch();
+}
+
 $user = get_current_user_data();
 $page = $_GET['page'] ?? 'overview';
 $success = $_GET['success'] ?? '';
@@ -76,7 +91,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('admin?page=sms&success=SMS ID Status updated');
     } elseif ($action === 'update_settings') {
         $stmt = $pdo->prepare("UPDATE settings SET smsRate = ?, kudiSmsToken = ?, siteName = ?, siteDescription = ?, adminWhatsapp = ?, dailyLimitPhone = ?, dailyLimitSmartCard = ?, dailyLimitBetting = ?, dailyLimitMeter = ?, referralBonusFirstTx = ?, darkModeEnabled = ?");
-        $stmt->execute([$_POST['smsRate'], $_POST['kudiSmsToken'], $_POST['siteName'], $_POST['siteDescription'], $_POST['adminWhatsapp'], $_POST['dailyLimitPhone'], $_POST['dailyLimitSmartCard'], $_POST['dailyLimitBetting'], $_POST['dailyLimitMeter'], $_POST['referralBonusFirstTx'], isset($_POST['darkModeEnabled']) ? 1 : 0]);
+        $stmt->execute([
+            $_POST['smsRate'] ?? 0,
+            $_POST['kudiSmsToken'] ?? '',
+            $_POST['siteName'] ?? '',
+            $_POST['siteDescription'] ?? '',
+            $_POST['adminWhatsapp'] ?? '',
+            $_POST['dailyLimitPhone'] ?? 10,
+            $_POST['dailyLimitSmartCard'] ?? 5,
+            $_POST['dailyLimitBetting'] ?? 5,
+            $_POST['dailyLimitMeter'] ?? 5,
+            $_POST['referralBonusFirstTx'] ?? 100,
+            isset($_POST['darkModeEnabled']) ? 1 : 0
+        ]);
 
         if (isset($_FILES['logo']) && $_FILES['logo']['error'] === UPLOAD_ERR_OK) {
             $ext = pathinfo($_FILES['logo']['name'], PATHINFO_EXTENSION);
@@ -189,18 +216,18 @@ $menuItems = [
                 </div>
                 <h3 class="text-xs font-black text-gray-800 uppercase tracking-widest pt-4">Daily Transaction Frequency Limits</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div><label class="block text-[10px] font-black text-gray-400 uppercase mb-2">Airtime (per Phone)</label><input type="number" name="dailyLimitPhone" value="<?php echo $settings['dailyLimitPhone']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold"></div>
-                    <div><label class="block text-[10px] font-black text-gray-400 uppercase mb-2">Cable (per SmartCard)</label><input type="number" name="dailyLimitSmartCard" value="<?php echo $settings['dailyLimitSmartCard']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold"></div>
-                    <div><label class="block text-[10px] font-black text-gray-400 uppercase mb-2">Betting (per ID)</label><input type="number" name="dailyLimitBetting" value="<?php echo $settings['dailyLimitBetting']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold"></div>
-                    <div><label class="block text-[10px] font-black text-gray-400 uppercase mb-2">Electric (per Meter)</label><input type="number" name="dailyLimitMeter" value="<?php echo $settings['dailyLimitMeter']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold"></div>
+                    <div><label class="block text-[10px] font-black text-gray-400 uppercase mb-2">Airtime (per Phone)</label><input type="number" name="dailyLimitPhone" value="<?php echo $settings['dailyLimitPhone'] ?? 10; ?>" class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold"></div>
+                    <div><label class="block text-[10px] font-black text-gray-400 uppercase mb-2">Cable (per SmartCard)</label><input type="number" name="dailyLimitSmartCard" value="<?php echo $settings['dailyLimitSmartCard'] ?? 5; ?>" class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold"></div>
+                    <div><label class="block text-[10px] font-black text-gray-400 uppercase mb-2">Betting (per ID)</label><input type="number" name="dailyLimitBetting" value="<?php echo $settings['dailyLimitBetting'] ?? 5; ?>" class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold"></div>
+                    <div><label class="block text-[10px] font-black text-gray-400 uppercase mb-2">Electric (per Meter)</label><input type="number" name="dailyLimitMeter" value="<?php echo $settings['dailyLimitMeter'] ?? 5; ?>" class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold"></div>
                 </div>
                 <div class="flex items-center gap-4 py-4">
                     <label class="flex items-center gap-3 cursor-pointer">
-                        <input type="checkbox" name="darkModeEnabled" <?php echo $settings['darkModeEnabled'] ? 'checked' : ''; ?> class="w-5 h-5 accent-vtu-green">
+                        <input type="checkbox" name="darkModeEnabled" <?php echo ($settings['darkModeEnabled'] ?? 0) ? 'checked' : ''; ?> class="w-5 h-5 accent-vtu-green">
                         <span class="text-xs font-black uppercase tracking-widest">Enable Dark Mode UI</span>
                     </label>
                 </div>
-                <div><label class="block text-[10px] font-black text-gray-400 uppercase mb-2">Referral Bonus (First Transaction)</label><input type="number" step="0.01" name="referralBonusFirstTx" value="<?php echo $settings['referralBonusFirstTx']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold"></div>
+                <div><label class="block text-[10px] font-black text-gray-400 uppercase mb-2">Referral Bonus (First Transaction)</label><input type="number" step="0.01" name="referralBonusFirstTx" value="<?php echo $settings['referralBonusFirstTx'] ?? 100; ?>" class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold"></div>
                 <button type="submit" class="w-full bg-vtu-green text-white py-4 rounded-2xl font-black shadow-lg">SAVE ALL SETTINGS</button>
             </form></div>
         <?php endif; ?>
