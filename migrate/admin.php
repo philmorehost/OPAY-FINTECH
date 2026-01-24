@@ -24,6 +24,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $pdo->prepare("UPDATE users SET fullName = ?, email = ?, walletBalance = ? WHERE id = ?");
         $stmt->execute([$_POST['fullName'], $_POST['email'], $_POST['balance'], $_POST['userId']]);
         redirect('admin?page=users&success=User updated');
+    } elseif ($action === 'create_user') {
+        $username = trim($_POST['username'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        $fullName = trim($_POST['fullName'] ?? '');
+        $password = $_POST['password'] ?? '';
+        $balance = (float)($_POST['balance'] ?? 0);
+
+        if ($username && $password) {
+            $stmt = $pdo->prepare("SELECT id FROM users WHERE LOWER(username) = LOWER(?)");
+            $stmt->execute([$username]);
+            if ($stmt->fetch()) {
+                redirect('admin?page=users&error=Username already exists');
+            } else {
+                $id = 'user-' . generate_id(8);
+                $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+                $stmt = $pdo->prepare("INSERT INTO users (id, username, fullName, email, password, walletBalance, role) VALUES (?, ?, ?, ?, ?, ?, 'user')");
+                $stmt->execute([$id, $username, $fullName, $email, $hashedPassword, $balance]);
+                redirect('admin?page=users&success=User created successfully');
+            }
+        } else {
+            redirect('admin?page=users&error=Username and Password are required');
+        }
     } elseif ($action === 'toggle_suspend') {
         $stmt = $pdo->prepare("UPDATE users SET isSuspended = 1 - isSuspended WHERE id = ?");
         $stmt->execute([$_POST['userId']]);
@@ -94,7 +116,13 @@ $menuItems = [['label' => 'Overview', 'icon' => 'layout-dashboard', 'page' => 'o
         <?php if ($page === 'overview'): ?>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"><div class="bg-white p-7 rounded-3xl border border-gray-100"><div class="text-[10px] text-gray-400 font-black uppercase mb-1">Total Users</div><div class="text-xl font-black"><?php echo $totalUsers; ?></div></div><div class="bg-white p-7 rounded-3xl border border-gray-100"><div class="text-[10px] text-gray-400 font-black uppercase mb-1">Platform Balance</div><div class="text-xl font-black"><?php echo format_currency($platformBalance); ?></div></div><div class="bg-white p-7 rounded-3xl border border-gray-100"><div class="text-[10px] text-gray-400 font-black uppercase mb-1">Pending SMS</div><div class="text-xl font-black text-amber-500"><?php echo $pendingSMS; ?></div></div></div>
         <?php elseif ($page === 'users'): ?>
-            <h2 class="text-2xl font-black mb-6">User Management</h2><div class="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden"><table class="w-full text-left"><thead><tr class="bg-gray-50 text-[10px] font-black text-gray-400 uppercase"><th class="px-8 py-4">User</th><th class="px-8 py-4">Balance</th><th class="px-8 py-4">Status</th><th class="px-8 py-4 text-right">Actions</th></tr></thead><tbody class="divide-y divide-gray-50"><?php $stmt = $pdo->query("SELECT * FROM users"); while ($u = $stmt->fetch()): ?><tr><td class="px-8 py-5 flex flex-col"><span class="text-xs font-bold"><?php echo h($u['fullName']); ?></span><span class="text-[9px] text-gray-400">@<?php echo h($u['username']); ?></span></td><td class="px-8 py-5 text-xs font-black text-vtu-green"><?php echo format_currency($u['walletBalance']); ?></td><td class="px-8 py-5 text-[10px] font-black uppercase"><?php echo $u['isSuspended'] ? '<span class="text-red-500">Suspended</span>' : '<span class="text-green-500">Active</span>'; ?></td><td class="px-8 py-5 text-right flex justify-end gap-2"><button onclick='editUser(<?php echo json_encode($u); ?>)' class="p-2 text-blue-500 bg-blue-50 rounded-xl"><i data-lucide="edit-3" size="16"></i></button><a href="?page=users&action=login_as&id=<?php echo $u['id']; ?>" class="p-2 text-indigo-500 bg-indigo-50 rounded-xl" title="Login as User"><i data-lucide="log-in" size="16"></i></a><form method="POST" style="display:inline"><input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>"><input type="hidden" name="action" value="toggle_suspend"><input type="hidden" name="userId" value="<?php echo $u['id']; ?>"><button type="submit" class="p-2 <?php echo $u['isSuspended'] ? 'text-green-500 bg-green-50' : 'text-red-500 bg-red-50'; ?> rounded-xl"><i data-lucide="<?php echo $u['isSuspended'] ? 'unlock' : 'lock'; ?>" size="16"></i></button></form></td></tr><?php endwhile; ?></tbody></table></div>
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-black">User Management</h2>
+                <button onclick="document.getElementById('createUserModal').classList.remove('hidden')" class="bg-vtu-green text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg flex items-center gap-2">
+                    <i data-lucide="plus" size="16"></i> Create User
+                </button>
+            </div>
+            <div class="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden"><table class="w-full text-left"><thead><tr class="bg-gray-50 text-[10px] font-black text-gray-400 uppercase"><th class="px-8 py-4">User</th><th class="px-8 py-4">Balance</th><th class="px-8 py-4">Status</th><th class="px-8 py-4 text-right">Actions</th></tr></thead><tbody class="divide-y divide-gray-50"><?php $stmt = $pdo->query("SELECT * FROM users"); while ($u = $stmt->fetch()): ?><tr><td class="px-8 py-5 flex flex-col"><span class="text-xs font-bold"><?php echo h($u['fullName']); ?></span><span class="text-[9px] text-gray-400">@<?php echo h($u['username']); ?></span></td><td class="px-8 py-5 text-xs font-black text-vtu-green"><?php echo format_currency($u['walletBalance']); ?></td><td class="px-8 py-5 text-[10px] font-black uppercase"><?php echo $u['isSuspended'] ? '<span class="text-red-500">Suspended</span>' : '<span class="text-green-500">Active</span>'; ?></td><td class="px-8 py-5 text-right flex justify-end gap-2"><button onclick='editUser(<?php echo json_encode($u); ?>)' class="p-2 text-blue-500 bg-blue-50 rounded-xl"><i data-lucide="edit-3" size="16"></i></button><a href="?page=users&action=login_as&id=<?php echo $u['id']; ?>" class="p-2 text-indigo-500 bg-indigo-50 rounded-xl" title="Login as User"><i data-lucide="log-in" size="16"></i></a><form method="POST" style="display:inline"><input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>"><input type="hidden" name="action" value="toggle_suspend"><input type="hidden" name="userId" value="<?php echo $u['id']; ?>"><button type="submit" class="p-2 <?php echo $u['isSuspended'] ? 'text-green-500 bg-green-50' : 'text-red-500 bg-red-50'; ?> rounded-xl"><i data-lucide="<?php echo $u['isSuspended'] ? 'unlock' : 'lock'; ?>" size="16"></i></button></form></td></tr><?php endwhile; ?></tbody></table></div>
         <?php elseif ($page === 'deposits'): ?>
             <h2 class="text-2xl font-black mb-6">Deposit Requests</h2><div class="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden"><table class="w-full text-left"><thead><tr class="bg-gray-50 text-[10px] font-black text-gray-400 uppercase"><th class="px-8 py-4">User</th><th class="px-8 py-4">Amount</th><th class="px-8 py-4">Method</th><th class="px-8 py-4 text-right">Actions</th></tr></thead><tbody class="divide-y divide-gray-50"><?php $stmt = $pdo->query("SELECT d.*, u.fullName FROM deposit_requests d JOIN users u ON d.userId = u.id WHERE d.status = 'pending'"); while ($r = $stmt->fetch()): ?><tr><td class="px-8 py-5 font-bold text-xs"><?php echo h($r['fullName']); ?><br><small class="text-gray-400"><?php echo h($r['senderName']); ?></small></td><td class="px-8 py-5 text-xs font-black text-indigo-600"><?php echo format_currency($r['amount']); ?></td><td class="px-8 py-5 text-[10px] font-black uppercase"><?php echo h($r['method']); ?></td><td class="px-8 py-5 text-right flex justify-end gap-2"><form method="POST" style="display:inline"><input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>"><input type="hidden" name="action" value="approve_deposit"><input type="hidden" name="id" value="<?php echo $r['id']; ?>"><button type="submit" class="p-2 text-green-500 bg-green-50 rounded-xl"><i data-lucide="check" size="16"></i></button></form><form method="POST" style="display:inline"><input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>"><input type="hidden" name="action" value="reject_deposit"><input type="hidden" name="id" value="<?php echo $r['id']; ?>"><button type="submit" class="p-2 text-red-500 bg-red-50 rounded-xl"><i data-lucide="x" size="16"></i></button></form></td></tr><?php endwhile; ?></tbody></table></div>
         <?php elseif ($page === 'sms'): ?>
@@ -126,5 +154,24 @@ $menuItems = [['label' => 'Overview', 'icon' => 'layout-dashboard', 'page' => 'o
   </main>
 </div>
 <div id="editUserModal" class="hidden fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-6"><div class="bg-white w-full max-w-sm rounded-[40px] p-8"><h3 class="text-lg font-black mb-6">Edit User</h3><form method="POST"><input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>"><input type="hidden" name="action" value="edit_user"><input type="hidden" name="userId" id="editUserId"><div class="space-y-4"><input type="text" name="fullName" id="editFullName" class="w-full p-4 bg-gray-50 rounded-2xl outline-none text-sm font-bold" placeholder="Full Name"><input type="email" name="email" id="editEmail" class="w-full p-4 bg-gray-50 rounded-2xl outline-none text-sm font-bold" placeholder="Email"><input type="number" step="0.01" name="balance" id="editBalance" class="w-full p-4 bg-gray-50 rounded-2xl outline-none text-sm font-bold" placeholder="Balance"><button type="submit" class="w-full bg-vtu-green text-white py-4 rounded-2xl font-black">SAVE CHANGES</button><button type="button" onclick="document.getElementById('editUserModal').classList.add('hidden')" class="w-full text-gray-400 font-bold text-xs uppercase mt-4">Cancel</button></div></form></div></div>
+
+<div id="createUserModal" class="hidden fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-6">
+    <div class="bg-white w-full max-w-sm rounded-[40px] p-8">
+        <h3 class="text-lg font-black mb-6">Create New User</h3>
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
+            <input type="hidden" name="action" value="create_user">
+            <div class="space-y-4">
+                <input type="text" name="fullName" class="w-full p-4 bg-gray-50 rounded-2xl outline-none text-sm font-bold" placeholder="Full Name" required>
+                <input type="text" name="username" class="w-full p-4 bg-gray-50 rounded-2xl outline-none text-sm font-bold" placeholder="Username" required>
+                <input type="email" name="email" class="w-full p-4 bg-gray-50 rounded-2xl outline-none text-sm font-bold" placeholder="Email Address">
+                <input type="password" name="password" class="w-full p-4 bg-gray-50 rounded-2xl outline-none text-sm font-bold" placeholder="Password" required>
+                <input type="number" step="0.01" name="balance" class="w-full p-4 bg-gray-50 rounded-2xl outline-none text-sm font-bold" placeholder="Initial Balance (Optional)" value="0">
+                <button type="submit" class="w-full bg-vtu-green text-white py-4 rounded-2xl font-black shadow-lg">CREATE ACCOUNT</button>
+                <button type="button" onclick="document.getElementById('createUserModal').classList.add('hidden')" class="w-full text-gray-400 font-bold text-xs uppercase mt-4">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
 <script> function editUser(u) { document.getElementById('editUserId').value = u.id; document.getElementById('editFullName').value = u.fullName; document.getElementById('editEmail').value = u.email; document.getElementById('editBalance').value = u.walletBalance; document.getElementById('editUserModal').classList.remove('hidden'); } </script>
 <?php require_once 'includes/footer.php'; ?>
