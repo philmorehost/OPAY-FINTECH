@@ -155,6 +155,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       vtPassPublicKey: '',
       vtPassEmail: '',
       vtPassPassword: '',
+      kudiSmsToken: '',
+      stripeSecretKey: '',
+      tremendousApiKey: '',
+      juicywayApiKey: '',
       examProviders: [],
       dataNetworks: [
         { id: 'mtn', name: 'MTN', apiCode: 'mtn' },

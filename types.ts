@@ -178,6 +178,10 @@ export interface Settings {
   vtPassPublicKey: string;
   vtPassEmail?: string;
   vtPassPassword?: string;
+  kudiSmsToken: string;
+  stripeSecretKey: string;
+  tremendousApiKey: string;
+  juicywayApiKey: string;
   examProviders: ExamProvider[];
   dataNetworks: DataNetwork[];
   dataProducts: DataProduct[];
