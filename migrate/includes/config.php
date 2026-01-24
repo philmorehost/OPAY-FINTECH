@@ -14,9 +14,11 @@ try {
 
     // Quick check if fully installed
     $stmt = $pdo->query("SELECT * FROM settings LIMIT 1");
-    $settings = $stmt->fetch();
+    $settings = $stmt->fetch() ?: [];
 
-    if (!$settings) { throw new Exception("Incomplete installation"); }
+    if (empty($settings) && basename($_SERVER['PHP_SELF']) !== 'install.php') {
+        throw new Exception("Incomplete installation");
+    }
 } catch (Exception $e) {
     if (basename($_SERVER['PHP_SELF']) !== 'install.php') {
         header('Location: install.php');

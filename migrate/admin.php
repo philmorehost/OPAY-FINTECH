@@ -12,20 +12,28 @@ if (isset($_GET['action']) && $_GET['action'] === 'return_to_admin' && isset($_S
 
 require_admin();
 
-// Auto-migrate settings table for missing columns
+// Auto-migrate settings table for missing columns - more robust check
+$cols_to_add = [
+    'dailyLimitPhone' => 'INTEGER DEFAULT 10',
+    'dailyLimitSmartCard' => 'INTEGER DEFAULT 5',
+    'dailyLimitBetting' => 'INTEGER DEFAULT 5',
+    'dailyLimitMeter' => 'INTEGER DEFAULT 5',
+    'referralBonusFirstTx' => 'DECIMAL(20,2) DEFAULT 100',
+    'darkModeEnabled' => 'INTEGER DEFAULT 0'
+];
+$existing_cols = [];
 try {
-    $pdo->query("SELECT dailyLimitPhone FROM settings LIMIT 1");
-} catch (Exception $e) {
-    try { $pdo->exec("ALTER TABLE settings ADD COLUMN dailyLimitPhone INTEGER DEFAULT 10"); } catch(Exception $e2) {}
-    try { $pdo->exec("ALTER TABLE settings ADD COLUMN dailyLimitSmartCard INTEGER DEFAULT 5"); } catch(Exception $e2) {}
-    try { $pdo->exec("ALTER TABLE settings ADD COLUMN dailyLimitBetting INTEGER DEFAULT 5"); } catch(Exception $e2) {}
-    try { $pdo->exec("ALTER TABLE settings ADD COLUMN dailyLimitMeter INTEGER DEFAULT 5"); } catch(Exception $e2) {}
-    try { $pdo->exec("ALTER TABLE settings ADD COLUMN referralBonusFirstTx DECIMAL(20,2) DEFAULT 100"); } catch(Exception $e2) {}
-    try { $pdo->exec("ALTER TABLE settings ADD COLUMN darkModeEnabled INTEGER DEFAULT 0"); } catch(Exception $e2) {}
+    $q = $pdo->query("DESCRIBE settings");
+    while ($row = $q->fetch()) { $existing_cols[] = $row['Field']; }
+    foreach ($cols_to_add as $col => $def) {
+        if (!in_array($col, $existing_cols)) {
+            $pdo->exec("ALTER TABLE settings ADD COLUMN $col $def");
+        }
+    }
     // Refresh settings global
     $stmt = $pdo->query("SELECT * FROM settings LIMIT 1");
-    $settings = $stmt->fetch();
-}
+    $settings = $stmt->fetch() ?: [];
+} catch (Exception $e) {}
 
 $user = get_current_user_data();
 $page = $_GET['page'] ?? 'overview';
@@ -90,7 +98,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $pdo->prepare("UPDATE sms_sender_ids SET status = ? WHERE id = ?"); $stmt->execute([$status, $id]);
         redirect('admin?page=sms&success=SMS ID Status updated');
     } elseif ($action === 'update_settings') {
-        $stmt = $pdo->prepare("UPDATE settings SET smsRate = ?, kudiSmsToken = ?, siteName = ?, siteDescription = ?, adminWhatsapp = ?, dailyLimitPhone = ?, dailyLimitSmartCard = ?, dailyLimitBetting = ?, dailyLimitMeter = ?, referralBonusFirstTx = ?, darkModeEnabled = ?");
+        // Ensure settings row exists
+        $count = $pdo->query("SELECT COUNT(*) FROM settings")->fetchColumn();
+        if ($count == 0) { $pdo->exec("INSERT INTO settings (siteName) VALUES ('VTU-Fintech')"); }
+
+        $stmt = $pdo->prepare("UPDATE settings SET smsRate = ?, kudiSmsToken = ?, siteName = ?, siteDescription = ?, adminWhatsapp = ?, dailyLimitPhone = ?, dailyLimitSmartCard = ?, dailyLimitBetting = ?, dailyLimitMeter = ?, referralBonusFirstTx = ?, darkModeEnabled = ? WHERE id > 0 LIMIT 1");
         $stmt->execute([
             $_POST['smsRate'] ?? 0,
             $_POST['kudiSmsToken'] ?? '',
@@ -202,17 +214,17 @@ $menuItems = [
                 <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
                 <input type="hidden" name="action" value="update_settings">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div><label class="block text-[10px] font-black text-gray-400 uppercase mb-2">Site Name</label><input type="text" name="siteName" value="<?php echo h($settings['siteName']); ?>" class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold"></div>
-                    <div><label class="block text-[10px] font-black text-gray-400 uppercase mb-2">WhatsApp Number</label><input type="text" name="adminWhatsapp" value="<?php echo h($settings['adminWhatsapp']); ?>" class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold"></div>
+                    <div><label class="block text-[10px] font-black text-gray-400 uppercase mb-2">Site Name</label><input type="text" name="siteName" value="<?php echo h($settings['siteName'] ?? 'VTU-Fintech'); ?>" class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold"></div>
+                    <div><label class="block text-[10px] font-black text-gray-400 uppercase mb-2">WhatsApp Number</label><input type="text" name="adminWhatsapp" value="<?php echo h($settings['adminWhatsapp'] ?? ''); ?>" class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold"></div>
                 </div>
-                <div><label class="block text-[10px] font-black text-gray-400 uppercase mb-2">Site Description (SEO)</label><textarea name="siteDescription" class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold h-24"><?php echo h($settings['siteDescription']); ?></textarea></div>
+                <div><label class="block text-[10px] font-black text-gray-400 uppercase mb-2">Site Description (SEO)</label><textarea name="siteDescription" class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold h-24"><?php echo h($settings['siteDescription'] ?? ''); ?></textarea></div>
                 <div><label class="block text-[10px] font-black text-gray-400 uppercase mb-2">Site Logo</label>
-                    <?php if ($settings['logoPath']): ?><img src="<?php echo $settings['logoPath']; ?>" class="h-12 mb-2"><?php endif; ?>
+                    <?php if (!empty($settings['logoPath'])): ?><img src="<?php echo h($settings['logoPath']); ?>" class="h-12 mb-2"><?php endif; ?>
                     <input type="file" name="logo" class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold">
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div><label class="block text-[10px] font-black text-gray-400 uppercase mb-2">SMS Price (per unit)</label><input type="number" step="0.01" name="smsRate" value="<?php echo $settings['smsRate']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold"></div>
-                    <div><label class="block text-[10px] font-black text-gray-400 uppercase mb-2">KudiSMS API Token</label><input type="text" name="kudiSmsToken" value="<?php echo $settings['kudiSmsToken']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold"></div>
+                    <div><label class="block text-[10px] font-black text-gray-400 uppercase mb-2">SMS Price (per unit)</label><input type="number" step="0.01" name="smsRate" value="<?php echo $settings['smsRate'] ?? 0; ?>" class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold"></div>
+                    <div><label class="block text-[10px] font-black text-gray-400 uppercase mb-2">KudiSMS API Token</label><input type="text" name="kudiSmsToken" value="<?php echo h($settings['kudiSmsToken'] ?? ''); ?>" class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold"></div>
                 </div>
                 <h3 class="text-xs font-black text-gray-800 uppercase tracking-widest pt-4">Daily Transaction Frequency Limits</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">

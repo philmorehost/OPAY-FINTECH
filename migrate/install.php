@@ -56,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $db->exec("CREATE TABLE IF NOT EXISTS users (id $pk, username VARCHAR(100) UNIQUE, fullName TEXT, walletBalance $num DEFAULT 0, bonusCoins INTEGER DEFAULT 0, role VARCHAR(20), phone VARCHAR(20), password TEXT, isSuspended INTEGER DEFAULT 0, streakCount INTEGER DEFAULT 0, lastPurchaseDate TEXT, referralCount INTEGER DEFAULT 0, referralEarnings $num DEFAULT 0, kycStatus VARCHAR(20) DEFAULT 'none', tier INTEGER DEFAULT 1, email VARCHAR(100), loginAlertsEnabled INTEGER DEFAULT 1, biometricEnabled INTEGER DEFAULT 0, authorizedDevices TEXT)");
             $db->exec("CREATE TABLE IF NOT EXISTS transactions (id $pk, userId VARCHAR(100), type TEXT, amount $num, status TEXT, date TEXT, details TEXT, recipient TEXT, provider TEXT, refunded INTEGER DEFAULT 0)");
-            $db->exec("CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY AUTO_INCREMENT, bonusPerDay $num, referralBonus $num, welcomeBonus $num, streakBonus $num, maxCoinThreshold $num, conversionRate $num, bankAccount TEXT, bankName TEXT, accountName TEXT, manualDepositCharge $num, paystackChargePercent $num, paystackPublicKey TEXT, paystackSecretKey TEXT, maxDailyTxPerId INTEGER, minDepositAmount $num, minAirtimePurchase $num, isMaintenanceMode INTEGER, adminTheme TEXT, smtpHost TEXT, smtpPort TEXT, smtpUser TEXT, smtpPass TEXT, senderName TEXT, fromEmail TEXT, smsRate $num, kudiSmsToken TEXT, apiKeys TEXT, offers TEXT, nellobyteUserId TEXT, nellobyteApiKey TEXT, dataGiftingApiKey TEXT, examApiKey TEXT, vtPassApiKey TEXT, vtPassPublicKey TEXT, vtPassEmail TEXT, vtPassPassword TEXT, examProviders TEXT, dataNetworks TEXT, cableProviders TEXT, airtimeDiscounts TEXT, siteName TEXT, siteDescription TEXT, logoPath TEXT, adminWhatsapp TEXT)");
+            $db->exec("CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY AUTO_INCREMENT, bonusPerDay $num, referralBonus $num, welcomeBonus $num, streakBonus $num, maxCoinThreshold $num, conversionRate $num, bankAccount TEXT, bankName TEXT, accountName TEXT, manualDepositCharge $num, paystackChargePercent $num, paystackPublicKey TEXT, paystackSecretKey TEXT, maxDailyTxPerId INTEGER, minDepositAmount $num, minAirtimePurchase $num, isMaintenanceMode INTEGER, adminTheme TEXT, smtpHost TEXT, smtpPort TEXT, smtpUser TEXT, smtpPass TEXT, senderName TEXT, fromEmail TEXT, smsRate $num, kudiSmsToken TEXT, apiKeys TEXT, offers TEXT, nellobyteUserId TEXT, nellobyteApiKey TEXT, dataGiftingApiKey TEXT, examApiKey TEXT, vtPassApiKey TEXT, vtPassPublicKey TEXT, vtPassEmail TEXT, vtPassPassword TEXT, examProviders TEXT, dataNetworks TEXT, cableProviders TEXT, airtimeDiscounts TEXT, siteName TEXT, siteDescription TEXT, logoPath TEXT, adminWhatsapp TEXT, dailyLimitPhone INTEGER DEFAULT 10, dailyLimitSmartCard INTEGER DEFAULT 5, dailyLimitBetting INTEGER DEFAULT 5, dailyLimitMeter INTEGER DEFAULT 5, referralBonusFirstTx $num DEFAULT 100, milestoneBonuses TEXT, darkModeEnabled INTEGER DEFAULT 0)");
             $db->exec("CREATE TABLE IF NOT EXISTS deposit_requests (id $pk, userId VARCHAR(100), amount $num, method TEXT, status TEXT, date TEXT, senderName TEXT, reference TEXT, charge $num)");
             $db->exec("CREATE TABLE IF NOT EXISTS sms_sender_ids (id $pk, userId VARCHAR(100), name TEXT, sampleMessage TEXT, status TEXT, createdAt TEXT)");
             $db->exec("CREATE TABLE IF NOT EXISTS gift_card_requests (id $pk, userId VARCHAR(100), cardBrand TEXT, amount $num, nairaAmount $num, type TEXT, code TEXT, status TEXT, date TEXT, rate $num)");
@@ -76,14 +76,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try { $db->exec("ALTER TABLE users ADD COLUMN occupation TEXT"); } catch(Exception $e) {}
             try { $db->exec("ALTER TABLE users ADD COLUMN referredBy VARCHAR(100)"); } catch(Exception $e) {}
 
-            // Update settings table
-            try { $db->exec("ALTER TABLE settings ADD COLUMN dailyLimitPhone INTEGER DEFAULT 10"); } catch(Exception $e) {}
-            try { $db->exec("ALTER TABLE settings ADD COLUMN dailyLimitSmartCard INTEGER DEFAULT 5"); } catch(Exception $e) {}
-            try { $db->exec("ALTER TABLE settings ADD COLUMN dailyLimitBetting INTEGER DEFAULT 5"); } catch(Exception $e) {}
-            try { $db->exec("ALTER TABLE settings ADD COLUMN dailyLimitMeter INTEGER DEFAULT 5"); } catch(Exception $e) {}
-            try { $db->exec("ALTER TABLE settings ADD COLUMN referralBonusFirstTx $num DEFAULT 100"); } catch(Exception $e) {}
-            try { $db->exec("ALTER TABLE settings ADD COLUMN milestoneBonuses TEXT"); } catch(Exception $e) {}
-            try { $db->exec("ALTER TABLE settings ADD COLUMN darkModeEnabled INTEGER DEFAULT 0"); } catch(Exception $e) {}
+            // Update settings table - check columns before adding
+            $existing_cols = [];
+            $q = $db->query("DESCRIBE settings");
+            while ($row = $q->fetch()) { $existing_cols[] = $row['Field']; }
+            $new_cols = [
+                'dailyLimitPhone' => 'INTEGER DEFAULT 10',
+                'dailyLimitSmartCard' => 'INTEGER DEFAULT 5',
+                'dailyLimitBetting' => 'INTEGER DEFAULT 5',
+                'dailyLimitMeter' => 'INTEGER DEFAULT 5',
+                'referralBonusFirstTx' => "$num DEFAULT 100",
+                'milestoneBonuses' => 'TEXT',
+                'darkModeEnabled' => 'INTEGER DEFAULT 0'
+            ];
+            foreach ($new_cols as $col => $def) {
+                if (!in_array($col, $existing_cols)) {
+                    $db->exec("ALTER TABLE settings ADD COLUMN $col $def");
+                }
+            }
 
             $settingsCount = $db->query("SELECT COUNT(*) FROM settings")->fetchColumn();
             if ($settingsCount == 0) {
