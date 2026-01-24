@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest">Select Asset</label>
             <select name="asset" class="w-full p-4 bg-gray-50 rounded-2xl font-black mb-4 outline-none"><?php foreach ($assets as $a): ?><option value="<?php echo h($a['name']); ?>"><?php echo h($a['name']); ?> - $<?php echo number_format($a['price'], 2); ?></option><?php endforeach; ?></select>
             <input type="number" name="amount" required placeholder="Amount in ₦" class="w-full p-5 bg-gray-50 text-gray-900 border-none outline-none rounded-2xl font-black text-2xl" />
-            <button type="submit" class="w-full bg-opay-green text-white font-black py-5 rounded-[24px] mt-4 shadow-xl">CONFIRM TRADE</button>
+            <button type="submit" class="w-full bg-vtu-green text-white font-black py-5 rounded-[24px] mt-4 shadow-xl">CONFIRM TRADE</button>
         </form>
     </div>
   </div>

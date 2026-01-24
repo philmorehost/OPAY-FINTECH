@@ -6,9 +6,14 @@ $stage = $_GET['stage'] ?? 1;
 if (file_exists(DB_PATH) && $stage == 1) {
     try {
         $pdo = new PDO('sqlite:' . DB_PATH);
-        $check = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='settings'");
-        if ($check->fetch()) {
-            die("System already installed. Please delete install.php for security.");
+        $checkSettings = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='settings'");
+        $checkUsers = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='users'");
+
+        if ($checkSettings->fetch() && $checkUsers->fetch()) {
+            $adminCheck = $pdo->query("SELECT COUNT(*) FROM users WHERE role='admin'")->fetchColumn();
+            if ($adminCheck > 0) {
+                die("System already installed. Please delete install.php for security.");
+            }
         }
     } catch (Exception $e) {}
 }
@@ -25,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $db->exec("CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT UNIQUE, fullName TEXT, walletBalance REAL DEFAULT 0, bonusCoins INTEGER DEFAULT 0, role TEXT, phone TEXT, password TEXT, isSuspended INTEGER DEFAULT 0, streakCount INTEGER DEFAULT 0, lastPurchaseDate TEXT, referralCount INTEGER DEFAULT 0, referralEarnings REAL DEFAULT 0, kycStatus TEXT DEFAULT 'none', tier INTEGER DEFAULT 1, email TEXT, loginAlertsEnabled INTEGER DEFAULT 1, biometricEnabled INTEGER DEFAULT 0, authorizedDevices TEXT)");
             $db->exec("CREATE TABLE IF NOT EXISTS transactions (id TEXT PRIMARY KEY, userId TEXT, type TEXT, amount REAL, status TEXT, date TEXT, details TEXT, recipient TEXT, provider TEXT, refunded INTEGER DEFAULT 0, FOREIGN KEY(userId) REFERENCES users(id))");
-            $db->exec("CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY, bonusPerDay REAL, referralBonus REAL, welcomeBonus REAL, streakBonus REAL, maxCoinThreshold REAL, conversionRate REAL, bankAccount TEXT, bankName TEXT, accountName TEXT, manualDepositCharge REAL, paystackChargePercent REAL, paystackPublicKey TEXT, paystackSecretKey TEXT, maxDailyTxPerId INTEGER, minDepositAmount REAL, minAirtimePurchase REAL, isMaintenanceMode INTEGER, adminTheme TEXT, smtpHost TEXT, smtpPort TEXT, smtpUser TEXT, smtpPass TEXT, senderName TEXT, fromEmail TEXT, smsRate REAL, kudiSmsToken TEXT, apiKeys TEXT, offers TEXT, nellobyteUserId TEXT, nellobyteApiKey TEXT, dataGiftingApiKey TEXT, examApiKey TEXT, vtPassApiKey TEXT, vtPassPublicKey TEXT, vtPassEmail TEXT, vtPassPassword TEXT, examProviders TEXT, dataNetworks TEXT, cableProviders TEXT, airtimeDiscounts TEXT)");
+            $db->exec("CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY, bonusPerDay REAL, referralBonus REAL, welcomeBonus REAL, streakBonus REAL, maxCoinThreshold REAL, conversionRate REAL, bankAccount TEXT, bankName TEXT, accountName TEXT, manualDepositCharge REAL, paystackChargePercent REAL, paystackPublicKey TEXT, paystackSecretKey TEXT, maxDailyTxPerId INTEGER, minDepositAmount REAL, minAirtimePurchase REAL, isMaintenanceMode INTEGER, adminTheme TEXT, smtpHost TEXT, smtpPort TEXT, smtpUser TEXT, smtpPass TEXT, senderName TEXT, fromEmail TEXT, smsRate REAL, kudiSmsToken TEXT, apiKeys TEXT, offers TEXT, nellobyteUserId TEXT, nellobyteApiKey TEXT, dataGiftingApiKey TEXT, examApiKey TEXT, vtPassApiKey TEXT, vtPassPublicKey TEXT, vtPassEmail TEXT, vtPassPassword TEXT, examProviders TEXT, dataNetworks TEXT, cableProviders TEXT, airtimeDiscounts TEXT, siteName TEXT, siteDescription TEXT, logoPath TEXT, adminWhatsapp TEXT)");
             $db->exec("CREATE TABLE IF NOT EXISTS deposit_requests (id TEXT PRIMARY KEY, userId TEXT, amount REAL, method TEXT, status TEXT, date TEXT, senderName TEXT, reference TEXT, charge REAL, FOREIGN KEY(userId) REFERENCES users(id))");
             $db->exec("CREATE TABLE IF NOT EXISTS sms_sender_ids (id TEXT PRIMARY KEY, userId TEXT, name TEXT, sampleMessage TEXT, status TEXT, createdAt TEXT, FOREIGN KEY(userId) REFERENCES users(id))");
             $db->exec("CREATE TABLE IF NOT EXISTS gift_card_requests (id TEXT PRIMARY KEY, userId TEXT, cardBrand TEXT, amount REAL, nairaAmount REAL, type TEXT, code TEXT, status TEXT, date TEXT, rate REAL, FOREIGN KEY(userId) REFERENCES users(id))");
@@ -38,10 +43,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Seed default settings
             $settings = [
                 'bonusPerDay' => 20, 'referralBonus' => 100, 'welcomeBonus' => 50, 'streakBonus' => 150, 'maxCoinThreshold' => 200, 'conversionRate' => 20,
-                'bankAccount' => '1234567890', 'bankName' => 'O-Pay Digital Bank', 'accountName' => 'OPAY CLONE TECH', 'manualDepositCharge' => 50,
+                'bankAccount' => '1234567890', 'bankName' => 'O-Pay Digital Bank', 'accountName' => 'VTU-Fintech CLONE TECH', 'manualDepositCharge' => 50,
                 'paystackChargePercent' => 1.5, 'paystackPublicKey' => '', 'paystackSecretKey' => '', 'maxDailyTxPerId' => 3, 'minDepositAmount' => 100, 'minAirtimePurchase' => 50,
-                'isMaintenanceMode' => 0, 'adminTheme' => 'light', 'smtpHost' => '', 'smtpPort' => '', 'smtpUser' => '', 'smtpPass' => '', 'senderName' => 'OPay Support', 'fromEmail' => '', 'smsRate' => 4.5, 'kudiSmsToken' => '',
+                'isMaintenanceMode' => 0, 'adminTheme' => 'light', 'smtpHost' => '', 'smtpPort' => '', 'smtpUser' => '', 'smtpPass' => '', 'senderName' => 'VTU-Fintech Support', 'fromEmail' => '', 'smsRate' => 4.5, 'kudiSmsToken' => '',
                 'apiKeys' => json_encode([]), 'offers' => json_encode([]), 'nellobyteUserId' => '', 'nellobyteApiKey' => '', 'dataGiftingApiKey' => '', 'examApiKey' => '', 'vtPassApiKey' => '', 'vtPassPublicKey' => '',
+                'siteName' => 'VTU-Fintech', 'siteDescription' => 'The most reliable VTU and Fintech platform.', 'logoPath' => '', 'adminWhatsapp' => '2349000000000',
                 'examProviders' => json_encode([
                     ['id' => 'waec', 'name' => 'WAEC PIN', 'userPrice' => 3500, 'enabled' => true],
                     ['id' => 'neco', 'name' => 'NECO PIN', 'userPrice' => 1200, 'enabled' => true]
@@ -109,7 +115,7 @@ $ready = version_compare($php_version, '7.4.0', '>=') && $pdo_sqlite && $openssl
 <body class="bg-gray-50 flex items-center justify-center min-h-screen">
     <div class="bg-white p-10 rounded-[40px] shadow-2xl w-full max-w-md border border-gray-100">
         <?php if ($stage == 1): ?>
-            <h2 class="text-2xl font-black mb-6">Welcome to OPay Clone</h2>
+            <h2 class="text-2xl font-black mb-6">Welcome to VTU-Fintech Clone</h2>
             <div class="space-y-4 mb-8">
                 <div class="flex justify-between items-center text-sm">
                     <span>PHP Version (>= 7.4)</span>
@@ -149,7 +155,7 @@ $ready = version_compare($php_version, '7.4.0', '>=') && $pdo_sqlite && $openssl
 
         <?php elseif ($stage == 4): ?>
             <h2 class="text-2xl font-black text-green-600 mb-4">Congratulations!</h2>
-            <p class="text-gray-600 mb-6">OPay Clone has been successfully installed.</p>
+            <p class="text-gray-600 mb-6">VTU-Fintech Clone has been successfully installed.</p>
             <div class="bg-gray-50 p-6 rounded-2xl space-y-4 mb-8">
                 <h3 class="font-black text-xs uppercase tracking-widest text-gray-400">Next Steps:</h3>
                 <ul class="text-sm space-y-2 font-bold">
@@ -159,7 +165,7 @@ $ready = version_compare($php_version, '7.4.0', '>=') && $pdo_sqlite && $openssl
                     <li>4. Add Data plans and Exam products.</li>
                 </ul>
             </div>
-            <a href="login" class="block w-full bg-opay-green text-white text-center py-4 rounded-2xl font-bold">LOGIN NOW</a>
+            <a href="login" class="block w-full bg-vtu-green text-white text-center py-4 rounded-2xl font-bold">LOGIN NOW</a>
         <?php endif; ?>
     </div>
 </body>

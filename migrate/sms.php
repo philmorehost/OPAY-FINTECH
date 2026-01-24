@@ -93,14 +93,14 @@ $myContacts = $stmt->fetchAll();
         <?php if ($error): ?><div class="p-4 bg-red-50 text-red-800 border border-red-200 rounded-2xl flex items-center gap-3 animate-fade-in"><i data-lucide="alert-circle" size="20"></i><span class="text-sm font-bold"><?php echo h($error); ?></span></div><?php endif; ?>
 
         <div class="flex bg-gray-200 p-1.5 rounded-[24px]">
-            <a href="?tab=compose" class="flex-1 py-3.5 rounded-2xl text-[9px] font-black uppercase tracking-widest text-center transition-all <?php echo $activeTab === 'compose' ? 'bg-white shadow-xl text-opay-green' : 'text-gray-500'; ?>">Compose</a>
-            <a href="?tab=ids" class="flex-1 py-3.5 rounded-2xl text-[9px] font-black uppercase tracking-widest text-center transition-all <?php echo $activeTab === 'ids' ? 'bg-white shadow-xl text-opay-green' : 'text-gray-500'; ?>">Sender IDs</a>
-            <a href="?tab=contacts" class="flex-1 py-3.5 rounded-2xl text-[9px] font-black uppercase tracking-widest text-center transition-all <?php echo $activeTab === 'contacts' ? 'bg-white shadow-xl text-opay-green' : 'text-gray-500'; ?>">Phone Book</a>
+            <a href="?tab=compose" class="flex-1 py-3.5 rounded-2xl text-[9px] font-black uppercase tracking-widest text-center transition-all <?php echo $activeTab === 'compose' ? 'bg-white shadow-xl text-vtu-green' : 'text-gray-500'; ?>">Compose</a>
+            <a href="?tab=ids" class="flex-1 py-3.5 rounded-2xl text-[9px] font-black uppercase tracking-widest text-center transition-all <?php echo $activeTab === 'ids' ? 'bg-white shadow-xl text-vtu-green' : 'text-gray-500'; ?>">Sender IDs</a>
+            <a href="?tab=contacts" class="flex-1 py-3.5 rounded-2xl text-[9px] font-black uppercase tracking-widest text-center transition-all <?php echo $activeTab === 'contacts' ? 'bg-white shadow-xl text-vtu-green' : 'text-gray-500'; ?>">Phone Book</a>
         </div>
 
         <?php if ($activeTab === 'compose'): ?>
             <div class="space-y-6 animate-fade-in">
-                <div class="bg-gradient-to-br from-opay-green to-emerald-600 p-6 rounded-[32px] text-white shadow-lg relative overflow-hidden">
+                <div class="bg-gradient-to-br from-vtu-green to-emerald-600 p-6 rounded-[32px] text-white shadow-lg relative overflow-hidden">
                     <div class="flex justify-between items-start mb-4">
                         <div><div class="text-[10px] font-black uppercase tracking-widest opacity-70">Current Rate</div><div class="text-2xl font-black"><?php echo format_currency($settings['smsRate']); ?><span class="text-xs font-bold opacity-60"> / SMS</span></div></div>
                         <div class="bg-white/20 p-2 rounded-xl"><i data-lucide="info" size="16"></i></div>
@@ -119,7 +119,7 @@ $myContacts = $stmt->fetchAll();
                         <?php if (empty($myApprovedIds)): ?>
                             <div class="p-4 bg-orange-50 rounded-2xl border border-orange-100 text-[10px] font-bold text-orange-600">No approved IDs. Register one in the 'Sender IDs' tab.</div>
                         <?php else: ?>
-                            <select name="senderId" required class="w-full p-4 bg-gray-50 text-gray-900 border-2 border-transparent focus:border-opay-green outline-none rounded-2xl font-bold appearance-none cursor-pointer">
+                            <select name="senderId" required class="w-full p-4 bg-gray-50 text-gray-900 border-2 border-transparent focus:border-vtu-green outline-none rounded-2xl font-bold appearance-none cursor-pointer">
                                 <option value="">Select Sender ID</option>
                                 <?php foreach ($myApprovedIds as $id): ?><option value="<?php echo h($id['name']); ?>"><?php echo h($id['name']); ?></option><?php endforeach; ?>
                             </select>
@@ -128,28 +128,28 @@ $myContacts = $stmt->fetchAll();
                     <div>
                         <div class="flex justify-between items-center mb-2 px-1">
                             <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Recipients</label>
-                            <button type="button" onclick="openContactPicker()" class="text-[10px] font-black text-opay-green uppercase flex items-center gap-1 bg-green-50 px-3 py-1.5 rounded-xl border border-green-100"><i data-lucide="book-open" size="12"></i> Contact Book</button>
+                            <button type="button" onclick="openContactPicker()" class="text-[10px] font-black text-vtu-green uppercase flex items-center gap-1 bg-green-50 px-3 py-1.5 rounded-xl border border-green-100"><i data-lucide="book-open" size="12"></i> Contact Book</button>
                         </div>
-                        <textarea name="numbers" id="sms_recipients" required class="w-full p-4 bg-gray-50 text-gray-900 border-2 border-transparent focus:border-opay-green outline-none rounded-2xl font-medium min-h-[120px] placeholder:text-gray-300 text-sm" placeholder="Paste numbers here (separated by comma, space or new line)" oninput="updateSmsStats()"></textarea>
+                        <textarea name="numbers" id="sms_recipients" required class="w-full p-4 bg-gray-50 text-gray-900 border-2 border-transparent focus:border-vtu-green outline-none rounded-2xl font-medium min-h-[120px] placeholder:text-gray-300 text-sm" placeholder="Paste numbers here (separated by comma, space or new line)" oninput="updateSmsStats()"></textarea>
                     </div>
                     <div>
                         <div class="flex justify-between items-center mb-2 px-1">
                             <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Message</label>
                             <span id="sms_pages" class="text-[9px] font-black px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">1 Page</span>
                         </div>
-                        <textarea name="message" id="sms_message" required class="w-full p-4 bg-gray-50 text-gray-900 border-2 border-transparent focus:border-opay-green outline-none rounded-2xl font-medium min-h-[150px] placeholder:text-gray-300 text-sm" placeholder="Type message content..." oninput="updateSmsStats()"></textarea>
+                        <textarea name="message" id="sms_message" required class="w-full p-4 bg-gray-50 text-gray-900 border-2 border-transparent focus:border-vtu-green outline-none rounded-2xl font-medium min-h-[150px] placeholder:text-gray-300 text-sm" placeholder="Type message content..." oninput="updateSmsStats()"></textarea>
                         <div class="flex justify-between mt-3 px-1">
                             <span id="sms_chars" class="text-[9px] font-black text-gray-400 uppercase">0 Characters Used</span>
-                            <span class="text-[9px] font-black text-opay-green uppercase"><?php echo format_currency($settings['smsRate']); ?> per page</span>
+                            <span class="text-[9px] font-black text-vtu-green uppercase"><?php echo format_currency($settings['smsRate']); ?> per page</span>
                         </div>
                     </div>
                     <div class="bg-gray-900 p-6 rounded-[32px] text-white space-y-4 shadow-xl">
                         <div class="flex justify-between items-center"><span class="text-[10px] font-bold opacity-70">Unique Numbers</span><span id="calc_numbers" class="text-xs font-black">0</span></div>
                         <div class="flex justify-between items-center"><span class="text-[10px] font-bold opacity-70">Total Unit(s)</span><span id="calc_units" class="text-xs font-black">0</span></div>
                         <div class="h-px bg-white/10"></div>
-                        <div class="flex justify-between items-center"><span class="text-sm font-black text-white/50 uppercase">Total Amount</span><div id="calc_amount" class="text-xl font-black text-opay-green">₦0.00</div></div>
+                        <div class="flex justify-between items-center"><span class="text-sm font-black text-white/50 uppercase">Total Amount</span><div id="calc_amount" class="text-xl font-black text-vtu-green">₦0.00</div></div>
                     </div>
-                    <button type="submit" class="w-full bg-opay-green text-white font-black py-5 rounded-[24px] shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3">
+                    <button type="submit" class="w-full bg-vtu-green text-white font-black py-5 rounded-[24px] shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3">
                         <i data-lucide="send" size="18"></i> BROADCAST SMS
                     </button>
                 </form>
@@ -159,15 +159,15 @@ $myContacts = $stmt->fetchAll();
                 <form method="POST" class="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100 space-y-6">
                     <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
                     <input type="hidden" name="action" value="register_id">
-                    <div class="flex justify-between items-center"><h3 class="text-xs font-black text-gray-800 uppercase tracking-widest flex items-center gap-2"><i data-lucide="plus" class="text-opay-green" size="16"></i> Register Sender ID</h3></div>
+                    <div class="flex justify-between items-center"><h3 class="text-xs font-black text-gray-800 uppercase tracking-widest flex items-center gap-2"><i data-lucide="plus" class="text-vtu-green" size="16"></i> Register Sender ID</h3></div>
                     <div>
                         <label class="block text-[9px] font-black text-gray-400 mb-2 uppercase tracking-widest ml-1">Proposed ID (Max 11 Chars)</label>
-                        <input type="text" name="senderId" maxlength="11" required placeholder="e.g. OPAY CLONE" class="w-full p-4 bg-gray-50 text-gray-900 rounded-2xl outline-none font-bold uppercase border-2 border-transparent focus:border-opay-green">
+                        <input type="text" name="senderId" maxlength="11" required placeholder="e.g. VTU-Fintech CLONE" class="w-full p-4 bg-gray-50 text-gray-900 rounded-2xl outline-none font-bold uppercase border-2 border-transparent focus:border-vtu-green">
                         <p class="text-[8px] font-bold text-gray-400 mt-2 px-1">Sender IDs must not exceed 11 characters. Special characters are discouraged.</p>
                     </div>
                     <div>
                         <label class="block text-[9px] font-black text-gray-400 mb-2 uppercase tracking-widest ml-1">Sample SMS Content</label>
-                        <textarea name="sampleMessage" required placeholder="Type a sample message..." class="w-full p-4 bg-gray-50 text-gray-900 rounded-2xl border-2 border-transparent focus:border-opay-green outline-none font-medium min-h-[100px] text-sm"></textarea>
+                        <textarea name="sampleMessage" required placeholder="Type a sample message..." class="w-full p-4 bg-gray-50 text-gray-900 rounded-2xl border-2 border-transparent focus:border-vtu-green outline-none font-medium min-h-[100px] text-sm"></textarea>
                     </div>
                     <button type="submit" class="w-full bg-gray-900 text-white font-black py-5 rounded-2xl shadow-xl active:scale-95 transition-all flex items-center justify-center">SUBMIT FOR APPROVAL</button>
                 </form>
@@ -198,7 +198,7 @@ $myContacts = $stmt->fetchAll();
                             <input type="text" name="name" required placeholder="Name" class="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold text-xs">
                             <input type="tel" name="phone" required placeholder="Phone" class="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold text-xs">
                         </div>
-                        <button type="submit" class="w-full bg-opay-green text-white font-black py-4 rounded-2xl shadow-xl active:scale-95 transition-all">ADD TO PHONE BOOK</button>
+                        <button type="submit" class="w-full bg-vtu-green text-white font-black py-4 rounded-2xl shadow-xl active:scale-95 transition-all">ADD TO PHONE BOOK</button>
                     </form>
                 </div>
                 <div class="space-y-4">
@@ -210,7 +210,7 @@ $myContacts = $stmt->fetchAll();
                             <?php foreach ($myContacts as $c): ?>
                                 <div class="bg-white p-4 rounded-[20px] border border-gray-50 flex items-center justify-between group shadow-sm">
                                     <div class="flex items-center gap-3">
-                                        <div class="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center text-opay-green font-black text-[10px] uppercase"><?php echo substr($c['name'], 0, 2); ?></div>
+                                        <div class="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center text-vtu-green font-black text-[10px] uppercase"><?php echo substr($c['name'], 0, 2); ?></div>
                                         <div><div class="text-xs font-black text-gray-800"><?php echo h($c['name']); ?></div><div class="text-[9px] text-gray-400 font-bold"><?php echo h($c['phone']); ?></div></div>
                                     </div>
                                     <a href="?tab=contacts&delete_contact=<?php echo $c['id']; ?>" class="p-2 text-red-500 bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all"><i data-lucide="trash-2" size="14"></i></a>
@@ -231,7 +231,7 @@ $myContacts = $stmt->fetchAll();
             <?php foreach ($myContacts as $c): ?>
                 <div onclick="addContactToSms('<?php echo h($c['phone']); ?>')" class="p-4 rounded-[24px] bg-gray-50 flex items-center justify-between cursor-pointer hover:bg-green-50 transition-all">
                     <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-opay-green font-black uppercase"><?php echo substr($c['name'], 0, 1); ?></div>
+                        <div class="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-vtu-green font-black uppercase"><?php echo substr($c['name'], 0, 1); ?></div>
                         <div><div class="text-xs font-black text-gray-800"><?php echo h($c['name']); ?></div><div class="text-[9px] text-gray-400 font-bold"><?php echo h($c['phone']); ?></div></div>
                     </div>
                     <i data-lucide="plus" size="16" class="text-gray-300"></i>

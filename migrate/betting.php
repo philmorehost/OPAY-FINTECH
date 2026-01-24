@@ -32,13 +32,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <select name="provider" onchange="this.form.submit()" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-sm appearance-none outline-none">
             <option value="">Choose Provider</option><?php foreach ($providers as $p): ?><option value="<?php echo h($p['id']); ?>" <?php echo ($providerId ?? '') === $p['id'] ? 'selected' : ''; ?>><?php echo h($p['name']); ?></option><?php endforeach; ?>
         </select>
-        <div class="mt-6"><input type="tel" name="bettingId" value="<?php echo h($bettingId ?? ''); ?>" placeholder="Enter ID" class="w-full p-4 bg-gray-50 text-gray-900 border-2 border-transparent focus:border-opay-green outline-none rounded-2xl font-black text-lg" /></div>
-        <?php if ($customerName): ?><div class="mt-2 flex items-center gap-2 px-2"><i data-lucide="user" class="text-opay-green"></i><span class="text-xs font-black text-opay-green"><?php echo h($customerName); ?></span></div><?php endif; ?>
+        <div class="mt-6"><input type="tel" name="bettingId" value="<?php echo h($bettingId ?? ''); ?>" placeholder="Enter ID" class="w-full p-4 bg-gray-50 text-gray-900 border-2 border-transparent focus:border-vtu-green outline-none rounded-2xl font-black text-lg" /></div>
+        <?php if ($customerName): ?><div class="mt-2 flex items-center gap-2 px-2"><i data-lucide="user" class="text-vtu-green"></i><span class="text-xs font-black text-vtu-green"><?php echo h($customerName); ?></span></div><?php endif; ?>
         <?php if (!$customerName): ?><button type="submit" class="w-full mt-4 bg-gray-900 text-white font-black py-4 rounded-2xl">VERIFY ID</button><?php endif; ?>
       </form>
       <?php if ($customerName): ?><form method="POST" class="space-y-6 animate-fade-in"><input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>"><input type="hidden" name="action" value="pay"><input type="hidden" name="provider" value="<?php echo h($providerId); ?>"><input type="hidden" name="bettingId" value="<?php echo h($bettingId); ?>">
         <input type="number" name="amount" required placeholder="Min 100" class="w-full p-4 bg-gray-50 text-gray-900 rounded-2xl font-black text-xl" />
-        <button type="submit" class="w-full bg-opay-green text-white font-black py-5 rounded-2xl shadow-xl">PROCEED TO PAY</button>
+        <button type="submit" class="w-full bg-vtu-green text-white font-black py-5 rounded-2xl shadow-xl">PROCEED TO PAY</button>
       </form><?php endif; ?>
     </div>
   </div>

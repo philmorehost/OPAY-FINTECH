@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>"><input type="hidden" name="action" value="buy">
             <select name="cardName" required class="w-full p-4 bg-gray-50 rounded-2xl font-black mb-4 outline-none"><?php foreach ($cards as $c): ?><option value="<?php echo h($c['name']); ?>"><?php echo h($c['name']); ?> - ₦<?php echo $c['rate']; ?>/$</option><?php endforeach; ?></select>
             <input type="number" name="amount" required placeholder="Amount in USD" class="w-full p-5 bg-gray-50 text-gray-900 rounded-2xl font-black text-2xl" />
-            <button type="submit" class="w-full bg-opay-green text-white font-black py-5 rounded-3xl mt-6 shadow-xl">BUY GIFT CARD</button>
+            <button type="submit" class="w-full bg-vtu-green text-white font-black py-5 rounded-3xl mt-6 shadow-xl">BUY GIFT CARD</button>
         </form>
     </div>
   </div>

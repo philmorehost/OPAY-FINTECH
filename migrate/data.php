@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
       <div><label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Recipient Number</label><input type="tel" name="phone" required placeholder="08123456789" class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-black text-xl" /></div>
       <div><label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Select Plan</label><select name="planId" required class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold"><?php foreach ($dataProducts as $p): ?><option value="<?php echo $p['id']; ?>"><?php echo h($p['size']); ?> - <?php echo format_currency($p['userPrice']); ?></option><?php endforeach; ?></select></div>
-      <button type="submit" class="w-full bg-opay-green text-white font-black py-5 rounded-[24px] shadow-xl">PROCEED TO PAY</button>
+      <button type="submit" class="w-full bg-vtu-green text-white font-black py-5 rounded-[24px] shadow-xl">PROCEED TO PAY</button>
     </form>
   </div>
   <?php include 'includes/nav.php'; ?>

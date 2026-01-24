@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <select name="method" class="w-full p-4 bg-gray-50 rounded-2xl font-bold"><option value="paystack">Paystack (Instant)</option><option value="manual">Manual Transfer</option></select>
       <input type="number" name="amount" required placeholder="Amount (Min ₦100)" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg" />
       <input type="text" name="senderName" placeholder="Sender Name (for manual)" class="w-full p-4 bg-gray-50 rounded-2xl font-bold" />
-      <button type="submit" class="w-full bg-opay-green text-white font-black py-5 rounded-2xl shadow-xl">ADD MONEY</button>
+      <button type="submit" class="w-full bg-vtu-green text-white font-black py-5 rounded-2xl shadow-xl">ADD MONEY</button>
     </form>
   </div>
   <?php include 'includes/nav.php'; ?>

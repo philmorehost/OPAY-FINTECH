@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <div><label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest">Select Bank</label><select name="bank" class="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold"><option>Access Bank</option><option>First Bank</option><option>GTBank</option><option>Kuda Bank</option><option>Moniepoint</option><option>O-Pay Digital Bank</option></select></div>
       <div><label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest">Account Number</label><input type="tel" name="acc" maxlength="10" placeholder="10-digit account" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg tracking-widest" /></div>
       <div><label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest">Amount</label><input type="number" name="amt" placeholder="Min 100" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-xl" /></div>
-      <button type="submit" class="w-full bg-opay-green text-white font-black py-5 rounded-2xl shadow-xl">CONFIRM TRANSFER</button>
+      <button type="submit" class="w-full bg-vtu-green text-white font-black py-5 rounded-2xl shadow-xl">CONFIRM TRANSFER</button>
     </form>
   </div>
   <?php include 'includes/nav.php'; ?>
