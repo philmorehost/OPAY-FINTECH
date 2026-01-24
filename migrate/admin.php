@@ -2,6 +2,14 @@
 // migrate/admin.php
 require_once 'includes/header.php';
 require_login();
+
+// Handle return to admin BEFORE require_admin check
+if (isset($_GET['action']) && $_GET['action'] === 'return_to_admin' && isset($_SESSION['original_admin_id'])) {
+    $_SESSION['user_id'] = $_SESSION['original_admin_id'];
+    unset($_SESSION['original_admin_id']);
+    redirect('admin');
+}
+
 require_admin();
 
 $user = get_current_user_data();
@@ -55,7 +63,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('admin?page=api&success=Exam product updated');
     }
 }
-if (isset($_GET['action']) && $_GET['action'] === 'login_as' && isset($_GET['id'])) { $_SESSION['user_id'] = $_GET['id']; redirect('dashboard'); }
+if (isset($_GET['action']) && $_GET['action'] === 'login_as' && isset($_GET['id'])) {
+    $_SESSION['original_admin_id'] = $_SESSION['user_id'];
+    $_SESSION['user_id'] = $_GET['id'];
+    redirect('dashboard');
+}
 $stmt = $pdo->query("SELECT COUNT(*) FROM users"); $totalUsers = $stmt->fetchColumn();
 $stmt = $pdo->query("SELECT SUM(walletBalance) FROM users"); $platformBalance = $stmt->fetchColumn();
 $stmt = $pdo->query("SELECT COUNT(*) FROM sms_sender_ids WHERE status = 'pending'"); $pendingSMS = $stmt->fetchColumn();

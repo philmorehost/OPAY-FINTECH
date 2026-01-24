@@ -5,4 +5,7 @@
     <a href="rewards" class="flex flex-col items-center gap-1.5 <?php echo $current_page === 'rewards' ? 'text-opay-green' : 'text-gray-400'; ?>"><i data-lucide="gift" size="22"></i><span class="text-[9px] font-bold uppercase">Reward</span></a>
     <a href="transactions" class="flex flex-col items-center gap-1.5 <?php echo $current_page === 'transactions' ? 'text-opay-green' : 'text-gray-400'; ?>"><i data-lucide="history" size="22"></i><span class="text-[9px] font-bold uppercase">History</span></a>
     <a href="profile" class="flex flex-col items-center gap-1.5 <?php echo $current_page === 'profile' ? 'text-opay-green' : 'text-gray-400'; ?>"><i data-lucide="user" size="22"></i><span class="text-[9px] font-bold uppercase">Me</span></a>
+    <?php if (isset($_SESSION['original_admin_id'])): ?>
+    <a href="admin?action=return_to_admin" class="flex flex-col items-center gap-1.5 text-red-500"><i data-lucide="shield-alert" size="22"></i><span class="text-[9px] font-black uppercase">Admin</span></a>
+    <?php endif; ?>
 </div>

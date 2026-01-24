@@ -49,13 +49,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'dataNetworks' => json_encode([
                     ['id' => 'mtn', 'name' => 'MTN'], ['id' => 'airtel', 'name' => 'Airtel'], ['id' => 'glo', 'name' => 'Glo'], ['id' => 'mobile9', 'name' => '9mobile']
                 ]),
-                'cableProviders' => json_encode([]),
+                'cableProviders' => json_encode([
+                    ['id' => 'dstv', 'name' => 'DSTV'], ['id' => 'gotv', 'name' => 'GOTV'], ['id' => 'startimes', 'name' => 'Startimes']
+                ]),
                 'airtimeDiscounts' => json_encode(['mtn' => 3, 'glo' => 8, 'airtel' => 3, 'nineMobile' => 7])
             ];
             $cols = implode(', ', array_keys($settings));
             $placeholders = implode(', ', array_fill(0, count($settings), '?'));
             $stmt = $db->prepare("INSERT INTO settings ($cols) VALUES ($placeholders)");
             $stmt->execute(array_values($settings));
+
+            // Seed some data products
+            $dataPlans = [
+                ['id' => 'mtn-1gb', 'networkId' => 'mtn', 'type' => 'SME', 'size' => '1GB', 'apiQuantityCode' => '1000', 'userPrice' => 250],
+                ['id' => 'mtn-2gb', 'networkId' => 'mtn', 'type' => 'SME', 'size' => '2GB', 'apiQuantityCode' => '2000', 'userPrice' => 500],
+                ['id' => 'airtel-1gb', 'networkId' => 'airtel', 'type' => 'CG', 'size' => '1GB', 'apiQuantityCode' => '1000', 'userPrice' => 240],
+            ];
+            foreach ($dataPlans as $dp) {
+                $db->prepare("INSERT INTO data_products (id, networkId, type, size, apiQuantityCode, userPrice) VALUES (?, ?, ?, ?, ?, ?)")
+                   ->execute(array_values($dp));
+            }
 
             header('Location: install.php?stage=3');
             exit;

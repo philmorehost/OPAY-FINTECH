@@ -1,4 +1,5 @@
 <?php
+require_once 'includes/config.php';
 // Simple logic to handle form submission
 $message_sent = false;
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -24,7 +25,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <div class="text-2xl font-bold text-blue-600">LaunchPad</div>
         <div class="space-x-6">
             <a href="#features" class="hover:text-blue-600">Features</a>
-            <a href="#" class="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700">Get Started</a>
+            <a href="login" class="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700">Get Started</a>
         </div>
     </nav>
 

@@ -22,3 +22,11 @@ require_once __DIR__ . '/functions.php';
     </style>
 </head>
 <body class="bg-gray-50 text-gray-900">
+<?php
+if (is_logged_in()) {
+    $u_data = get_current_user_data();
+    if ($u_data && $u_data['isSuspended'] && !empty($_SESSION['original_admin_id'])) {
+        echo '<div class="bg-red-600 text-white text-[10px] font-black uppercase text-center py-2 sticky top-0 z-[100] tracking-widest">Viewing Suspended Account</div>';
+    }
+}
+?>

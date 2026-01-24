@@ -10,9 +10,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([generate_id(), $user['id'], $amount, 'manual', 'pending', date('c'), $_POST['senderName'] ?? '', $settings['manualDepositCharge']]);
                 $success = "Deposit notification submitted!";
             } else {
-                $charge = ($amount * (float)$settings['paystackChargePercent']) / 100; $credit = $amount - $charge;
-                update_user_balance($user['id'], $credit); log_transaction($user['id'], 'Deposit', $credit, 'successful', "Paystack Funding", 'Wallet', 'Paystack');
-                $success = "Funded " . format_currency($credit) . " via Paystack!"; $user = get_current_user_data();
+                if (empty($settings['paystackSecretKey'])) {
+                    $error = "Online payment is currently unavailable (API keys not configured). Please use Manual Transfer.";
+                } else {
+                    // Real Paystack integration would start here with a CURL request to initialize transaction
+                    // For this migration, we will keep it as a placeholder to prevent "free money" exploits.
+                    $error = "Paystack integration requires server-side callback verification. Please configure your webhook URL to complete this integration.";
+                }
             }
         }
     }

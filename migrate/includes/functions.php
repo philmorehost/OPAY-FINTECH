@@ -35,8 +35,11 @@ function require_login() {
     if (!is_logged_in()) { redirect('login'); }
     $user = get_current_user_data();
     if ($user && $user['isSuspended']) {
-        session_destroy();
-        die("ACCOUNT SUSPENDED. CONTACT SUPPORT.");
+        // Only block if NOT being impersonated by an admin
+        if (empty($_SESSION['original_admin_id'])) {
+            session_destroy();
+            die("ACCOUNT SUSPENDED. CONTACT SUPPORT.");
+        }
     }
 }
 function require_admin() {
