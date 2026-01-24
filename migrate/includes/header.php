@@ -21,7 +21,18 @@ require_once __DIR__ . '/functions.php';
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-900">
+<body class="bg-gray-50 text-gray-900 <?php echo ($settings['darkModeEnabled'] ?? 0) ? 'dark-mode' : ''; ?>">
+<style>
+.dark-mode { background-color: #111827 !important; color: #f9fafb !important; }
+.dark-mode .bg-white { background-color: #1f2937 !important; color: #f9fafb !important; }
+.dark-mode .bg-gray-50 { background-color: #111827 !important; }
+.dark-mode .text-gray-900 { color: #f9fafb !important; }
+.dark-mode .text-gray-800 { color: #f3f4f6 !important; }
+.dark-mode .text-gray-400 { color: #9ca3af !important; }
+.dark-mode .border-gray-100 { border-color: #374151 !important; }
+.dark-mode .bg-gray-200 { background-color: #374151 !important; }
+.dark-mode .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.5) !important; }
+</style>
 <?php
 if (is_logged_in()) {
     $u_data = get_current_user_data();

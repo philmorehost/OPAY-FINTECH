@@ -141,3 +141,40 @@ function calculate_sms_cost($message, $recipientCount) {
     $rate = (float)($settings['smsRate'] ?? 4.5);
     return ['pages' => (int)$pages, 'totalCost' => $pages * $recipientCount * $rate];
 }
+
+function add_notification($userId, $title, $message, $type = 'info') {
+    global $pdo;
+    $stmt = $pdo->prepare("INSERT INTO notifications (id, userId, title, message, type, createdAt) VALUES (?, ?, ?, ?, ?, ?)");
+    $stmt->execute([generate_id(), $userId, $title, $message, $type, date('c')]);
+}
+
+function check_daily_limit($userId, $idValue, $type) {
+    global $pdo, $settings;
+    $col = 'dailyLimitPhone';
+    if ($type === 'cable') $col = 'dailyLimitSmartCard';
+    if ($type === 'betting') $col = 'dailyLimitBetting';
+    if ($type === 'electric') $col = 'dailyLimitMeter';
+
+    $limit = (int)($settings[$col] ?? 5);
+    $today = date('Y-m-d') . '%';
+
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM transactions WHERE userId = ? AND recipient = ? AND date LIKE ?");
+    $stmt->execute([$userId, $idValue, $today]);
+    $count = $stmt->fetchColumn();
+
+    return $count < $limit;
+}
+
+function get_referral_stats($userId) {
+    global $pdo;
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE id LIKE ?"); // This needs a proper referral tracking system.
+    // For now, let's assume 'id' prefix or similar if not explicitly tracked.
+    // In a real app, you'd have a 'referredBy' column in users.
+    return ['invites' => 0, 'earnings' => 0, 'conversion' => 0];
+}
+
+function get_user_tier($user) {
+    if ($user['kycStatus'] === 'verified') return 'Tier 3';
+    if ($user['kycStatus'] === 'pending') return 'Tier 2';
+    return 'Tier 1';
+}

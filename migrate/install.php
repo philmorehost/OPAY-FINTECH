@@ -65,6 +65,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db->exec("CREATE TABLE IF NOT EXISTS kyc_submissions (id $pk, userId VARCHAR(100), fullName TEXT, dob TEXT, address TEXT, idType TEXT, idNumber TEXT, idImageUrl TEXT, addressImageUrl TEXT, status TEXT, date TEXT, rejectionReason TEXT)");
             $db->exec("CREATE TABLE IF NOT EXISTS phone_book (id $pk, userId VARCHAR(100), name TEXT, phone TEXT, createdAt TEXT)");
             $db->exec("CREATE TABLE IF NOT EXISTS data_products (id $pk, networkId TEXT, type TEXT, size TEXT, apiQuantityCode TEXT, userPrice $num, enabled INTEGER DEFAULT 1)");
+            $db->exec("CREATE TABLE IF NOT EXISTS sms_logs (id $pk, userId VARCHAR(100), senderId TEXT, recipients TEXT, message TEXT, pages INTEGER, cost $num, status TEXT, date TEXT)");
+            $db->exec("CREATE TABLE IF NOT EXISTS notifications (id $pk, userId VARCHAR(100), title TEXT, message TEXT, type TEXT, isRead INTEGER DEFAULT 0, createdAt TEXT)");
+            $db->exec("CREATE TABLE IF NOT EXISTS crypto_wallets (id $pk, userId VARCHAR(100), coinType TEXT, balance $num DEFAULT 0, address TEXT)");
+
+            // Update users table with KYC/Profile fields if not already there
+            try { $db->exec("ALTER TABLE users ADD COLUMN dob TEXT"); } catch(Exception $e) {}
+            try { $db->exec("ALTER TABLE users ADD COLUMN address TEXT"); } catch(Exception $e) {}
+            try { $db->exec("ALTER TABLE users ADD COLUMN gender TEXT"); } catch(Exception $e) {}
+            try { $db->exec("ALTER TABLE users ADD COLUMN occupation TEXT"); } catch(Exception $e) {}
+            try { $db->exec("ALTER TABLE users ADD COLUMN referredBy VARCHAR(100)"); } catch(Exception $e) {}
+
+            // Update settings table
+            try { $db->exec("ALTER TABLE settings ADD COLUMN dailyLimitPhone INTEGER DEFAULT 10"); } catch(Exception $e) {}
+            try { $db->exec("ALTER TABLE settings ADD COLUMN dailyLimitSmartCard INTEGER DEFAULT 5"); } catch(Exception $e) {}
+            try { $db->exec("ALTER TABLE settings ADD COLUMN dailyLimitBetting INTEGER DEFAULT 5"); } catch(Exception $e) {}
+            try { $db->exec("ALTER TABLE settings ADD COLUMN dailyLimitMeter INTEGER DEFAULT 5"); } catch(Exception $e) {}
+            try { $db->exec("ALTER TABLE settings ADD COLUMN referralBonusFirstTx $num DEFAULT 100"); } catch(Exception $e) {}
+            try { $db->exec("ALTER TABLE settings ADD COLUMN milestoneBonuses TEXT"); } catch(Exception $e) {}
+            try { $db->exec("ALTER TABLE settings ADD COLUMN darkModeEnabled INTEGER DEFAULT 0"); } catch(Exception $e) {}
 
             $settingsCount = $db->query("SELECT COUNT(*) FROM settings")->fetchColumn();
             if ($settingsCount == 0) {

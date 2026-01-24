@@ -43,6 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $phoneNumber = preg_replace('/\D/', '', $_POST['phoneNumber'] ?? ''); $network = $_POST['network'] ?? detect_network($phoneNumber);
                 if (!$network) { $error = "Select network"; }
+                elseif (!check_daily_limit($user['id'], $phoneNumber, 'airtime')) { $error = "Daily transaction limit reached for this phone number."; }
                 else {
                     $userPrice = calculate_airtime_price($amount, $network);
                     if ($user['walletBalance'] < $userPrice) { $error = "Insufficient balance"; }

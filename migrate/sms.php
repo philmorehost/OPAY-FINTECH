@@ -31,8 +31,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($res && isset($res['status']) && $res['status'] === 'success') {
                     update_user_balance($user['id'], -$costData['totalCost']);
                     log_transaction($user['id'], 'Bulk SMS', $costData['totalCost'], 'successful', "Sent to " . count($recipients) . " recipients via $senderId. Pages: " . $costData['pages'], count($recipients) . " numbers", 'KudiSMS');
+
+                    $stmt = $pdo->prepare("INSERT INTO sms_logs (id, userId, senderId, recipients, message, pages, cost, status, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    $stmt->execute([generate_id(), $user['id'], $senderId, $recipientsStr, $message, $costData['pages'], $costData['totalCost'], 'delivered', date('c')]);
+
                     check_and_apply_loyalty_bonus($user['id']);
-                    redirect('sms?tab=compose&success=SMS sent successfully');
+                    redirect('sms?tab=history&success=SMS sent successfully');
                 } else {
                     $error = "API Error: " . ($res['msg'] ?? 'Unknown error');
                 }
@@ -94,8 +98,9 @@ $myContacts = $stmt->fetchAll();
 
         <div class="flex bg-gray-200 p-1.5 rounded-[24px]">
             <a href="?tab=compose" class="flex-1 py-3.5 rounded-2xl text-[9px] font-black uppercase tracking-widest text-center transition-all <?php echo $activeTab === 'compose' ? 'bg-white shadow-xl text-vtu-green' : 'text-gray-500'; ?>">Compose</a>
-            <a href="?tab=ids" class="flex-1 py-3.5 rounded-2xl text-[9px] font-black uppercase tracking-widest text-center transition-all <?php echo $activeTab === 'ids' ? 'bg-white shadow-xl text-vtu-green' : 'text-gray-500'; ?>">Sender IDs</a>
-            <a href="?tab=contacts" class="flex-1 py-3.5 rounded-2xl text-[9px] font-black uppercase tracking-widest text-center transition-all <?php echo $activeTab === 'contacts' ? 'bg-white shadow-xl text-vtu-green' : 'text-gray-500'; ?>">Phone Book</a>
+            <a href="?tab=history" class="flex-1 py-3.5 rounded-2xl text-[9px] font-black uppercase tracking-widest text-center transition-all <?php echo $activeTab === 'history' ? 'bg-white shadow-xl text-vtu-green' : 'text-gray-500'; ?>">History</a>
+            <a href="?tab=ids" class="flex-1 py-3.5 rounded-2xl text-[9px] font-black uppercase tracking-widest text-center transition-all <?php echo $activeTab === 'ids' ? 'bg-white shadow-xl text-vtu-green' : 'text-gray-500'; ?>">IDs</a>
+            <a href="?tab=contacts" class="flex-1 py-3.5 rounded-2xl text-[9px] font-black uppercase tracking-widest text-center transition-all <?php echo $activeTab === 'contacts' ? 'bg-white shadow-xl text-vtu-green' : 'text-gray-500'; ?>">Contacts</a>
         </div>
 
         <?php if ($activeTab === 'compose'): ?>
@@ -153,6 +158,31 @@ $myContacts = $stmt->fetchAll();
                         <i data-lucide="send" size="18"></i> BROADCAST SMS
                     </button>
                 </form>
+            </div>
+        <?php elseif ($activeTab === 'history'): ?>
+            <div class="space-y-4 animate-fade-in">
+                <h3 class="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Message Logs</h3>
+                <?php
+                $stmt = $pdo->prepare("SELECT * FROM sms_logs WHERE userId = ? ORDER BY date DESC");
+                $stmt->execute([$user['id']]);
+                $logs = $stmt->fetchAll();
+                if (empty($logs)): ?>
+                    <div class="py-20 text-center text-gray-300 font-black text-[10px] uppercase tracking-widest border-2 border-dashed border-gray-200 rounded-[40px]">No messages sent yet.</div>
+                <?php else: ?>
+                    <?php foreach ($logs as $l): ?>
+                        <div class="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm space-y-3">
+                            <div class="flex justify-between items-start">
+                                <div><div class="text-[10px] font-black text-vtu-green uppercase">From: <?php echo h($l['senderId']); ?></div><div class="text-[8px] text-gray-400 font-bold uppercase tracking-widest mt-1"><?php echo date('M d, H:i', strtotime($l['date'])); ?></div></div>
+                                <span class="bg-blue-50 text-blue-600 px-2 py-0.5 rounded text-[8px] font-black uppercase"><?php echo h($l['status']); ?></span>
+                            </div>
+                            <p class="text-[11px] text-gray-600 font-medium leading-relaxed italic">"<?php echo h($l['message']); ?>"</p>
+                            <div class="pt-2 border-t border-gray-50 flex justify-between items-center text-[8px] font-black text-gray-400 uppercase tracking-widest">
+                                <span><?php echo count(explode(',', $l['recipients'])); ?> Recipients</span>
+                                <span>Cost: <?php echo format_currency($l['cost']); ?></span>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             </div>
         <?php elseif ($activeTab === 'ids'): ?>
             <div class="space-y-8 animate-fade-in">
