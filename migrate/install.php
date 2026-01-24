@@ -1,7 +1,6 @@
 <?php
 // migrate/install.php
 session_start();
-define('DB_PATH', __DIR__ . '/database.db');
 define('CONFIG_PATH', __DIR__ . '/includes/db.php');
 
 $stage = $_GET['stage'] ?? 1;
@@ -10,22 +9,13 @@ $stage = $_GET['stage'] ?? 1;
 if (file_exists(CONFIG_PATH) && $stage == 1) {
     require_once CONFIG_PATH;
     try {
-        if (DB_TYPE === 'sqlite') {
-            $pdo = new PDO('sqlite:' . __DIR__ . '/' . DB_NAME);
-        } else {
-            $pdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
-        }
+        $pdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
         $tableExists = false;
         try {
-            if (DB_TYPE === 'sqlite') {
-                $check = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='settings'");
-                if ($check && $check->fetch()) $tableExists = true;
-            } else {
-                $check = $pdo->query("SHOW TABLES LIKE 'settings'");
-                if ($check && $check->fetch()) $tableExists = true;
-            }
+            $check = $pdo->query("SHOW TABLES LIKE 'settings'");
+            if ($check && $check->fetch()) $tableExists = true;
         } catch (Exception $e) { $tableExists = false; }
 
         if ($tableExists) {
@@ -42,44 +32,31 @@ $success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($stage == 'db_config') {
-        $type = $_POST['db_type'];
-        if ($type === 'mysql') {
-            $host = $_POST['db_host'];
-            $name = $_POST['db_name'];
-            $user = $_POST['db_user'];
-            $pass = $_POST['db_pass'];
-            try {
-                $test = new PDO("mysql:host=$host", $user, $pass);
-                $test->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-                $test->exec("CREATE DATABASE IF NOT EXISTS `$name` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+        $host = $_POST['db_host'];
+        $name = $_POST['db_name'];
+        $user = $_POST['db_user'];
+        $pass = $_POST['db_pass'];
+        try {
+            $test = new PDO("mysql:host=$host", $user, $pass);
+            $test->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            $test->exec("CREATE DATABASE IF NOT EXISTS `$name` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
-                $configContent = "<?php\ndefine('DB_TYPE', 'mysql');\ndefine('DB_HOST', '$host');\ndefine('DB_NAME', '$name');\ndefine('DB_USER', '$user');\ndefine('DB_PASS', '$pass');";
-                file_put_contents(CONFIG_PATH, $configContent);
-                header('Location: install.php?stage=2'); exit;
-            } catch (PDOException $e) { $error = "Connection failed: " . $e->getMessage(); }
-        } else {
-            $configContent = "<?php\ndefine('DB_TYPE', 'sqlite');\ndefine('DB_NAME', 'database.db');";
+            $configContent = "<?php\ndefine('DB_TYPE', 'mysql');\ndefine('DB_HOST', '$host');\ndefine('DB_NAME', '$name');\ndefine('DB_USER', '$user');\ndefine('DB_PASS', '$pass');";
             file_put_contents(CONFIG_PATH, $configContent);
             header('Location: install.php?stage=2'); exit;
-        }
+        } catch (PDOException $e) { $error = "Connection failed: " . $e->getMessage(); }
     } elseif ($stage == 2) {
         if (!file_exists(CONFIG_PATH)) { header('Location: install.php?stage=1'); exit; }
         require_once CONFIG_PATH;
         try {
-            if (DB_TYPE === 'sqlite') {
-                $db = new PDO('sqlite:' . __DIR__ . '/' . DB_NAME);
-                $pk = "TEXT PRIMARY KEY";
-                $num = "REAL";
-            } else {
-                $db = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
-                $pk = "VARCHAR(100) PRIMARY KEY";
-                $num = "DECIMAL(20,2)";
-            }
+            $db = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+            $pk = "VARCHAR(100) PRIMARY KEY";
+            $num = "DECIMAL(20,2)";
             $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
             $db->exec("CREATE TABLE IF NOT EXISTS users (id $pk, username VARCHAR(100) UNIQUE, fullName TEXT, walletBalance $num DEFAULT 0, bonusCoins INTEGER DEFAULT 0, role VARCHAR(20), phone VARCHAR(20), password TEXT, isSuspended INTEGER DEFAULT 0, streakCount INTEGER DEFAULT 0, lastPurchaseDate TEXT, referralCount INTEGER DEFAULT 0, referralEarnings $num DEFAULT 0, kycStatus VARCHAR(20) DEFAULT 'none', tier INTEGER DEFAULT 1, email VARCHAR(100), loginAlertsEnabled INTEGER DEFAULT 1, biometricEnabled INTEGER DEFAULT 0, authorizedDevices TEXT)");
             $db->exec("CREATE TABLE IF NOT EXISTS transactions (id $pk, userId VARCHAR(100), type TEXT, amount $num, status TEXT, date TEXT, details TEXT, recipient TEXT, provider TEXT, refunded INTEGER DEFAULT 0)");
-            $db->exec("CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY " . (DB_TYPE === 'mysql' ? 'AUTO_INCREMENT' : '') . ", bonusPerDay $num, referralBonus $num, welcomeBonus $num, streakBonus $num, maxCoinThreshold $num, conversionRate $num, bankAccount TEXT, bankName TEXT, accountName TEXT, manualDepositCharge $num, paystackChargePercent $num, paystackPublicKey TEXT, paystackSecretKey TEXT, maxDailyTxPerId INTEGER, minDepositAmount $num, minAirtimePurchase $num, isMaintenanceMode INTEGER, adminTheme TEXT, smtpHost TEXT, smtpPort TEXT, smtpUser TEXT, smtpPass TEXT, senderName TEXT, fromEmail TEXT, smsRate $num, kudiSmsToken TEXT, apiKeys TEXT, offers TEXT, nellobyteUserId TEXT, nellobyteApiKey TEXT, dataGiftingApiKey TEXT, examApiKey TEXT, vtPassApiKey TEXT, vtPassPublicKey TEXT, vtPassEmail TEXT, vtPassPassword TEXT, examProviders TEXT, dataNetworks TEXT, cableProviders TEXT, airtimeDiscounts TEXT, siteName TEXT, siteDescription TEXT, logoPath TEXT, adminWhatsapp TEXT)");
+            $db->exec("CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY AUTO_INCREMENT, bonusPerDay $num, referralBonus $num, welcomeBonus $num, streakBonus $num, maxCoinThreshold $num, conversionRate $num, bankAccount TEXT, bankName TEXT, accountName TEXT, manualDepositCharge $num, paystackChargePercent $num, paystackPublicKey TEXT, paystackSecretKey TEXT, maxDailyTxPerId INTEGER, minDepositAmount $num, minAirtimePurchase $num, isMaintenanceMode INTEGER, adminTheme TEXT, smtpHost TEXT, smtpPort TEXT, smtpUser TEXT, smtpPass TEXT, senderName TEXT, fromEmail TEXT, smsRate $num, kudiSmsToken TEXT, apiKeys TEXT, offers TEXT, nellobyteUserId TEXT, nellobyteApiKey TEXT, dataGiftingApiKey TEXT, examApiKey TEXT, vtPassApiKey TEXT, vtPassPublicKey TEXT, vtPassEmail TEXT, vtPassPassword TEXT, examProviders TEXT, dataNetworks TEXT, cableProviders TEXT, airtimeDiscounts TEXT, siteName TEXT, siteDescription TEXT, logoPath TEXT, adminWhatsapp TEXT)");
             $db->exec("CREATE TABLE IF NOT EXISTS deposit_requests (id $pk, userId VARCHAR(100), amount $num, method TEXT, status TEXT, date TEXT, senderName TEXT, reference TEXT, charge $num)");
             $db->exec("CREATE TABLE IF NOT EXISTS sms_sender_ids (id $pk, userId VARCHAR(100), name TEXT, sampleMessage TEXT, status TEXT, createdAt TEXT)");
             $db->exec("CREATE TABLE IF NOT EXISTS gift_card_requests (id $pk, userId VARCHAR(100), cardBrand TEXT, amount $num, nairaAmount $num, type TEXT, code TEXT, status TEXT, date TEXT, rate $num)");
@@ -122,8 +99,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($stage == 3) {
         require_once CONFIG_PATH;
         try {
-            if (DB_TYPE === 'sqlite') { $db = new PDO('sqlite:' . __DIR__ . '/' . DB_NAME); }
-            else { $db = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS); }
+            $db = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+            $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             $username = $_POST['username'] ?? '';
             $password = password_hash($_POST['password'] ?? '', PASSWORD_DEFAULT);
             $email = $_POST['email'] ?? '';
@@ -134,10 +111,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 $php_version = phpversion();
-$pdo_sqlite = extension_loaded('pdo_sqlite');
 $pdo_mysql = extension_loaded('pdo_mysql');
 $openssl = extension_loaded('openssl');
-$ready = version_compare($php_version, '7.4.0', '>=') && ($pdo_sqlite || $pdo_mysql) && $openssl;
+$ready = version_compare($php_version, '7.4.0', '>=') && $pdo_mysql && $openssl;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -152,30 +128,23 @@ $ready = version_compare($php_version, '7.4.0', '>=') && ($pdo_sqlite || $pdo_my
             <h2 class="text-2xl font-black mb-6">Welcome to VTU-Fintech</h2>
             <div class="space-y-4 mb-8">
                 <div class="flex justify-between items-center text-sm"><span>PHP Version (>= 7.4)</span><span class="<?php echo version_compare($php_version, '7.4.0', '>=') ? 'text-green-500' : 'text-red-500'; ?> font-bold"><?php echo $php_version; ?></span></div>
-                <div class="flex justify-between items-center text-sm"><span>PDO SQLite Extension</span><span class="<?php echo $pdo_sqlite ? 'text-green-500' : 'text-amber-500'; ?> font-bold"><?php echo $pdo_sqlite ? 'OK' : 'Optional'; ?></span></div>
-                <div class="flex justify-between items-center text-sm"><span>PDO MySQL Extension</span><span class="<?php echo $pdo_mysql ? 'text-green-500' : 'text-amber-500'; ?> font-bold"><?php echo $pdo_mysql ? 'OK' : 'Optional'; ?></span></div>
+                <div class="flex justify-between items-center text-sm"><span>PDO MySQL Extension</span><span class="<?php echo $pdo_mysql ? 'text-green-500' : 'text-red-500'; ?> font-bold"><?php echo $pdo_mysql ? 'OK' : 'Missing'; ?></span></div>
                 <div class="flex justify-between items-center text-sm"><span>OpenSSL Extension</span><span class="<?php echo $openssl ? 'text-green-500' : 'text-red-500'; ?> font-bold"><?php echo $openssl ? 'OK' : 'Missing'; ?></span></div>
             </div>
             <?php if ($ready): ?>
                 <form action="?stage=db_config" method="POST" class="space-y-4">
-                    <label class="block font-black text-xs uppercase tracking-widest text-gray-400">Select Database Type</label>
-                    <select name="db_type" class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold" onchange="this.value=='mysql'?document.getElementById('mysql_fields').style.display='block':document.getElementById('mysql_fields').style.display='none'">
-                        <option value="sqlite">SQLite (File Based)</option>
-                        <option value="mysql">MySQL (cPanel/Remote)</option>
-                    </select>
-                    <div id="mysql_fields" class="hidden space-y-4 pt-4 border-t">
-                        <input type="text" name="db_host" placeholder="Database Host (e.g. localhost)" class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold">
-                        <input type="text" name="db_name" placeholder="Database Name" class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold">
-                        <input type="text" name="db_user" placeholder="Database User" class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold">
-                        <input type="password" name="db_pass" placeholder="Database Password" class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold">
-                    </div>
+                    <h3 class="font-black text-xs uppercase tracking-widest text-gray-400">MySQL Database Configuration</h3>
+                    <input type="text" name="db_host" placeholder="Database Host (e.g. localhost)" required class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold">
+                    <input type="text" name="db_name" placeholder="Database Name" required class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold">
+                    <input type="text" name="db_user" placeholder="Database User" required class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold">
+                    <input type="password" name="db_pass" placeholder="Database Password" class="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-bold">
                     <button type="submit" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg">CONTINUE SETUP</button>
                 </form>
             <?php else: ?><p class="text-red-500 text-center font-bold">Please fix requirements to continue.</p><?php endif; ?>
 
         <?php elseif ($stage == 2): ?>
             <h2 class="text-2xl font-black mb-6">Database Schema</h2>
-            <p class="text-gray-500 mb-8">We will now create the required tables in your selected database.</p>
+            <p class="text-gray-500 mb-8">We will now create the required tables in your MySQL database.</p>
             <?php if ($error): ?><p class="text-red-500 mb-4"><?php echo $error; ?></p><?php endif; ?>
             <form method="POST"><button type="submit" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold">INSTALL TABLES</button></form>
 

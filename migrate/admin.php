@@ -83,7 +83,7 @@ $menuItems = [['label' => 'Overview', 'icon' => 'layout-dashboard', 'page' => 'o
 ?>
 <div class="flex min-h-screen bg-gray-50 text-gray-900">
   <aside class="w-72 border-r flex flex-col fixed h-full z-40 bg-white border-gray-100 shadow-sm">
-    <div class="p-8 flex items-center gap-3"><div class="w-10 h-10 bg-vtu-green rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg">O</div><span class="font-black text-lg tracking-tight">Admin Portal</span></div>
+    <div class="p-8 flex items-center gap-3"><div class="w-10 h-10 bg-vtu-green rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg">V</div><span class="font-black text-lg tracking-tight">Admin Portal</span></div>
     <nav class="flex-1 px-4 py-4 space-y-1"><?php foreach ($menuItems as $item): ?><a href="?page=<?php echo $item['page']; ?>" class="flex items-center gap-4 px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all <?php echo $page === $item['page'] ? 'bg-vtu-green text-white shadow-lg' : 'text-gray-400 hover:bg-gray-50'; ?>"><i data-lucide="<?php echo $item['icon']; ?>" size="20"></i><?php echo h($item['label']); ?></a><?php endforeach; ?></nav>
     <div class="p-6 border-t border-gray-100"><a href="logout" class="w-full flex items-center gap-4 px-6 py-4 text-red-500 font-black text-[10px] uppercase tracking-widest hover:bg-red-50 rounded-2xl transition-all"><i data-lucide="log-out" size="20"></i> Sign Out</a></div>
   </aside>

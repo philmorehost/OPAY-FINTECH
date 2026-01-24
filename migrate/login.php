@@ -12,7 +12,7 @@ $error = ''; if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 } ?>
 <div class="flex flex-col items-center justify-center min-h-screen px-6 bg-white animate-fade-in">
   <div class="w-full max-w-md">
-    <div class="flex flex-col items-center mb-10"><div class="w-20 h-20 bg-vtu-green rounded-full flex items-center justify-center text-white text-3xl font-bold mb-4 shadow-lg">O</div><h1 class="text-2xl font-bold text-gray-800">Welcome to VTU-Fintech</h1></div>
+    <div class="flex flex-col items-center mb-10"><div class="w-20 h-20 bg-vtu-green rounded-full flex items-center justify-center text-white text-3xl font-bold mb-4 shadow-lg">V</div><h1 class="text-2xl font-bold text-gray-800">Welcome to VTU-Fintech</h1></div>
     <form method="POST" action="login" class="space-y-6">
       <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
       <?php if ($error): ?><div class="p-3 bg-red-50 text-red-500 text-sm rounded-lg border border-red-100"><?php echo h($error); ?></div><?php endif; ?>
