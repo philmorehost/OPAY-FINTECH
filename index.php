@@ -1,9 +1,12 @@
 <?php
-if (!file_exists(__DIR__ . '/migrate/includes/db.php')) {
-    header('Location: /migrate/install.php');
-    exit;
-}
+require_once __DIR__ . '/includes/config.php';
 
-// If installed, redirect to the main app
-header('Location: /migrate/');
-exit;
+if (isLoggedIn()) {
+    if (isAdmin()) {
+        redirect('/admin/index');
+    } else {
+        redirect('/dashboard');
+    }
+} else {
+    redirect('/login');
+}
