@@ -55,6 +55,11 @@ function startSecureSession() {
 }
 
 // Database helper
+function fetchActiveOffers($pdo) {
+    $stmt = $pdo->query("SELECT * FROM offers WHERE expiryDate > NOW() ORDER BY createdAt DESC");
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
 function fetchSettings($pdo) {
     $stmt = $pdo->query("SELECT * FROM settings WHERE id = 1");
     $settings = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -85,10 +90,10 @@ function checkDailyLimit($pdo, $userId, $recipient, $limit) {
     return $stmt->fetchColumn() < $limit;
 }
 
-function logTransaction($pdo, $userId, $type, $amount, $status, $details, $recipient, $provider = null) {
+function logTransaction($pdo, $userId, $type, $amount, $status, $details, $recipient, $provider = null, $token = null) {
     $id = 'TX-' . strtoupper(bin2hex(random_bytes(4)));
-    $stmt = $pdo->prepare("INSERT INTO transactions (id, userId, type, amount, status, details, recipient, provider) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-    return $stmt->execute([$id, $userId, $type, $amount, $status, $details, $recipient, $provider]);
+    $stmt = $pdo->prepare("INSERT INTO transactions (id, userId, type, amount, status, details, recipient, provider, token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    return $stmt->execute([$id, $userId, $type, $amount, $status, $details, $recipient, $provider, $token]);
 }
 
 function checkRateLimit($key, $limit = 5, $period = 60) {

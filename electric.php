@@ -27,7 +27,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $pdo->beginTransaction();
         try {
             updateWallet($pdo, $currentUser['id'], $amount, 'debit');
-            logTransaction($pdo, $currentUser['id'], 'Electricity', $amount, 'successful', "Electricity Payment ($providerId) for Meter: $meterNumber ($meterType)", $meterNumber, $providerId);
+
+            $token = null;
+            if ($meterType === 'prepaid') {
+                $token = mt_rand(1000, 9999) . '-' . mt_rand(1000, 9999) . '-' . mt_rand(1000, 9999) . '-' . mt_rand(1000, 9999);
+            }
+
+            logTransaction($pdo, $currentUser['id'], 'Electricity', $amount, 'successful', "Electricity Payment ($providerId) for Meter: $meterNumber ($meterType)", $meterNumber, $providerId, $token);
 
             // Receipt Email
             $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Your electricity payment was successful.<br><br>Provider: $providerId<br>Meter: $meterNumber ($meterType)<br>Amount: " . formatCurrency($amount);

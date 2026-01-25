@@ -5,6 +5,26 @@ if (!isAdmin()) {
     redirect('/login');
 }
 
+// Auto-migration
+try {
+    $pdo->exec("ALTER TABLE settings ADD COLUMN IF NOT EXISTS templateId INT DEFAULT 1");
+    $pdo->exec("ALTER TABLE settings ADD COLUMN IF NOT EXISTS primaryColor VARCHAR(20) DEFAULT '#00c689'");
+    $pdo->exec("ALTER TABLE transactions ADD COLUMN IF NOT EXISTS token VARCHAR(255)");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS offers (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        content TEXT NOT NULL,
+        image VARCHAR(255),
+        gradientFrom VARCHAR(20),
+        gradientTo VARCHAR(20),
+        textColor VARCHAR(20) DEFAULT '#ffffff',
+        expiryDate DATETIME NOT NULL,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+    )");
+} catch (PDOException $e) {
+    // Silent fail if columns already exist and IF NOT EXISTS is not supported or other DB issues
+}
+
 $pageTitle = 'Admin Dashboard';
 require_once __DIR__ . '/header.php';
 

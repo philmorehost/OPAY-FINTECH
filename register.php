@@ -72,9 +72,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary-color: <?php echo $settings['primaryColor'] ?? '#00c689'; ?>;
+        }
         body { font-family: 'Inter', sans-serif; background: #f9fafb; }
-        .billpay-green { color: #00c689; }
-        .bg-billpay-green { background-color: #00c689; }
+        .billpay-green { color: var(--primary-color); }
+        .bg-billpay-green { background-color: var(--primary-color); }
+        .focus\:border-billpay-green:focus { border-color: var(--primary-color); }
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-6">

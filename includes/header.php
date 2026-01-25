@@ -16,10 +16,18 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
+        :root {
+            --primary-color: <?php echo $settings['primaryColor'] ?? '#00c689'; ?>;
+            --primary-color-rgb: <?php
+                $hex = $settings['primaryColor'] ?? '#00c689';
+                list($r, $g, $b) = sscanf($hex, "#%02x%02x%02x");
+                echo "$r, $g, $b";
+            ?>;
+        }
         body { font-family: 'Inter', sans-serif; background: #f9fafb; color: #111827; }
-        .billpay-green { color: #00c689; }
-        .bg-billpay-green { background-color: #00c689; }
-        .border-billpay-green { border-color: #00c689; }
+        .billpay-green { color: var(--primary-color); }
+        .bg-billpay-green { background-color: var(--primary-color); }
+        .border-billpay-green { border-color: var(--primary-color); }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         @keyframes slideDown {
@@ -77,7 +85,7 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
         </aside>
 
         <!-- Main Content -->
-        <main class="flex-1 lg:ml-72 flex flex-col min-h-screen">
+        <main class="flex-1 lg:ml-72 flex flex-col min-h-screen pb-24 lg:pb-0">
             <!-- Header -->
             <header class="h-20 bg-white/80 backdrop-blur-md border-b border-gray-50 sticky top-0 z-30 px-6 lg:px-12 flex items-center justify-between">
                 <div class="flex items-center gap-4 lg:hidden">
@@ -97,4 +105,4 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
                 </div>
             </header>
 
-            <div class="p-6 lg:p-12 max-w-6xl mx-auto w-full">
+            <div class="p-6 lg:p-12 max-w-6xl mx-auto w-full <?php echo isAdmin() ? '' : 'lg:max-w-[70%]'; ?>">

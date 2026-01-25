@@ -57,7 +57,7 @@ require_once __DIR__ . '/includes/header.php';
             <div class="py-20 text-center text-gray-300 font-black uppercase text-xs">No transactions yet</div>
         <?php else: ?>
             <?php foreach ($transactions as $tx): ?>
-                <div class="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm flex items-center justify-between">
+                <a href="/receipt?id=<?php echo $tx['id']; ?>" class="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm flex items-center justify-between active:scale-95 transition-all">
                     <div class="flex items-center gap-4">
                         <div class="w-12 h-12 rounded-2xl flex items-center justify-center <?php echo $tx['status'] === 'successful' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'; ?>">
                             <i data-lucide="<?php echo $tx['status'] === 'successful' ? 'check-circle-2' : 'x-circle'; ?>" class="w-6 h-6"></i>
@@ -71,7 +71,7 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="text-sm font-black <?php echo $tx['status'] === 'successful' ? 'text-gray-900' : 'text-red-500'; ?>"><?php echo formatCurrency($tx['amount']); ?></div>
                         <div class="text-[9px] font-black uppercase opacity-40"><?php echo $tx['status']; ?></div>
                     </div>
-                </div>
+                </a>
             <?php endforeach; ?>
         <?php endif; ?>
     </div>

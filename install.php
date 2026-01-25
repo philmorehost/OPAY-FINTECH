@@ -110,6 +110,8 @@ if ($stage === 2 && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 maxDailyTxPerId INT DEFAULT 5,
                 minDepositAmount DECIMAL(15, 2) DEFAULT 100.00,
                 minAirtimePurchase DECIMAL(15, 2) DEFAULT 50.00,
+                templateId INT DEFAULT 1,
+                primaryColor VARCHAR(20) DEFAULT '#00c689',
                 isMaintenanceMode BOOLEAN DEFAULT FALSE,
                 adminTheme ENUM('light', 'dark') DEFAULT 'light',
                 smtpHost VARCHAR(255),
@@ -180,6 +182,17 @@ if ($stage === 2 && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 type ENUM('Visa', 'Mastercard') NOT NULL,
                 isFrozen BOOLEAN DEFAULT FALSE,
                 FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+            )",
+            "CREATE TABLE IF NOT EXISTS offers (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                title VARCHAR(255) NOT NULL,
+                content TEXT NOT NULL,
+                image VARCHAR(255),
+                gradientFrom VARCHAR(20),
+                gradientTo VARCHAR(20),
+                textColor VARCHAR(20) DEFAULT '#ffffff',
+                expiryDate DATETIME NOT NULL,
+                createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
             )"
         ];
 

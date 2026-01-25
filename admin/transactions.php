@@ -66,7 +66,7 @@ require_once __DIR__ . '/header.php';
                 </thead>
                 <tbody class="divide-y divide-gray-50">
                     <?php foreach ($transactions as $tx): ?>
-                       <tr class="hover:bg-gray-50 transition-colors">
+                       <tr class="hover:bg-gray-50 transition-colors cursor-pointer" onclick="window.location='/receipt?id=<?php echo $tx['id']; ?>'">
                           <td class="p-6 font-mono text-[10px] font-bold text-gray-400 uppercase"><?php echo $tx['id']; ?></td>
                           <td class="p-6">
                              <div class="flex flex-col">

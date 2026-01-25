@@ -20,13 +20,14 @@ $services = [
     ['icon' => 'gift', 'label' => 'Gift Cards', 'path' => '/giftcards', 'color' => 'text-pink-600'],
 ];
 
-$offers = $settings['offers'] ?? [];
-if (is_string($offers)) $offers = json_decode($offers, true) ?: [];
+$offers = fetchActiveOffers($pdo);
+$templateId = $settings['templateId'] ?? 1;
 
 ?>
 
 <div class="max-w-md mx-auto bg-gray-50 min-h-screen pb-24 relative">
-    <!-- Balance Card Section -->
+    <?php if ($templateId == 1): ?>
+    <!-- Balance Card Section - Template 1 -->
     <div class="bg-billpay-green p-6 text-white rounded-b-[40px] shadow-lg mb-6">
         <div class="flex justify-between items-center mb-6">
             <div class="flex items-center gap-3">
@@ -60,6 +61,56 @@ if (is_string($offers)) $offers = json_decode($offers, true) ?: [];
             </div>
         </div>
     </div>
+    <?php else: ?>
+    <!-- Balance Card Section - Template 2 -->
+    <div class="px-4 pt-6 mb-6">
+        <div class="bg-gray-900 p-8 rounded-[40px] text-white shadow-2xl relative overflow-hidden">
+            <div class="absolute -right-10 -top-10 w-40 h-40 bg-billpay-green/20 rounded-full blur-3xl"></div>
+            <div class="relative z-10">
+                <div class="flex justify-between items-start mb-8">
+                    <div>
+                        <div class="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] mb-1">Your Balance</div>
+                        <div class="text-4xl font-black tracking-tighter"><?php echo formatCurrency($currentUser['walletBalance']); ?></div>
+                    </div>
+                    <div class="w-12 h-12 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center">
+                        <i data-lucide="wallet" class="text-billpay-green w-6 h-6"></i>
+                    </div>
+                </div>
+                <div class="flex gap-4">
+                    <a href="/add-money" class="flex-1 bg-billpay-green text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-green-500/20 text-center">Fund Account</a>
+                    <a href="/transfer" class="flex-1 bg-white/5 border border-white/10 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest text-center">Transfer</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <?php if ($templateId == 2): ?>
+    <!-- Promotions - Template 2 (Above Services) -->
+    <div class="mb-8 px-4">
+        <div class="flex justify-between items-center px-2 mb-4">
+            <h3 class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Offers for you</h3>
+        </div>
+        <div class="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+            <?php if (empty($offers)): ?>
+               <div class="min-w-[280px] h-36 bg-gray-100 rounded-[32px] flex items-center justify-center text-gray-400 text-[10px] font-black uppercase tracking-widest">
+                  No active offers
+               </div>
+            <?php else: ?>
+                <?php foreach ($offers as $offer): ?>
+                    <div class="min-w-[280px] h-36 rounded-[32px] p-6 relative overflow-hidden flex flex-col justify-center shadow-xl shadow-gray-200" style="background: linear-gradient(to bottom right, <?php echo $offer['gradientFrom']; ?>, <?php echo $offer['gradientTo']; ?>); color: <?php echo $offer['textColor']; ?>;">
+                        <?php if ($offer['image']): ?><img src="/<?php echo $offer['image']; ?>" class="absolute right-0 top-0 h-full w-1/2 object-cover opacity-20"><?php endif; ?>
+                        <div class="relative z-10">
+                            <div class="text-lg font-black leading-tight max-w-[180px]"><?php echo $offer['title']; ?></div>
+                            <div class="text-[10px] font-medium opacity-80 mt-2"><?php echo $offer['content']; ?></div>
+                        </div>
+                        <div class="absolute -right-8 -bottom-8 w-28 h-28 bg-white/10 rounded-full"></div>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <!-- Daily Streak -->
     <div class="px-4 mb-6">
@@ -94,11 +145,11 @@ if (is_string($offers)) $offers = json_decode($offers, true) ?: [];
         </div>
     </div>
 
-    <!-- Promotions -->
+    <?php if ($templateId == 1): ?>
+    <!-- Promotions - Template 1 (Below Services) -->
     <div class="mt-10 px-4">
         <div class="flex justify-between items-center px-2 mb-4">
             <h3 class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Offers for you</h3>
-            <span class="text-[10px] font-black text-billpay-green uppercase">See all</span>
         </div>
         <div class="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
             <?php if (empty($offers)): ?>
@@ -108,15 +159,18 @@ if (is_string($offers)) $offers = json_decode($offers, true) ?: [];
             <?php else: ?>
                 <?php foreach ($offers as $offer): ?>
                     <div class="min-w-[280px] h-36 rounded-[32px] p-6 relative overflow-hidden flex flex-col justify-center shadow-xl shadow-gray-200" style="background: linear-gradient(to bottom right, <?php echo $offer['gradientFrom']; ?>, <?php echo $offer['gradientTo']; ?>); color: <?php echo $offer['textColor']; ?>;">
-                        <div class="text-lg font-black leading-tight max-w-[180px]"><?php echo $offer['title']; ?></div>
-                        <div class="text-[10px] font-medium opacity-80 mt-2"><?php echo $offer['description']; ?></div>
-                        <div class="text-[10px] font-black uppercase opacity-60 mt-2 tracking-widest"><?php echo $offer['label']; ?></div>
+                        <?php if ($offer['image']): ?><img src="/<?php echo $offer['image']; ?>" class="absolute right-0 top-0 h-full w-1/2 object-cover opacity-20"><?php endif; ?>
+                        <div class="relative z-10">
+                            <div class="text-lg font-black leading-tight max-w-[180px]"><?php echo $offer['title']; ?></div>
+                            <div class="text-[10px] font-medium opacity-80 mt-2"><?php echo $offer['content']; ?></div>
+                        </div>
                         <div class="absolute -right-8 -bottom-8 w-28 h-28 bg-white/10 rounded-full"></div>
                     </div>
                 <?php endforeach; ?>
             <?php endif; ?>
         </div>
     </div>
+    <?php endif; ?>
 </div>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

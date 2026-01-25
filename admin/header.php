@@ -30,9 +30,12 @@
         }
     </script>
     <style>
+        :root {
+            --primary-color: <?php echo $settings['primaryColor'] ?? '#00c689'; ?>;
+        }
         body { font-family: 'Inter', sans-serif; background: #f9fafb; }
-        .billpay-green { color: #00c689; }
-        .bg-billpay-green { background-color: #00c689; }
+        .billpay-green { color: var(--primary-color); }
+        .bg-billpay-green { background-color: var(--primary-color); }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
     </style>
 </head>
@@ -73,6 +76,7 @@
                 ['label' => 'Support', 'icon' => 'message-square', 'path' => '/admin/support'],
                 ['label' => 'Email Hub', 'icon' => 'mail', 'path' => '/admin/email-hub'],
                 ['label' => 'API Hub', 'icon' => 'database', 'path' => '/admin/api-manager'],
+                ['label' => 'Offers', 'icon' => 'gift', 'path' => '/admin/offers'],
                 ['label' => 'Settings', 'icon' => 'settings', 'path' => '/admin/settings'],
             ];
             foreach ($adminMenu as $item):
