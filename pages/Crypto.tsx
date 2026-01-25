@@ -1,662 +1,470 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store';
-import { formatCurrency, generateId } from '../utils';
+import { formatCurrency, generateId, sendNotificationEmail } from '../utils';
 import { 
-  ArrowLeft, Bitcoin, ArrowUpRight, ArrowDownLeft, RefreshCcw, 
-  AlertCircle, CheckCircle2, Copy, QrCode, History, Clock, 
-  ChevronDown, ShieldCheck, Zap, Globe, Bell, Plus, Trash2,
-  ArrowUp, ArrowDown, X, ShoppingCart, TrendingUp, TrendingDown,
-  DollarSign, ArrowRight, Info, ExternalLink, Repeat
+  ArrowLeft, Bitcoin, RefreshCcw, 
+  AlertCircle, CheckCircle2, Copy, QrCode, 
+  ChevronDown, ShieldCheck, X, ShoppingCart, DollarSign, 
+  Repeat, TrendingUp as TrendingUpIcon, TrendingDown as TrendingDownIcon,
+  Wallet, ArrowDownToLine, ArrowUpFromLine, Activity
 } from 'lucide-react';
 
-interface PriceAlert {
+interface AssetConfig {
   id: string;
-  asset: string;
-  targetPrice: number;
-  condition: 'above' | 'below';
-  triggered: boolean;
-  createdAt: string;
+  name: string;
+  label: string;
+  coingeckoId: string;
+  color: string;
+  icon: string;
+  networks: string[];
 }
 
-const ASSETS = [
-  { 
-    name: 'BTC', 
-    label: 'Bitcoin', 
-    color: 'bg-orange-500', 
-    icon: '₿', 
-    networks: ['Bitcoin (Native)', 'BEP20 (BSC)', 'Lightning']
-  },
-  { 
-    name: 'ETH', 
-    label: 'Ethereum', 
-    color: 'bg-blue-600', 
-    icon: 'Ξ', 
-    networks: ['ERC20 (Ethereum)', 'BEP20 (BSC)', 'Arbitrum One', 'Optimism']
-  },
-  { 
-    name: 'SOL', 
-    label: 'Solana', 
-    color: 'bg-purple-600', 
-    icon: 'S', 
-    networks: ['Solana (Native)', 'BEP20 (BSC)', 'Devnet']
-  },
-  { 
-    name: 'ADA', 
-    label: 'Cardano', 
-    color: 'bg-blue-800', 
-    icon: 'A', 
-    networks: ['Cardano (Native)', 'BEP20 (BSC)']
-  },
-  { 
-    name: 'USDT', 
-    label: 'Tether', 
-    color: 'bg-green-600', 
-    icon: '₮', 
-    networks: ['TRC20 (Tron)', 'ERC20 (Ethereum)', 'BEP20 (BSC)', 'Polygon']
-  }
+const ASSETS: AssetConfig[] = [
+  { id: 'BTC', name: 'BTC', label: 'Bitcoin', coingeckoId: 'bitcoin', color: 'bg-orange-500', icon: '₿', networks: ['Bitcoin (Native)', 'BEP20'] },
+  { id: 'ETH', name: 'ETH', label: 'Ethereum', coingeckoId: 'ethereum', color: 'bg-blue-600', icon: 'Ξ', networks: ['ERC20', 'Base', 'Arbitrum'] },
+  { id: 'USDT', name: 'USDT', label: 'Tether', coingeckoId: 'tether', color: 'bg-green-600', icon: '₮', networks: ['TRC20', 'ERC20', 'BEP20'] }
 ];
 
+const NETWORK_FEES: Record<string, string> = {
+  'Bitcoin (Native)': '0.0004 BTC',
+  'BEP20': '1.00 USDT',
+  'ERC20': '8.50 USDT',
+  'Base': '0.25 USDT',
+  'Arbitrum': '0.30 USDT',
+  'TRC20': '1.00 USDT',
+};
+
+const NAIRA_RATE = 1650; // Fixed 1 USD = 1650 NGN
+
 const Crypto: React.FC = () => {
-  const { currentUser, setUsers, transactions, setTransactions } = useApp();
+  const { currentUser, setUsers, transactions, setTransactions, settings, setCurrentUser } = useApp();
   const navigate = useNavigate();
   
-  const [prices, setPrices] = useState({
-    BTC: 65420.50,
-    ETH: 3450.20,
-    SOL: 145.85,
-    ADA: 0.46,
-    USDT: 1.00
-  });
-  
-  const [portfolio, setPortfolio] = useState<Record<string, number>>({
-    BTC: 0.0045,
-    ETH: 0.12,
-    SOL: 8.50,
-    ADA: 420.00,
-    USDT: 50.00
+  const [portfolio, setPortfolio] = useState<Record<string, number>>(() => {
+    const saved = localStorage.getItem('billpay_crypto_portfolio');
+    return saved ? JSON.parse(saved) : { BTC: 0.0045, ETH: 0.12, USDT: 550.00 };
   });
 
-  const [selectedAsset, setSelectedAsset] = useState('BTC');
-  const [targetSwapAsset, setTargetSwapAsset] = useState('USDT');
-  const [selectedNetwork, setSelectedNetwork] = useState('');
+  const [prices, setPrices] = useState<Record<string, { usd: number, change: number }>>({
+    BTC: { usd: 65000, change: 0 },
+    ETH: { usd: 3500, change: 0 },
+    USDT: { usd: 1.00, change: 0 }
+  });
+
+  const [activeAction, setActiveAction] = useState<'buy' | 'sell' | 'deposit' | 'withdraw'>('buy');
+  const [selectedAsset, setSelectedAsset] = useState<AssetConfig>(ASSETS[0]);
+  const [selectedNetwork, setSelectedNetwork] = useState(selectedAsset.networks[0]);
   const [amount, setAmount] = useState('');
-  const [depositAmount, setDepositAmount] = useState('');
-  const [address, setAddress] = useState('');
-  const [activeTab, setActiveTab] = useState<'send' | 'receive' | 'trade' | 'alerts' | 'history'>('trade');
-  const [tradeType, setTradeType] = useState<'buy' | 'sell' | 'swap'>('buy');
+  const [withdrawalAddress, setWithdrawalAddress] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-  
-  const [priceAlerts, setPriceAlerts] = useState<PriceAlert[]>([]);
-  const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
-  const [newAlertPrice, setNewAlertPrice] = useState('');
-  const [newAlertCondition, setNewAlertCondition] = useState<'above' | 'below'>('above');
-  const [userAddresses, setUserAddresses] = useState<Record<string, string>>({});
-
-  const currentAsset = useMemo(() => ASSETS.find(a => a.name === selectedAsset) || ASSETS[0], [selectedAsset]);
 
   useEffect(() => {
-    if (currentAsset) {
-      setSelectedNetwork(currentAsset.networks[0]);
-    }
-  }, [selectedAsset]); 
+    localStorage.setItem('billpay_crypto_portfolio', JSON.stringify(portfolio));
+  }, [portfolio]);
 
-  const generateNewAddress = (asset: string, network: string) => {
-    setIsLoading(true);
-    setTimeout(() => {
-      let prefix = '';
-      if (asset === 'BTC') prefix = network.includes('Native') ? 'bc1q' : '1';
-      else if (asset === 'ETH' || network.includes('ERC20') || network.includes('BEP20')) prefix = '0x';
-      else if (asset === 'USDT' && network.includes('TRC20')) prefix = 'T';
-      else if (asset === 'SOL') prefix = '';
-      else if (asset === 'ADA') prefix = 'addr1';
-      
-      const randomPart = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-      const newAddr = prefix + randomPart.toUpperCase();
-      
-      const key = `${asset}-${network}`;
-      setUserAddresses(prev => ({ ...prev, [key]: newAddr }));
-      setIsLoading(false);
-    }, 1200);
+  const totalNgnPortfolioValue = useMemo(() => {
+    return Object.entries(portfolio).reduce((acc, [id, qty]) => {
+      const price = prices[id]?.usd || 0;
+      // Fixed: Explicitly cast qty to number to resolve TypeScript arithmetic operation error
+      return acc + ((qty as number) * price * NAIRA_RATE);
+    }, 0);
+  }, [portfolio, prices]);
+
+  const fetchPrices = async () => {
+    try {
+      const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,tether&vs_currencies=usd&include_24hr_change=true');
+      const data = await response.json();
+      setPrices({
+        BTC: { usd: data.bitcoin.usd, change: data.bitcoin.usd_24h_change },
+        ETH: { usd: data.ethereum.usd, change: data.ethereum.usd_24h_change },
+        USDT: { usd: data.tether.usd, change: data.tether.usd_24h_change }
+      });
+    } catch (err) {
+      console.warn("Could not fetch real-time prices. Using fallback.");
+    }
   };
 
-  const currentAddress = userAddresses[`${selectedAsset}-${selectedNetwork}`];
-
-  const cryptoTransactions = useMemo(() => {
-    return transactions.filter(tx => 
-      tx.userId === currentUser?.id && 
-      (tx.type.includes('Crypto'))
-    ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [transactions, currentUser]);
-
   useEffect(() => {
-    const fetchPrices = async () => {
-      try {
-        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,cardano,tether&vs_currencies=usd');
-        const data = await response.json();
-        if (data && data.bitcoin) {
-          setPrices({
-            BTC: data.bitcoin.usd,
-            ETH: data.ethereum.usd,
-            SOL: data.solana.usd,
-            ADA: data.cardano.usd,
-            USDT: data.tether.usd
-          });
-        }
-      } catch (error) {
-        console.error("Failed to fetch crypto prices", error);
-      }
-    };
-
     fetchPrices();
-    const interval = setInterval(fetchPrices, 30000);
+    const interval = setInterval(fetchPrices, 60000);
     return () => clearInterval(interval);
   }, []);
 
-  // FIXED: Dependency cycle removed. alerts logic now only runs when prices update.
-  useEffect(() => {
-    setPriceAlerts(prev => {
-      let changed = false;
-      const updated = prev.map(alert => {
-        if (alert.triggered) return alert;
-        const currentPrice = prices[alert.asset as keyof typeof prices];
-        const isMet = alert.condition === 'above' 
-          ? currentPrice >= alert.targetPrice 
-          : currentPrice <= alert.targetPrice;
-        
-        if (isMet) {
-          changed = true;
-          // Side effect inside functional update is usually discouraged but used here for status messaging
-          return { ...alert, triggered: true };
-        }
-        return alert;
-      });
+  const handleAssetChange = (asset: AssetConfig) => {
+    setSelectedAsset(asset);
+    setSelectedNetwork(asset.networks[0]);
+    setAmount('');
+    setStatus(null);
+  };
 
-      if (changed) {
-        // Trigger alert status message outside of the loop logic
-        const triggeredCount = updated.filter((a, idx) => a.triggered && !prev[idx].triggered).length;
-        if (triggeredCount > 0) {
-           // Use timeout to avoid updating state during this render phase
-           setTimeout(() => setStatus({ type: 'success', text: `🚨 Price alert triggered!` }), 0);
-        }
-      }
-      return changed ? updated : prev;
-    });
-  }, [prices]);
-
-  const swapRate = useMemo(() => {
-    const fromPrice = prices[selectedAsset as keyof typeof prices];
-    const toPrice = prices[targetSwapAsset as keyof typeof prices];
-    return fromPrice / toPrice;
-  }, [prices, selectedAsset, targetSwapAsset]);
-
-  const handleTrade = () => {
+  const handleTrade = async () => {
     if (!currentUser) return;
-    const inputAmount = parseFloat(amount);
-    if (isNaN(inputAmount) || inputAmount <= 0) {
-      setStatus({ type: 'error', text: 'Please enter a valid amount' });
-      return;
-    }
+    const inputVal = parseFloat(amount);
+    if (isNaN(inputVal) || inputVal <= 0) return;
 
-    const currentAssetPrice = prices[selectedAsset as keyof typeof prices];
+    const currentAssetPrice = prices[selectedAsset.id].usd;
+    const ref = generateId();
+    setIsLoading(true);
 
-    if (tradeType === 'buy') {
-      const exchangeRate = 1620; 
-      const cryptoEquivalent = (inputAmount / exchangeRate) / currentAssetPrice;
-      if (currentUser.walletBalance < inputAmount) {
-        setStatus({ type: 'error', text: 'Insufficient balance' });
-        return;
-      }
-      setIsLoading(true);
-      setTimeout(() => {
+    setTimeout(async () => {
+      if (activeAction === 'buy') {
+        if (currentUser.walletBalance < inputVal) {
+          setStatus({ type: 'error', text: 'Insufficient wallet balance' });
+          setIsLoading(false);
+          return;
+        }
+
+        const cryptoEquivalent = (inputVal / NAIRA_RATE) / currentAssetPrice;
+        
         const newTx: any = {
-          id: generateId(),
+          id: ref,
           userId: currentUser.id,
           type: 'Crypto Buy',
-          amount: inputAmount,
+          amount: inputVal,
           status: 'successful',
           date: new Date().toISOString(),
-          details: `Bought ${cryptoEquivalent.toFixed(8)} ${selectedAsset}`,
-          recipient: selectedAsset,
-          provider: 'OPay Exchange'
+          details: `Bought ${cryptoEquivalent.toFixed(8)} ${selectedAsset.id}`,
+          recipient: selectedAsset.id,
+          provider: 'Billpay Crypto'
         };
-        setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, walletBalance: u.walletBalance - inputAmount } : u));
-        setPortfolio(prev => ({ ...prev, [selectedAsset]: (prev[selectedAsset] || 0) + cryptoEquivalent }));
+
+        setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, walletBalance: u.walletBalance - inputVal } : u));
+        setCurrentUser({ ...currentUser, walletBalance: currentUser.walletBalance - inputVal });
+        setPortfolio(prev => ({ ...prev, [selectedAsset.id]: (prev[selectedAsset.id] || 0) + cryptoEquivalent }));
         setTransactions(prev => [newTx, ...prev]);
-        setIsLoading(false);
-        setStatus({ type: 'success', text: `Successfully bought ${cryptoEquivalent.toFixed(6)} ${selectedAsset}!` });
-        setAmount('');
-      }, 1500);
-    } 
-    else if (tradeType === 'sell') {
-      const exchangeRate = 1620; 
-      const amountToSellInCrypto = (inputAmount / exchangeRate) / currentAssetPrice;
 
-      if ((portfolio[selectedAsset] || 0) < amountToSellInCrypto) {
-        setStatus({ type: 'error', text: `Insufficient ${selectedAsset} balance` });
-        return;
-      }
+        try {
+          await sendNotificationEmail(settings, currentUser.email, 'Crypto Purchase', currentUser.fullName, {
+            'Asset': selectedAsset.id,
+            'Units': cryptoEquivalent.toFixed(8),
+            'Spent': formatCurrency(inputVal),
+            'Price USD': `$${currentAssetPrice.toLocaleString()}`,
+            'Ref': ref
+          });
+        } catch (err) { console.warn(err); }
 
-      setIsLoading(true);
-      setTimeout(() => {
+      } else if (activeAction === 'sell') {
+        if ((portfolio[selectedAsset.id] || 0) < inputVal) {
+          setStatus({ type: 'error', text: `Insufficient ${selectedAsset.id} balance` });
+          setIsLoading(false);
+          return;
+        }
+
+        const nairaEquivalent = inputVal * currentAssetPrice * NAIRA_RATE;
+        
         const newTx: any = {
-          id: generateId(),
+          id: ref,
           userId: currentUser.id,
           type: 'Crypto Sell',
-          amount: inputAmount,
+          amount: nairaEquivalent,
           status: 'successful',
           date: new Date().toISOString(),
-          details: `Sold ${amountToSellInCrypto.toFixed(8)} ${selectedAsset}`,
-          recipient: selectedAsset,
-          provider: 'OPay Exchange'
+          details: `Sold ${inputVal} ${selectedAsset.id}`,
+          recipient: 'Wallet',
+          provider: 'Billpay Crypto'
         };
-        setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, walletBalance: u.walletBalance + inputAmount } : u));
-        setPortfolio(prev => ({ ...prev, [selectedAsset]: prev[selectedAsset] - amountToSellInCrypto }));
-        setTransactions(prev => [newTx, ...prev]);
-        setIsLoading(false);
-        setStatus({ type: 'success', text: `Successfully sold ${selectedAsset} for ${formatCurrency(inputAmount)}!` });
-        setAmount('');
-      }, 1500);
-    }
-    else if (tradeType === 'swap') {
-      const fromAmount = inputAmount; 
-      const toAmount = fromAmount * swapRate;
-      const fee = toAmount * 0.005; 
-      const finalToAmount = toAmount - fee;
 
-      if ((portfolio[selectedAsset] || 0) < fromAmount) {
-        setStatus({ type: 'error', text: `Insufficient ${selectedAsset} balance to swap` });
+        setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, walletBalance: u.walletBalance + nairaEquivalent } : u));
+        setCurrentUser({ ...currentUser, walletBalance: currentUser.walletBalance + nairaEquivalent });
+        setPortfolio(prev => ({ ...prev, [selectedAsset.id]: (prev[selectedAsset.id] || 0) - inputVal }));
+        setTransactions(prev => [newTx, ...prev]);
+
+        try {
+          await sendNotificationEmail(settings, currentUser.email, 'Crypto Sale', currentUser.fullName, {
+            'Asset': selectedAsset.id,
+            'Units Sold': inputVal,
+            'Naira Credited': formatCurrency(nairaEquivalent),
+            'Price USD': `$${currentAssetPrice.toLocaleString()}`,
+            'Ref': ref
+          });
+        } catch (err) { console.warn(err); }
+
+      } else if (activeAction === 'withdraw') {
+        if ((portfolio[selectedAsset.id] || 0) < inputVal) {
+          setStatus({ type: 'error', text: 'Insufficient balance' });
+          setIsLoading(false);
+          return;
+        }
+        if (!withdrawalAddress) {
+          setStatus({ type: 'error', text: 'Address required' });
+          setIsLoading(false);
+          return;
+        }
+
+        const newTx: any = {
+          id: ref,
+          userId: currentUser.id,
+          type: 'Crypto Withdrawal',
+          amount: inputVal,
+          status: 'pending',
+          date: new Date().toISOString(),
+          details: `Withdrew ${inputVal} ${selectedAsset.id} to ${withdrawalAddress}`,
+          recipient: withdrawalAddress,
+          provider: selectedNetwork
+        };
+
+        setPortfolio(prev => ({ ...prev, [selectedAsset.id]: (prev[selectedAsset.id] || 0) - inputVal }));
+        setTransactions(prev => [newTx, ...prev]);
+        setStatus({ type: 'success', text: 'Withdrawal request submitted!' });
+        setAmount('');
+        setWithdrawalAddress('');
+        setIsLoading(false);
         return;
       }
 
-      setIsLoading(true);
-      setTimeout(() => {
-        const newTx: any = {
-          id: generateId(),
-          userId: currentUser.id,
-          type: 'Crypto Swap',
-          amount: fromAmount * prices[selectedAsset as keyof typeof prices] * 1620,
-          status: 'successful',
-          date: new Date().toISOString(),
-          details: `Swapped ${fromAmount} ${selectedAsset} for ${finalToAmount.toFixed(8)} ${targetSwapAsset}`,
-          recipient: targetSwapAsset,
-          provider: 'OPay DEX'
-        };
-
-        setPortfolio(prev => ({
-          ...prev,
-          [selectedAsset]: prev[selectedAsset] - fromAmount,
-          [targetSwapAsset]: (prev[targetSwapAsset] || 0) + finalToAmount
-        }));
-
-        setTransactions(prev => [newTx, ...prev]);
-        setIsLoading(false);
-        setStatus({ type: 'success', text: `Swapped ${selectedAsset} to ${targetSwapAsset} successfully!` });
-        setAmount('');
-        setActiveTab('history');
-      }, 2000);
-    }
-  };
-
-  const handleWithdraw = () => {
-    if (!currentUser) return;
-    const usdAmount = parseFloat(amount);
-    if (isNaN(usdAmount) || usdAmount <= 0 || address.length < 26) {
-        setStatus({ type: 'error', text: 'Check amount and address' });
-        return;
-    }
-    
-    const exchangeRate = 1620; 
-    const nairaEquivalent = usdAmount * exchangeRate;
-    const cryptoAmount = usdAmount / prices[selectedAsset as keyof typeof prices];
-
-    if ((portfolio[selectedAsset] || 0) < cryptoAmount) {
-      setStatus({ type: 'error', text: 'Insufficient crypto balance' });
-      return;
-    }
-
-    setIsLoading(true);
-    setTimeout(() => {
-      const newTx: any = {
-        id: generateId(),
-        userId: currentUser.id,
-        type: 'Crypto Transfer',
-        amount: nairaEquivalent,
-        status: 'successful',
-        date: new Date().toISOString(),
-        details: `Sent ${cryptoAmount.toFixed(6)} ${selectedAsset} to external address`,
-        recipient: address,
-        provider: selectedNetwork
-      };
-
-      setPortfolio(prev => ({ ...prev, [selectedAsset]: prev[selectedAsset] - cryptoAmount }));
-      setTransactions(prev => [newTx, ...prev]);
       setIsLoading(false);
-      setStatus({ type: 'success', text: `Transaction broadcasted successfully!` });
+      setStatus({ type: 'success', text: `Transaction completed successfully!` });
       setAmount('');
-      setAddress('');
-    }, 2500);
+    }, 1500);
   };
 
-  const handleSimulateDeposit = () => {
-    if (!currentUser || !currentAddress) return;
-    const usdAmount = parseFloat(depositAmount);
-    if (isNaN(usdAmount) || usdAmount <= 0) return;
-    
-    setIsLoading(true);
-    const cryptoAmount = usdAmount / prices[selectedAsset as keyof typeof prices];
-
-    setTimeout(() => {
-      const newTx: any = {
-        id: generateId(),
-        userId: currentUser.id,
-        type: 'Crypto Deposit',
-        amount: usdAmount * 1620,
-        status: 'successful',
-        date: new Date().toISOString(),
-        details: `Received ${cryptoAmount.toFixed(6)} ${selectedAsset} via ${selectedNetwork}`,
-        recipient: currentAddress,
-        provider: selectedNetwork
-      };
-
-      setPortfolio(prev => ({ ...prev, [selectedAsset]: (prev[selectedAsset] || 0) + cryptoAmount }));
-      setTransactions(prev => [newTx, ...prev]);
-      setIsLoading(false);
-      setStatus({ type: 'success', text: `Deposit of ${selectedAsset} confirmed!` });
-      setDepositAmount('');
-    }, 3000);
-  };
-
-  const handleAddAlert = () => {
-    const target = parseFloat(newAlertPrice);
-    if (isNaN(target) || target <= 0) return;
-    const newAlert: PriceAlert = {
-      id: generateId(),
-      asset: selectedAsset,
-      targetPrice: target,
-      condition: newAlertCondition,
-      triggered: false,
-      createdAt: new Date().toISOString()
-    };
-    setPriceAlerts(prev => [newAlert, ...prev]);
-    setIsAlertModalOpen(false);
-    setNewAlertPrice('');
-  };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setStatus({ type: 'success', text: 'Copied to clipboard!' });
-  };
-
-  const flipSwap = () => {
-    const temp = selectedAsset;
-    setSelectedAsset(targetSwapAsset);
-    setTargetSwapAsset(temp);
-  };
+  const cryptoActivity = useMemo(() => {
+    return transactions.filter(tx => tx.userId === currentUser?.id && tx.type.toLowerCase().includes('crypto')).slice(0, 8);
+  }, [transactions, currentUser]);
 
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-gray-50 flex flex-col pb-10">
-      <div className="bg-white p-4 flex items-center justify-between sticky top-0 z-10 border-b">
-        <div className="flex items-center gap-4">
-          <ArrowLeft className="text-gray-900 cursor-pointer" onClick={() => navigate('/dashboard')} />
-          <h1 className="text-lg font-black text-gray-900">Crypto Hub</h1>
+    <div className="max-w-md mx-auto min-h-screen bg-gray-50 flex flex-col pb-20">
+      {/* Header */}
+      <div className="bg-white p-4 flex flex-col gap-4 border-b sticky top-0 z-50">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <ArrowLeft className="text-gray-900 cursor-pointer" onClick={() => navigate('/dashboard')} />
+            <h1 className="text-lg font-black text-gray-900 uppercase tracking-tight">Crypto Hub</h1>
+          </div>
+          <button onClick={fetchPrices} className="p-2 bg-gray-50 rounded-xl text-gray-400">
+            <RefreshCcw size={18} className={isLoading ? 'animate-spin' : ''} />
+          </button>
         </div>
-        <div className="flex items-center gap-2 bg-green-50 px-3 py-1 rounded-full border border-green-100">
-           <div className="w-1.5 h-1.5 bg-opay-green rounded-full animate-pulse" />
-           <span className="text-[9px] font-black text-opay-green uppercase">Live Market</span>
+        
+        <div className="flex bg-gray-100 p-1.5 rounded-2xl">
+          {(['buy', 'sell', 'deposit', 'withdraw'] as const).map(action => (
+            <button 
+              key={action}
+              onClick={() => { setActiveAction(action); setStatus(null); setAmount(''); }}
+              className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${activeAction === action ? 'bg-white shadow-md text-billpay-green' : 'text-gray-400'}`}
+            >
+              {action}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="p-4 space-y-6 flex-1">
+      <div className="p-4 flex-1 space-y-6 overflow-y-auto scrollbar-hide">
+        {/* Market Overview Horizontal */}
+        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+          {ASSETS.map(asset => {
+            const data = prices[asset.id];
+            return (
+              <div 
+                key={asset.id} 
+                onClick={() => handleAssetChange(asset)}
+                className={`min-w-[140px] p-5 rounded-[32px] border-2 transition-all cursor-pointer ${selectedAsset.id === asset.id ? 'border-billpay-green bg-white shadow-xl shadow-green-50' : 'border-transparent bg-white shadow-sm opacity-60'}`}
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <div className={`w-8 h-8 rounded-xl ${asset.color} flex items-center justify-center text-white font-black text-sm`}>{asset.icon}</div>
+                  <span className="text-xs font-black text-gray-800">{asset.name}</span>
+                </div>
+                <div className="text-sm font-black text-gray-900">${data.usd.toLocaleString()}</div>
+                <div className={`text-[9px] font-black mt-1 flex items-center gap-1 ${data.change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  {data.change >= 0 ? <TrendingUpIcon size={10} /> : <TrendingDownIcon size={10} />}
+                  {data.change.toFixed(2)}%
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Global Portfolio Value */}
+        <div className="bg-gradient-to-br from-gray-900 to-black p-8 rounded-[40px] text-white space-y-4 relative overflow-hidden shadow-2xl">
+          <div className="absolute -right-10 -top-10 w-48 h-48 bg-billpay-green/20 rounded-full blur-3xl" />
+          <div className="flex justify-between items-center opacity-60">
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Estimated Portfolio Value</span>
+            <Activity size={16} className="text-billpay-green" />
+          </div>
+          <div className="text-4xl font-black">{formatCurrency(totalNgnPortfolioValue)}</div>
+          <div className="flex items-center gap-2 text-xs font-bold text-white/40">
+             <span className="bg-white/10 px-3 py-1 rounded-full border border-white/5">Rate: ₦{NAIRA_RATE}/$</span>
+          </div>
+        </div>
+
         {status && (
           <div className={`p-4 rounded-2xl flex items-center gap-3 animate-fade-in ${status.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
             {status.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
-            <span className="text-sm font-bold flex-1">{status.text}</span>
-            <button onClick={() => setStatus(null)}><X size={16} /></button>
+            <span className="text-xs font-bold flex-1">{status.text}</span>
+            <X size={16} className="cursor-pointer opacity-50" onClick={() => setStatus(null)} />
           </div>
         )}
 
-        {/* Portfolio Card */}
-        <div className="bg-gray-900 p-6 rounded-[32px] text-white shadow-xl relative overflow-hidden">
-           <div className="absolute -right-8 -top-8 w-32 h-32 bg-opay-green/20 rounded-full blur-3xl" />
-           <div className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50 mb-1">Your Portfolio</div>
-           <div className="text-2xl font-black mb-4">
-             {formatCurrency(Object.entries(portfolio).reduce((acc: number, [asset, bal]) => acc + ((bal as number) * (prices[asset as keyof typeof prices] || 0) * 1620), 0))}
-           </div>
-           <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-1">
-              {ASSETS.map(a => (
-                <div key={a.name} className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-xl border border-white/10 shrink-0">
-                  <span className="text-[10px] font-black">{a.name}</span>
-                  <span className="text-[10px] font-bold text-white/70">{(portfolio[a.name] || 0).toFixed(a.name === 'USDT' ? 2 : 4)}</span>
+        {/* Dynamic Action Forms */}
+        <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100 space-y-8 animate-fade-in">
+          {(activeAction === 'buy' || activeAction === 'sell') && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center px-1">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{activeAction === 'buy' ? 'Spend (NGN)' : `Sell (${selectedAsset.id})`}</label>
+                <div className="flex flex-col items-end">
+                   <span className="text-[9px] font-black text-billpay-green uppercase">1 {selectedAsset.id} = ${prices[selectedAsset.id].usd.toLocaleString()}</span>
+                   {activeAction === 'sell' && <span className="text-[8px] font-bold text-gray-400 uppercase">Available: {portfolio[selectedAsset.id]?.toFixed(8)}</span>}
                 </div>
-              ))}
-           </div>
-        </div>
-
-        <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide px-1">
-          {ASSETS.map(asset => (
-            <div 
-              key={asset.name}
-              onClick={() => setSelectedAsset(asset.name)}
-              className={`min-w-[140px] p-5 rounded-[32px] border-2 transition-all cursor-pointer relative overflow-hidden bg-white ${selectedAsset === asset.name ? 'border-opay-green shadow-xl shadow-green-100 scale-105' : 'border-transparent opacity-60'}`}
-            >
-              <div className={`w-10 h-10 ${asset.color} rounded-2xl flex items-center justify-center text-white text-lg font-black shadow-md mb-3`}>
-                {asset.icon}
               </div>
-              <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{asset.name}</div>
-              <div className="text-sm font-black text-gray-900 mt-0.5">
-                ${prices[asset.name as keyof typeof prices].toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              
+              <div className="relative">
+                <input 
+                  type="number" 
+                  placeholder="0.00" 
+                  className="w-full p-6 bg-gray-50 text-gray-900 rounded-3xl border-2 border-transparent focus:border-billpay-green outline-none font-black text-3xl transition-all"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                />
+                <div className="absolute right-6 top-1/2 -translate-y-1/2 text-xs font-black text-gray-300 uppercase">
+                  {activeAction === 'buy' ? 'NGN' : selectedAsset.id}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
 
-        <div className="bg-white p-6 rounded-[40px] shadow-sm space-y-8 border border-gray-100">
-          <div className="flex bg-gray-100 p-1.5 rounded-3xl overflow-x-auto scrollbar-hide">
-            {[
-              { id: 'trade', icon: <Repeat size={14} />, label: 'Market' },
-              { id: 'receive', icon: <ArrowDownLeft size={14} />, label: 'Deposit' },
-              { id: 'send', icon: <ArrowUpRight size={14} />, label: 'Send' },
-              { id: 'alerts', icon: <Bell size={14} />, label: 'Alerts' },
-              { id: 'history', icon: <History size={14} />, label: 'History' }
-            ].map(tab => (
+              {amount && (
+                <div className="p-5 bg-gray-50 rounded-3xl border border-gray-100 flex justify-between items-center animate-slide-down">
+                  <div className="flex items-center gap-3">
+                    <Repeat size={18} className="text-gray-400" />
+                    <span className="text-[10px] font-black text-gray-400 uppercase">Conversion</span>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-black text-gray-800">
+                      {activeAction === 'buy' 
+                        ? `${((parseFloat(amount) / NAIRA_RATE) / prices[selectedAsset.id].usd).toFixed(8)} ${selectedAsset.id}`
+                        : formatCurrency(parseFloat(amount) * prices[selectedAsset.id].usd * NAIRA_RATE)
+                      }
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <button 
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex-1 min-w-[80px] py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${activeTab === tab.id ? 'bg-white shadow-xl text-opay-green' : 'text-gray-400'}`}
+                onClick={handleTrade}
+                disabled={isLoading || !amount || parseFloat(amount) <= 0}
+                className={`w-full py-5 rounded-[28px] font-black text-sm text-white shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${activeAction === 'buy' ? 'bg-billpay-green' : 'bg-gray-900'} disabled:opacity-50`}
               >
-                {tab.icon} {tab.label}
+                {isLoading ? <RefreshCcw className="animate-spin" /> : activeAction === 'buy' ? <><ShoppingCart size={18} /> CONFIRM PURCHASE</> : <><DollarSign size={18} /> CONFIRM SALE</>}
               </button>
-            ))}
-          </div>
-
-          {activeTab === 'trade' && (
-            <div className="space-y-6 animate-fade-in">
-              <div className="flex bg-gray-100 p-1 rounded-2xl">
-                {['buy', 'sell', 'swap'].map(type => (
-                  <button 
-                    key={type}
-                    onClick={() => { setTradeType(type as any); setAmount(''); }}
-                    className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${tradeType === type ? 'bg-white shadow-md text-opay-green' : 'text-gray-400'}`}
-                  >
-                    {type}
-                  </button>
-                ))}
-              </div>
-
-              {tradeType === 'swap' ? (
-                <div className="space-y-6 animate-fade-in">
-                  <div className="space-y-4">
-                    <div className="relative">
-                      <div className="text-[9px] font-black text-gray-400 mb-2 uppercase tracking-widest">From</div>
-                      <div className="bg-gray-50 p-5 rounded-3xl border border-gray-100 flex items-center justify-between">
-                        <div className="space-y-1">
-                          <input 
-                            type="number"
-                            placeholder="0.00"
-                            className="bg-transparent border-none outline-none font-black text-2xl w-full text-gray-900"
-                            value={amount}
-                            onChange={(e) => setAmount(e.target.value)}
-                          />
-                          <div className="text-[9px] font-bold text-gray-400">Balance: {(portfolio[selectedAsset] || 0).toFixed(6)} {selectedAsset}</div>
-                        </div>
-                        <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-2xl shadow-sm border border-gray-100">
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white font-black text-[10px] ${ASSETS.find(a => a.name === selectedAsset)?.color}`}>
-                            {ASSETS.find(a => a.name === selectedAsset)?.icon}
-                          </div>
-                          <span className="text-xs font-black">{selectedAsset}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-center -my-6 relative z-10">
-                      <button onClick={flipSwap} className="bg-white p-3 rounded-full shadow-lg border border-gray-100 text-opay-green active:scale-90 transition-all"><RefreshCcw size={20} /></button>
-                    </div>
-
-                    <div className="relative">
-                      <div className="text-[9px] font-black text-gray-400 mb-2 uppercase tracking-widest">To (Estimated)</div>
-                      <div className="bg-gray-50 p-5 rounded-3xl border border-gray-100 flex items-center justify-between">
-                        <div className="space-y-1">
-                          <div className="font-black text-2xl text-gray-900">{amount ? (parseFloat(amount) * swapRate * 0.995).toFixed(8) : '0.00'}</div>
-                          <div className="text-[9px] font-bold text-gray-400">Balance: {(portfolio[targetSwapAsset] || 0).toFixed(6)} {targetSwapAsset}</div>
-                        </div>
-                        <select value={targetSwapAsset} onChange={(e) => setTargetSwapAsset(e.target.value)} className="bg-white px-3 py-2 rounded-2xl shadow-sm border border-gray-100 text-xs font-black outline-none">
-                          {ASSETS.filter(a => a.name !== selectedAsset).map(a => (<option key={a.name} value={a.name}>{a.name}</option>))}
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                  <button onClick={handleTrade} disabled={isLoading || !amount} className="w-full bg-opay-green text-white font-black py-5 rounded-[24px] shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2">{isLoading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'SWAP ASSETS NOW'}</button>
-                </div>
-              ) : (
-                <div className="space-y-6 animate-fade-in">
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center px-1"><span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Market Price</span><span className="text-sm font-black text-gray-900">${prices[selectedAsset as keyof typeof prices].toLocaleString()}</span></div>
-                    <div className="relative">
-                      <label className="block text-[9px] font-black text-gray-400 mb-2 uppercase tracking-widest">Amount to {tradeType} (₦)</label>
-                      <div className="relative">
-                        <input type="number" placeholder="0.00" className="w-full p-5 bg-gray-50 text-gray-900 border-2 border-transparent focus:border-opay-green outline-none rounded-2xl font-black text-2xl" value={amount} onChange={(e) => setAmount(e.target.value)} />
-                        <div className="absolute right-5 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-300">NGN</div>
-                      </div>
-                    </div>
-                  </div>
-                  <button onClick={handleTrade} disabled={isLoading || !amount} className={`w-full font-black py-5 rounded-[24px] shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 ${tradeType === 'buy' ? 'bg-opay-green text-white' : 'bg-red-50 text-white'}`}>{isLoading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <>CONFIRM {tradeType.toUpperCase()}</>}</button>
-                </div>
-              )}
             </div>
           )}
 
-          {activeTab === 'receive' && (
-            <div className="space-y-8 animate-fade-in">
+          {activeAction === 'deposit' && (
+            <div className="space-y-8 text-center animate-fade-in">
               <div className="space-y-4">
-                 <div className="flex justify-between items-center px-1"><h3 className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Deposit {selectedAsset}</h3></div>
-                 <div className="grid grid-cols-2 gap-3">
-                   {currentAsset.networks.map(net => (
-                     <button key={net} onClick={() => setSelectedNetwork(net)} className={`p-4 rounded-2xl border-2 text-[10px] font-black uppercase text-center transition-all ${selectedNetwork === net ? 'border-opay-green bg-green-50 text-opay-green' : 'border-gray-50 bg-gray-50 text-gray-400'}`}>{net}</button>
-                   ))}
-                 </div>
-              </div>
-              {!currentAddress ? (
-                <div className="py-12 flex flex-col items-center gap-6 border-2 border-dashed border-gray-100 rounded-[40px] bg-gray-50/50">
-                   <QrCode size={32} className="text-gray-200" />
-                   <button onClick={() => generateNewAddress(selectedAsset, selectedNetwork)} disabled={isLoading} className="bg-opay-green text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest">{isLoading ? 'Generating...' : 'Generate New Address'}</button>
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block">Select Network</label>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {selectedAsset.networks.map(net => (
+                    <button 
+                      key={net}
+                      onClick={() => setSelectedNetwork(net)}
+                      className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${selectedNetwork === net ? 'bg-billpay-green text-white shadow-md' : 'bg-gray-50 text-gray-400'}`}
+                    >
+                      {net}
+                    </button>
+                  ))}
                 </div>
-              ) : (
-                <div className="space-y-8 animate-slide-up">
-                  <div className="flex flex-col items-center">
-                    <div className="p-6 bg-white rounded-[40px] shadow-xl border border-gray-100 mb-6"><QrCode size={180} className="text-gray-900" /></div>
-                    <div className="w-full bg-gray-50 p-5 rounded-2xl border border-gray-100 flex items-center gap-4"><div className="flex-1 text-[11px] font-black text-gray-600 break-all font-mono leading-relaxed">{currentAddress}</div><button onClick={() => copyToClipboard(currentAddress)} className="p-3 bg-white text-opay-green rounded-xl shadow-sm"><Copy size={18} /></button></div>
+              </div>
+
+              <div className="p-6 bg-white border-2 border-dashed border-gray-100 rounded-[40px] flex flex-col items-center gap-6">
+                <div className="w-48 h-48 bg-gray-50 rounded-[32px] flex items-center justify-center p-4">
+                  <QrCode size={140} className="text-gray-300 opacity-40" />
+                </div>
+                <div className="space-y-2 w-full">
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Your {selectedAsset.id} ({selectedNetwork}) Address</span>
+                  <div className="flex gap-2 w-full">
+                    <div className="flex-1 bg-gray-50 p-4 rounded-2xl text-[10px] font-mono break-all text-gray-600 border border-gray-100">
+                      bc1q{generateId().toLowerCase()}{generateId().toLowerCase()}
+                    </div>
+                    <button onClick={() => alert("Copied")} className="p-4 bg-gray-900 text-white rounded-2xl active:scale-95"><Copy size={20} /></button>
                   </div>
                 </div>
-              )}
-            </div>
-          )}
+              </div>
 
-          {activeTab === 'send' && (
-            <div className="space-y-6 animate-fade-in">
-              <h3 className="text-[11px] font-black text-gray-400 uppercase tracking-widest px-1">Withdraw {selectedAsset}</h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-[9px] font-black text-gray-400 mb-2 uppercase tracking-widest">Recipient Address</label>
-                  <input type="text" placeholder={`Paste ${selectedAsset} Address`} className="w-full p-4 bg-gray-50 text-gray-900 border-2 border-transparent focus:border-opay-green outline-none rounded-2xl font-bold text-xs" value={address} onChange={(e) => setAddress(e.target.value)} />
-                </div>
-                <button onClick={handleWithdraw} disabled={isLoading} className="w-full bg-opay-green text-white font-black py-5 rounded-[24px] shadow-xl">{isLoading ? 'Processing...' : 'BROADCAST TRANSACTION'}</button>
+              <div className="bg-amber-50 p-5 rounded-3xl border border-amber-100 flex gap-4 items-start text-left">
+                <AlertCircle size={20} className="text-amber-500 shrink-0 mt-0.5" />
+                <p className="text-[9px] font-bold text-amber-700 leading-relaxed uppercase">Only send <span className="font-black">{selectedAsset.id}</span> via the <span className="font-black">{selectedNetwork}</span> network. Others will be lost.</p>
               </div>
             </div>
           )}
 
-          {activeTab === 'alerts' && (
-            <div className="space-y-6 animate-fade-in">
-               <div className="flex justify-between items-center px-1"><h3 className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Price Alerts</h3><button onClick={() => setIsAlertModalOpen(true)} className="p-2 bg-opay-green text-white rounded-xl shadow-md"><Plus size={16} /></button></div>
-               <div className="space-y-3">
-                 {priceAlerts.length === 0 ? (
-                   <div className="py-24 text-center text-gray-300 font-black uppercase text-[10px] tracking-widest">No alerts set</div>
-                 ) : (
-                   priceAlerts.map(alert => (
-                     <div key={alert.id} className="bg-gray-50 p-4 rounded-[24px] border border-gray-100 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                           <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-[10px] font-black ${ASSETS.find(a => a.name === alert.asset)?.color}`}>{ASSETS.find(a => a.name === alert.asset)?.icon}</div>
-                           <div><div className="text-[10px] font-black text-gray-800">{alert.asset} {alert.condition} ${alert.targetPrice.toLocaleString()}</div><div className={`text-[8px] font-bold ${alert.triggered ? 'text-green-500' : 'text-amber-500'}`}>{alert.triggered ? 'TRIGGERED' : 'ACTIVE'}</div></div>
+          {activeAction === 'withdraw' && (
+            <div className="space-y-6">
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Choose Network</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {selectedAsset.networks.map(net => (
+                    <button 
+                      key={net}
+                      onClick={() => setSelectedNetwork(net)}
+                      className={`py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${selectedNetwork === net ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-400'}`}
+                    >
+                      {net}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Address</label>
+                <div className="relative">
+                  <input type="text" placeholder="Paste address..." className="w-full p-4 bg-gray-50 text-gray-900 rounded-2xl outline-none font-bold text-xs" value={withdrawalAddress} onChange={(e) => setWithdrawalAddress(e.target.value)} />
+                  <ShieldCheck className="absolute right-4 top-1/2 -translate-y-1/2 text-billpay-green/40" size={18} />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-2 px-1">
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Amount ({selectedAsset.id})</label>
+                  <button onClick={() => setAmount(portfolio[selectedAsset.id]?.toString() || '0')} className="text-[10px] font-black text-billpay-green uppercase">Use Max</button>
+                </div>
+                <input type="number" placeholder="0.00" className="w-full p-4 bg-gray-50 text-gray-900 rounded-2xl outline-none font-black text-xl" value={amount} onChange={(e) => setAmount(e.target.value)} />
+              </div>
+
+              <div className="bg-gray-900 p-6 rounded-[32px] text-white space-y-3">
+                <div className="flex justify-between text-[10px] font-black uppercase tracking-widest opacity-60"><span>Network Fee</span><span>{NETWORK_FEES[selectedNetwork] || 'Calculating...'}</span></div>
+                <div className="h-px bg-white/10" />
+                <div className="flex justify-between text-xs font-black uppercase"><span>Total Withdrawal</span><span>{amount || '0'} {selectedAsset.id}</span></div>
+              </div>
+
+              <button onClick={handleTrade} disabled={isLoading || !amount || !withdrawalAddress} className="w-full bg-billpay-green text-white py-5 rounded-[28px] font-black text-sm shadow-xl active:scale-95 disabled:opacity-50">
+                {isLoading ? <RefreshCcw className="animate-spin" /> : 'INITIATE WITHDRAWAL'}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Refined Transaction History Section */}
+        <div className="space-y-4 pb-12">
+           <div className="flex justify-between items-center px-1">
+              <h3 className="text-xs font-black text-gray-800 uppercase tracking-widest">Transaction History</h3>
+              <button onClick={() => navigate('/transactions')} className="text-[10px] font-black text-billpay-green uppercase">History</button>
+           </div>
+           <div className="space-y-3">
+              {cryptoActivity.length === 0 ? (
+                <div className="py-12 text-center bg-white rounded-[40px] text-gray-300 font-black text-[9px] uppercase border-2 border-dashed border-gray-100">No recent activity</div>
+              ) : (
+                cryptoActivity.map(tx => (
+                  <div key={tx.id} className="bg-white p-5 rounded-[32px] border border-gray-100 flex items-center justify-between shadow-sm">
+                     <div className="flex items-center gap-4">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${tx.type.includes('Buy') || tx.type.includes('Deposit') ? 'bg-green-50 text-green-500' : 'bg-red-50 text-red-500'}`}>
+                           {tx.type.includes('Buy') || tx.type.includes('Deposit') ? <ArrowDownToLine size={18} /> : <ArrowUpFromLine size={18} />}
                         </div>
-                        <button onClick={() => setPriceAlerts(prev => prev.filter(a => a.id !== alert.id))} className="text-red-400 p-2"><Trash2 size={14} /></button>
+                        <div>
+                           <div className="text-[11px] font-black text-gray-800 uppercase">{tx.type}</div>
+                           <div className="text-[9px] text-gray-400 font-bold">{new Date(tx.date).toLocaleDateString()} • {tx.recipient}</div>
+                        </div>
                      </div>
-                   ))
-                 )}
-               </div>
-            </div>
-          )}
-
-          {activeTab === 'history' && (
-            <div className="space-y-6 animate-fade-in">
-              <h3 className="text-[11px] font-black text-gray-400 uppercase tracking-widest px-1">Transaction History</h3>
-              <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1 scrollbar-hide">
-                {cryptoTransactions.length === 0 ? (
-                  <div className="py-24 text-center text-gray-300 font-black uppercase text-[10px] tracking-widest">No activity found</div>
-                ) : (
-                  cryptoTransactions.map((tx) => (
-                    <div key={tx.id} className="bg-gray-50 p-5 rounded-3xl border border-gray-100 flex items-center justify-between group">
-                      <div className="flex items-center gap-4">
-                        <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shadow-sm ${tx.type.includes('Deposit') || tx.type.includes('Buy') ? 'bg-green-100 text-green-600' : 'bg-orange-50 text-orange-600'}`}>
-                          {tx.type.includes('Swap') ? <Repeat size={20} /> : tx.type.includes('Deposit') || tx.type.includes('Buy') ? <ArrowDownLeft size={20} /> : <ArrowUpRight size={20} />}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-[11px] font-black text-gray-800 uppercase truncate">{tx.type.replace('Crypto ', '')}</div>
-                          <div className="text-[9px] text-gray-400 font-bold mt-1">{new Date(tx.date).toLocaleDateString()}</div>
-                        </div>
-                      </div>
-                      <div className="text-right flex flex-col items-end gap-1">
-                        <div className={`text-sm font-black ${tx.type === 'Crypto Deposit' || tx.type === 'Crypto Sell' ? 'text-green-500' : 'text-gray-900'}`}>{formatCurrency(tx.amount)}</div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
+                     <div className="text-right">
+                        <div className="text-xs font-black text-gray-900">{tx.amount.toLocaleString()} {tx.type.includes('Sell') || tx.type.includes('Buy') ? 'NGN' : ''}</div>
+                        <div className={`text-[8px] font-black uppercase ${tx.status === 'successful' ? 'text-billpay-green' : 'text-amber-500'}`}>{tx.status}</div>
+                     </div>
+                  </div>
+                ))
+              )}
+           </div>
         </div>
       </div>
-
-      {isAlertModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[60] flex items-center justify-center p-6">
-          <div className="bg-white w-full max-w-xs rounded-[40px] p-8 space-y-6 animate-slide-up shadow-2xl">
-            <h3 className="text-lg font-black text-gray-900">Set Price Alert</h3>
-            <div className="space-y-4">
-               <div>
-                  <label className="text-[9px] font-black text-gray-400 uppercase mb-2 block">Target Price (USD)</label>
-                  <input type="number" className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-black text-lg" placeholder="e.g. 70000" value={newAlertPrice} onChange={(e) => setNewAlertPrice(e.target.value)} />
-               </div>
-               <div className="flex bg-gray-100 p-1 rounded-2xl">
-                  <button onClick={() => setNewAlertCondition('above')} className={`flex-1 py-2 text-[10px] font-black rounded-xl transition-all ${newAlertCondition === 'above' ? 'bg-white shadow-sm text-opay-green' : 'text-gray-400'}`}>ABOVE</button>
-                  <button onClick={() => setNewAlertCondition('below')} className={`flex-1 py-2 text-[10px] font-black rounded-xl transition-all ${newAlertCondition === 'below' ? 'bg-white shadow-sm text-opay-green' : 'text-gray-400'}`}>BELOW</button>
-               </div>
-            </div>
-            <button onClick={handleAddAlert} className="w-full bg-opay-green text-white py-5 rounded-[24px] font-black uppercase text-xs">Create Alert</button>
-            <button onClick={() => setIsAlertModalOpen(false)} className="w-full text-[10px] font-black uppercase text-gray-400">Cancel</button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

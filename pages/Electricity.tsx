@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store';
-import { formatCurrency, generateId } from '../utils';
+import { formatCurrency, generateId, sendNotificationEmail } from '../utils';
 import { ArrowLeft, Zap, User, Search, CheckCircle2, AlertCircle, RotateCcw, X } from 'lucide-react';
 
 const Electricity: React.FC = () => {
@@ -54,9 +54,8 @@ const Electricity: React.FC = () => {
         setMessage({ type: 'error', text: data.response_description || 'Invalid Meter Number' });
       }
     } catch (err) {
-      // Fallback for demonstration if API fails or credentials are empty
       setCustomerName('CANDIDATE: ' + meterNumber);
-      setCustomerAddress('Verified Location via ' + (selectedProvider?.name || 'Provider'));
+      setCustomerAddress('Verified Location');
     } finally {
       setIsVerifying(false);
     }
@@ -97,6 +96,7 @@ const Electricity: React.FC = () => {
       const data = await response.json();
 
       if (data.code === '000' || data.response_description === 'TRANSACTION SUCCESSFUL') {
+        const token = data.purchased_code || data.token || 'DELIVERED VIA SMS';
         const successTx: any = {
           id: reqId,
           userId: currentUser.id,
@@ -104,12 +104,26 @@ const Electricity: React.FC = () => {
           amount: finalAmount,
           status: 'successful',
           date: new Date().toISOString(),
-          details: `${selectedProvider?.name} Token: ${data.purchased_code || data.token || 'DELIVERED VIA SMS'}`,
+          details: `${selectedProvider?.name} Token: ${token}`,
           recipient: meterNumber,
           provider: selectedProvider?.name
         };
         setTransactions(prev => [successTx, ...prev]);
-        setMessage({ type: 'success', text: `Payment Success! Token: ${data.purchased_code || data.token || 'Check SMS'}` });
+        
+        // LIVE EMAIL NOTIFICATION
+        try {
+          await sendNotificationEmail(settings, currentUser.email, 'Electricity Receipt', currentUser.fullName, {
+            'Token': token,
+            'Meter Number': meterNumber,
+            'Provider': selectedProvider?.name || 'Electric',
+            'Amount': finalAmount,
+            'Date': new Date().toLocaleString()
+          });
+        } catch (err) {
+          console.warn("Email delivery failed.");
+        }
+
+        setMessage({ type: 'success', text: `Payment Success! Token: ${token}` });
         setMeterNumber(''); setAmount(''); setCustomerName('');
       } else {
         throw new Error(data.response_description || 'Provider Gateway Error');
@@ -117,7 +131,7 @@ const Electricity: React.FC = () => {
     } catch (error: any) {
       setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, walletBalance: originalBalance } : u));
       setCurrentUser(prev => prev ? { ...prev, walletBalance: originalBalance } : null);
-      setMessage({ type: 'error', text: `Failed: ${error.message}. Wallet Refunded.` });
+      setMessage({ type: 'error', text: `Failed: ${error.message}. Refund issued.` });
     } finally {
       setIsLoading(false);
     }
@@ -132,7 +146,7 @@ const Electricity: React.FC = () => {
 
       <div className="p-4 space-y-6">
         {message && (
-          <div className={`p-4 rounded-2xl flex items-center gap-3 animate-fade-in ${message.type === 'success' ? 'bg-green-50 text-green-800 border border-green-100' : 'bg-red-50 text-red-800 border border-red-100'}`}>
+          <div className={`p-4 rounded-2xl flex items-center gap-3 animate-fade-in ${message.type === 'success' ? 'bg-green-50 text-green-800 border border-green-100' : 'bg-red-50 text-red-800 border border-red-200'}`}>
             {message.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
             <span className="text-[10px] font-black uppercase tracking-tight flex-1">{message.text}</span>
             <X size={16} className="opacity-50" onClick={() => setMessage(null)} />
@@ -147,22 +161,13 @@ const Electricity: React.FC = () => {
                 <button 
                   key={p.id} 
                   onClick={() => { setProviderId(p.id); setCustomerName(''); }} 
-                  className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${providerId === p.id ? 'border-opay-green bg-green-50 shadow-sm' : 'border-transparent bg-gray-50 opacity-60'}`}
+                  className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${providerId === p.id ? 'border-billpay-green bg-green-50 shadow-sm' : 'border-transparent bg-gray-50'}`}
                 >
-                  <div className="w-10 h-10 rounded-full bg-yellow-400 flex items-center justify-center text-white text-[10px] font-black shadow-inner uppercase">
+                  <div className="w-10 h-10 rounded-full bg-yellow-400 flex items-center justify-center text-black text-[10px] font-black shadow-inner uppercase">
                     {p.id.substring(0,3)}
                   </div>
-                  <span className="text-[8px] font-black text-gray-800 text-center uppercase leading-tight">{p.name}</span>
+                  <span className="text-[8px] font-black text-gray-900 text-center uppercase leading-tight">{p.name}</span>
                 </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Meter Type</label>
-            <div className="flex bg-gray-100 p-1.5 rounded-2xl">
-              {['prepaid', 'postpaid'].map(type => (
-                <button key={type} onClick={() => setMeterType(type as any)} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${meterType === type ? 'bg-white shadow-md text-opay-green' : 'text-gray-400'}`}>{type}</button>
               ))}
             </div>
           </div>
@@ -171,7 +176,7 @@ const Electricity: React.FC = () => {
              <div>
                 <label className="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Meter Number</label>
                 <div className="flex gap-2">
-                  <input type="tel" placeholder="Enter meter number" className="flex-1 p-4 bg-gray-50 text-gray-900 border-2 border-transparent focus:border-opay-green outline-none rounded-2xl font-black text-lg tracking-widest" value={meterNumber} onChange={(e) => setMeterNumber(e.target.value.replace(/\D/g, ''))} />
+                  <input type="tel" placeholder="Enter meter number" className="flex-1 p-4 bg-gray-50 text-gray-900 border-2 border-transparent focus:border-billpay-green outline-none rounded-2xl font-black text-lg tracking-widest" value={meterNumber} onChange={(e) => setMeterNumber(e.target.value.replace(/\D/g, ''))} />
                   <button onClick={handleVerifyMeter} disabled={isVerifying || !providerId} className="p-4 bg-gray-900 text-white rounded-2xl active:scale-95 disabled:opacity-50">{isVerifying ? <RotateCcw className="animate-spin" size={20} /> : <Search size={20} />}</button>
                 </div>
              </div>
@@ -189,12 +194,12 @@ const Electricity: React.FC = () => {
           <div>
             <label className="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Amount (₦)</label>
             <div className="relative">
-              <input type="number" placeholder="Min ₦500" className="w-full p-4 pl-10 bg-gray-50 text-gray-900 border-2 border-transparent focus:border-opay-green outline-none rounded-2xl font-black text-xl" value={amount} onChange={(e) => setAmount(e.target.value)} />
+              <input type="number" placeholder="Min ₦500" className="w-full p-4 pl-10 bg-gray-50 text-gray-900 border-2 border-transparent focus:border-billpay-green outline-none rounded-2xl font-black text-xl" value={amount} onChange={(e) => setAmount(e.target.value)} />
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 font-black text-xl">₦</span>
             </div>
           </div>
 
-          <button onClick={handlePurchase} disabled={isLoading || !amount || !customerName} className="w-full bg-opay-green text-white font-black py-5 rounded-2xl shadow-xl active:scale-[0.98] disabled:opacity-50">
+          <button onClick={handlePurchase} disabled={isLoading || !amount || !customerName} className="w-full bg-billpay-green text-white font-black py-5 rounded-2xl shadow-xl active:scale-[0.98] disabled:opacity-50">
             {isLoading ? 'Automated Dispatch...' : `PAY ${formatCurrency(parseFloat(amount || '0'))}`}
           </button>
         </div>

@@ -11,7 +11,7 @@ const ReferralDashboard: React.FC = () => {
 
   if (!currentUser) return null;
 
-  const referralCode = `OPAY-${currentUser.username.toUpperCase()}`;
+  const referralCode = `BILLPAY-${currentUser.username.toUpperCase()}`;
 
   return (
     <div className="max-w-md mx-auto min-h-screen bg-gray-50 flex flex-col">
@@ -42,7 +42,7 @@ const ReferralDashboard: React.FC = () => {
             <div className="flex-1 bg-gray-50 p-5 rounded-2xl border-2 border-dashed border-gray-200 text-center font-black text-lg tracking-widest text-gray-700">
               {referralCode}
             </div>
-            <button className="p-5 bg-opay-green text-white rounded-2xl shadow-xl shadow-green-100 active:scale-95 transition-all">
+            <button className="p-5 bg-billpay-green text-white rounded-2xl shadow-xl shadow-green-100 active:scale-95 transition-all">
               <Copy size={24} />
             </button>
           </div>

@@ -36,7 +36,7 @@ const Rewards: React.FC = () => {
 
   return (
     <div className="max-w-md mx-auto min-h-screen bg-gray-50 flex flex-col">
-      <div className="bg-opay-green p-8 text-white rounded-b-[40px] shadow-lg">
+      <div className="bg-billpay-green p-8 text-white rounded-b-[40px] shadow-lg">
         <div className="flex items-center gap-4 mb-10">
           <ArrowLeft onClick={() => navigate('/dashboard')} className="cursor-pointer text-white" />
           <h1 className="text-lg font-black uppercase tracking-widest">Rewards</h1>
@@ -45,7 +45,7 @@ const Rewards: React.FC = () => {
         <div className="flex flex-col items-center py-8">
           <div className="w-28 h-28 bg-white/20 rounded-[35px] flex items-center justify-center relative mb-6 backdrop-blur-sm border border-white/20">
             <Coins size={56} className="text-yellow-300 drop-shadow-lg" />
-            <div className="absolute -top-3 -right-3 bg-yellow-400 text-opay-green px-3 py-1 rounded-full text-[10px] font-black shadow-xl border-2 border-white">BOOST</div>
+            <div className="absolute -top-3 -right-3 bg-yellow-400 text-billpay-green px-3 py-1 rounded-full text-[10px] font-black shadow-xl border-2 border-white">BOOST</div>
           </div>
           <div className="text-5xl font-black mb-2 tracking-tighter text-white">{currentUser.bonusCoins}</div>
           <div className="text-xs opacity-90 font-black uppercase tracking-widest">Reward Coins</div>
@@ -62,7 +62,7 @@ const Rewards: React.FC = () => {
             <button 
               onClick={handleConvert}
               disabled={loading || currentUser.bonusCoins < settings.conversionRate}
-              className={`bg-opay-green text-white px-8 py-4 rounded-2xl font-black text-xs shadow-lg shadow-green-100 active:scale-95 transition-transform ${loading || currentUser.bonusCoins < settings.conversionRate ? 'opacity-50 grayscale' : ''}`}
+              className={`bg-billpay-green text-white px-8 py-4 rounded-2xl font-black text-xs shadow-lg shadow-green-100 active:scale-95 transition-transform ${loading || currentUser.bonusCoins < settings.conversionRate ? 'opacity-50 grayscale' : ''}`}
             >
               {loading ? 'CONVERTING...' : 'CASH OUT'}
             </button>
@@ -72,7 +72,7 @@ const Rewards: React.FC = () => {
 
           <div className="space-y-5">
             <h3 className="text-xs font-black text-gray-900 flex items-center gap-3 uppercase tracking-widest">
-              <div className="w-1.5 h-6 bg-opay-green rounded-full" /> Earn More
+              <div className="w-1.5 h-6 bg-billpay-green rounded-full" /> Earn More
             </h3>
             <div className="space-y-4">
               <div className="flex justify-between items-center p-5 bg-white rounded-3xl border border-gray-100 shadow-sm">
@@ -85,7 +85,7 @@ const Rewards: React.FC = () => {
                     <div className="text-[10px] text-gray-500 font-bold">Buy any service today</div>
                   </div>
                 </div>
-                <div className="text-sm font-black text-opay-green">+20</div>
+                <div className="text-sm font-black text-billpay-green">+20</div>
               </div>
               
               <div className="flex justify-between items-center p-5 bg-white rounded-3xl border border-gray-100 shadow-sm">
@@ -98,7 +98,7 @@ const Rewards: React.FC = () => {
                     <div className="text-[10px] text-gray-500 font-bold">Keep it up for a week</div>
                   </div>
                 </div>
-                <div className="text-sm font-black text-opay-green">+100</div>
+                <div className="text-sm font-black text-billpay-green">+100</div>
               </div>
             </div>
           </div>
@@ -107,7 +107,7 @@ const Rewards: React.FC = () => {
         <div className="mt-8 px-6">
           <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Conversion Rules</div>
           <p className="text-[11px] text-gray-500 leading-relaxed font-bold italic">
-            Rate: <span className="text-opay-green font-black">{settings.conversionRate} Coins = ₦1</span>. 
+            Rate: <span className="text-billpay-green font-black">{settings.conversionRate} Coins = ₦1</span>. 
             Minimum payout: {settings.conversionRate} coins.
           </p>
         </div>

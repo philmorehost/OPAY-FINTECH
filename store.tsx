@@ -33,7 +33,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   
   const [users, setUsers] = useState<User[]>(() => {
-    const saved = localStorage.getItem('opay_users_v8');
+    const saved = localStorage.getItem('billpay_users_v8');
     return saved ? JSON.parse(saved) : [
       {
         id: '1',
@@ -65,7 +65,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         bonusCoins: 0,
         role: 'admin',
         phone: '0000000000',
-        email: 'admin@opay.com',
+        email: 'admin@billpay.com',
         password: 'password123',
         isSuspended: false,
         streakCount: 0,
@@ -83,32 +83,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
-    const saved = localStorage.getItem('opay_transactions_v8');
+    const saved = localStorage.getItem('billpay_transactions_v8');
     return saved ? JSON.parse(saved) : [];
   });
 
   const [depositRequests, setDepositRequests] = useState<DepositRequest[]>(() => {
-    const saved = localStorage.getItem('opay_deposits_v8');
+    const saved = localStorage.getItem('billpay_deposits_v8');
     return saved ? JSON.parse(saved) : [];
   });
 
   const [smsSenderIds, setSmsSenderIds] = useState<SmsSenderId[]>(() => {
-    const saved = localStorage.getItem('opay_sms_ids_v8');
+    const saved = localStorage.getItem('billpay_sms_ids_v8');
     return saved ? JSON.parse(saved) : [];
   });
 
   const [giftCardRequests, setGiftCardRequests] = useState<GiftCardRequest[]>(() => {
-    const saved = localStorage.getItem('opay_giftcards_v8');
+    const saved = localStorage.getItem('billpay_giftcards_v8');
     return saved ? JSON.parse(saved) : [];
   });
 
   const [phoneBook, setPhoneBook] = useState<Contact[]>(() => {
-    const saved = localStorage.getItem('opay_phonebook_v8');
+    const saved = localStorage.getItem('billpay_phonebook_v8');
     return saved ? JSON.parse(saved) : [];
   });
 
   const [settings, setSettings] = useState<Settings>(() => {
-    const saved = localStorage.getItem('opay_settings_v8');
+    const saved = localStorage.getItem('billpay_settings_v8');
     return saved ? JSON.parse(saved) : {
       bonusPerDay: 20,
       referralBonus: 100,
@@ -118,7 +118,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       conversionRate: 20,
       bankAccount: '1234567890',
       bankName: 'Digital Bank PLC',
-      accountName: 'OPAY CLONE SERVICES',
+      accountName: 'BILLPAY CLONE SERVICES',
       manualDepositCharge: 50,
       paystackChargePercent: 1.5,
       paystackPublicKey: '',
@@ -132,7 +132,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       smtpPort: '587',
       smtpUser: '',
       smtpPass: '',
-      senderName: 'OPay Support',
+      senderName: 'Billpay Support',
       fromEmail: '',
       smsRate: 4.5,
       apiKeys: {},
@@ -170,7 +170,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       cableProviders: [
         { id: 'dstv', name: 'DSTV', serviceId: 'dstv', enabled: true, discountPercent: 1.5, variations: [] },
         { id: 'gotv', name: 'GOtv', serviceId: 'gotv', enabled: true, discountPercent: 1.5, variations: [] },
-        { id: 'startimes', name: 'Startimes', serviceId: 'startimes', enabled: true, discountPercent: 2.0, variations: [] }
+        { id: 'startimes', name: 'Startimes', serviceId: 'startimes', enabled: true, discountPercent: 2.0, variations: [] },
+        { id: 'showmax', name: 'Showmax', serviceId: 'showmax', enabled: true, discountPercent: 1.5, variations: [] }
       ],
       electricProviders: [
         { id: 'ekedc', name: 'Eko Electric', serviceId: 'eko-electric', enabled: true, discountPercent: 1.0 },
@@ -186,6 +187,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         { id: 'aba', name: 'Aba Electric', serviceId: 'aba-electric', enabled: true, discountPercent: 1.0 },
         { id: 'kaedco', name: 'Kaduna Electric', serviceId: 'kaduna-electric', enabled: true, discountPercent: 1.0 }
       ],
+      bettingProviders: [
+        { id: 'msport', name: 'MSport', enabled: true, discountPercent: 0 },
+        { id: 'naijabet', name: 'NaijaBet', enabled: true, discountPercent: 0 },
+        { id: 'nairabet', name: 'NairaBet', enabled: true, discountPercent: 0 },
+        { id: 'bet9ja-agent', name: 'Bet9ja (Agent)', enabled: true, discountPercent: 0 },
+        { id: 'betland', name: 'Betland', enabled: true, discountPercent: 0 },
+        { id: 'betlion', name: 'Betlion', enabled: true, discountPercent: 0 },
+        { id: 'supabet', name: 'Supabet', enabled: true, discountPercent: 0 },
+        { id: 'bet9ja', name: 'Bet9ja', enabled: true, discountPercent: 0 },
+        { id: 'bangbet', name: 'BangBet', enabled: true, discountPercent: 0 },
+        { id: 'betking', name: 'BetKing', enabled: true, discountPercent: 0 },
+        { id: '1xbet', name: '1xBet', enabled: true, discountPercent: 0 },
+        { id: 'betway', name: 'Betway', enabled: true, discountPercent: 0 },
+        { id: 'merrybet', name: 'MerryBet', enabled: true, discountPercent: 0 },
+        { id: 'mlotto', name: 'MLotto', enabled: true, discountPercent: 0 },
+        { id: 'western-lotto', name: 'Western Lotto', enabled: true, discountPercent: 0 },
+        { id: 'hallabet', name: 'HallaBet', enabled: true, discountPercent: 0 },
+        { id: 'green-lotto', name: 'Green Lotto', enabled: true, discountPercent: 0 }
+      ],
       airtimeDiscounts: {
         mtn: 3,
         glo: 8,
@@ -196,30 +216,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [tickets, setTickets] = useState<SupportTicket[]>(() => {
-    const saved = localStorage.getItem('opay_tickets_v8');
+    const saved = localStorage.getItem('billpay_tickets_v8');
     return saved ? JSON.parse(saved) : [];
   });
 
   const [virtualCards, setVirtualCards] = useState<VirtualCard[]>(() => {
-    const saved = localStorage.getItem('opay_vcards_v8');
+    const saved = localStorage.getItem('billpay_vcards_v8');
     return saved ? JSON.parse(saved) : [];
   });
 
   const [kycSubmissions, setKycSubmissions] = useState<KYCSubmission[]>(() => {
-    const saved = localStorage.getItem('opay_kyc_v8');
+    const saved = localStorage.getItem('billpay_kyc_v8');
     return saved ? JSON.parse(saved) : [];
   });
 
-  useEffect(() => { localStorage.setItem('opay_users_v8', JSON.stringify(users)); }, [users]);
-  useEffect(() => { localStorage.setItem('opay_transactions_v8', JSON.stringify(transactions)); }, [transactions]);
-  useEffect(() => { localStorage.setItem('opay_deposits_v8', JSON.stringify(depositRequests)); }, [depositRequests]);
-  useEffect(() => { localStorage.setItem('opay_sms_ids_v8', JSON.stringify(smsSenderIds)); }, [smsSenderIds]);
-  useEffect(() => { localStorage.setItem('opay_giftcards_v8', JSON.stringify(giftCardRequests)); }, [giftCardRequests]);
-  useEffect(() => { localStorage.setItem('opay_phonebook_v8', JSON.stringify(phoneBook)); }, [phoneBook]);
-  useEffect(() => { localStorage.setItem('opay_settings_v8', JSON.stringify(settings)); }, [settings]);
-  useEffect(() => { localStorage.setItem('opay_tickets_v8', JSON.stringify(tickets)); }, [tickets]);
-  useEffect(() => { localStorage.setItem('opay_vcards_v8', JSON.stringify(virtualCards)); }, [virtualCards]);
-  useEffect(() => { localStorage.setItem('opay_kyc_v8', JSON.stringify(kycSubmissions)); }, [kycSubmissions]);
+  useEffect(() => { localStorage.setItem('billpay_users_v8', JSON.stringify(users)); }, [users]);
+  useEffect(() => { localStorage.setItem('billpay_transactions_v8', JSON.stringify(transactions)); }, [transactions]);
+  useEffect(() => { localStorage.setItem('billpay_deposits_v8', JSON.stringify(depositRequests)); }, [depositRequests]);
+  useEffect(() => { localStorage.setItem('billpay_sms_ids_v8', JSON.stringify(smsSenderIds)); }, [smsSenderIds]);
+  useEffect(() => { localStorage.setItem('billpay_giftcards_v8', JSON.stringify(giftCardRequests)); }, [giftCardRequests]);
+  useEffect(() => { localStorage.setItem('billpay_phonebook_v8', JSON.stringify(phoneBook)); }, [phoneBook]);
+  useEffect(() => { localStorage.setItem('billpay_settings_v8', JSON.stringify(settings)); }, [settings]);
+  useEffect(() => { localStorage.setItem('billpay_tickets_v8', JSON.stringify(tickets)); }, [tickets]);
+  useEffect(() => { localStorage.setItem('billpay_vcards_v8', JSON.stringify(virtualCards)); }, [virtualCards]);
+  useEffect(() => { localStorage.setItem('billpay_kyc_v8', JSON.stringify(kycSubmissions)); }, [kycSubmissions]);
 
   return (
     <AppContext.Provider value={{ 

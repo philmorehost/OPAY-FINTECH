@@ -51,14 +51,14 @@ const Services: React.FC = () => {
 
       {/* Footer Copy from Dashboard */}
       <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-gray-100 flex justify-around items-center py-4 px-6 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] max-w-md mx-auto z-50 rounded-t-[32px]">
-        <div className="flex flex-col items-center text-opay-green gap-1.5" onClick={() => navigate('/services')}>
-          <div className="p-1.5 bg-opay-green/10 rounded-xl">
+        <div className="flex flex-col items-center text-billpay-green gap-1.5" onClick={() => navigate('/services')}>
+          <div className="p-1.5 bg-billpay-green/10 rounded-xl">
             <LayoutGrid size={22} strokeWidth={2.5} />
           </div>
           <span className="text-[9px] font-black uppercase">Services</span>
         </div>
         <div onClick={() => navigate('/dashboard')} className="flex flex-col items-center text-gray-400 gap-1.5 cursor-pointer transition-colors hover:text-gray-600">
-          <History size={22} className="rotate-90" /> {/* Home-ish icon */}
+          <History size={22} className="rotate-90" />
           <span className="text-[9px] font-bold uppercase">Home</span>
         </div>
         <div onClick={() => navigate('/rewards')} className="flex flex-col items-center text-gray-400 gap-1.5 cursor-pointer transition-colors hover:text-gray-600">

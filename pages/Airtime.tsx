@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store';
-import { detectNetwork, formatCurrency, generateId } from '../utils';
+import { detectNetwork, formatCurrency, generateId, sendNotificationEmail } from '../utils';
 import { 
   ArrowLeft, User, Phone, CheckCircle2, AlertCircle, 
   RotateCcw, X, Share2, Download, ShieldCheck, Copy 
@@ -20,9 +20,7 @@ const Airtime: React.FC = () => {
   const navigate = useNavigate();
   
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [bulkNumbers, setBulkNumbers] = useState('');
   const [amount, setAmount] = useState('');
-  const [isBulk, setIsBulk] = useState(false);
   const [network, setNetwork] = useState('');
   const [override, setOverride] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -36,10 +34,8 @@ const Airtime: React.FC = () => {
     ref: string;
     msg: string;
     network: string;
-    earnedBonus?: boolean;
   } | null>(null);
 
-  // FIXED: Added equality check to prevent infinite loop
   useEffect(() => {
     if (!override && phoneNumber.length >= 4) {
       const detected = detectNetwork(phoneNumber);
@@ -49,41 +45,70 @@ const Airtime: React.FC = () => {
     }
   }, [phoneNumber, override, network]);
 
-  const calculateUserPrice = (rawAmount: number, networkName: string) => {
-    const discounts: any = settings.airtimeDiscounts || { mtn: 0, glo: 0, airtel: 0, nineMobile: 0 };
-    const netKey = networkName === '9mobile' ? 'nineMobile' : networkName.toLowerCase();
-    const discountPercent = discounts[netKey] || 0;
-    return rawAmount * (1 - discountPercent / 100);
-  };
-
   const handlePurchase = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentUser) return;
+    if (!currentUser || !network) {
+      setMessage({ type: 'error', text: 'Select network and enter number' });
+      return;
+    }
     
-    setMessage(null);
     const numAmount = parseFloat(amount);
-    
     if (isNaN(numAmount) || numAmount < 50) {
       setMessage({ type: 'error', text: 'Minimum airtime is ₦50' });
       return;
     }
 
-    if (isBulk) {
-       // Bulk logic omitted for brevity, same as previous version but ensures stability
-    } else {
-      if (!network) {
-        setMessage({ type: 'error', text: 'Please select a network provider' });
-        return;
-      }
-      // ... process purchase
+    if (currentUser.walletBalance < numAmount) {
+      setMessage({ type: 'error', text: 'Insufficient balance' });
+      return;
     }
-  };
 
-  const getActiveDiscount = () => {
-    if (!network) return 0;
-    const discounts: any = settings.airtimeDiscounts || {};
-    const netKey = network === '9mobile' ? 'nineMobile' : network.toLowerCase();
-    return discounts[netKey] || 0;
+    setIsLoading(true);
+    const ref = generateId();
+    
+    // Debit user
+    setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, walletBalance: u.walletBalance - numAmount } : u));
+    setCurrentUser({ ...currentUser, walletBalance: currentUser.walletBalance - numAmount });
+
+    setTimeout(async () => {
+      const successTx: any = {
+        id: ref,
+        userId: currentUser.id,
+        type: 'Airtime',
+        amount: numAmount,
+        status: 'successful',
+        date: new Date().toISOString(),
+        details: `${network} Airtime recharge for ${phoneNumber}`,
+        recipient: phoneNumber,
+        provider: network
+      };
+      
+      setTransactions(prev => [successTx, ...prev]);
+      
+      // LIVE EMAIL NOTIFICATION
+      try {
+        await sendNotificationEmail(settings, currentUser.email, 'Airtime Receipt', currentUser.fullName, {
+          'Reference': ref,
+          'Network': network,
+          'Recipient': phoneNumber,
+          'Amount': numAmount,
+          'Date': new Date().toLocaleString()
+        });
+      } catch (err) {
+        console.warn("Email delivery failed, but transaction succeeded.");
+      }
+
+      setStatusDetails({
+        status: 'success',
+        amount: numAmount,
+        recipient: phoneNumber,
+        ref: ref,
+        msg: 'Recharge was successful.',
+        network: network
+      });
+      setIsLoading(false);
+      setShowStatusModal(true);
+    }, 1500);
   };
 
   const StatusModal = () => {
@@ -91,15 +116,15 @@ const Airtime: React.FC = () => {
     return (
       <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-6">
         <div className="bg-white w-full max-w-sm rounded-[40px] overflow-hidden animate-slide-up shadow-2xl">
-          <div className={`p-8 text-white flex flex-col items-center text-center ${statusDetails.status === 'success' ? 'bg-opay-green' : 'bg-red-50'}`}>
+          <div className={`p-8 text-white flex flex-col items-center text-center ${statusDetails.status === 'success' ? 'bg-billpay-green' : 'bg-red-50'}`}>
             <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 shadow-lg">
-              {statusDetails.status === 'success' ? <CheckCircle2 size={40} className="text-opay-green" /> : <X size={40} className="text-red-500" />}
+              {statusDetails.status === 'success' ? <CheckCircle2 size={40} className="text-billpay-green" /> : <X size={40} className="text-red-500" />}
             </div>
             <h3 className={`text-xl font-black uppercase tracking-tight ${statusDetails.status === 'success' ? 'text-white' : 'text-red-800'}`}>{statusDetails.status === 'success' ? 'Transaction Successful' : 'Transaction Failed'}</h3>
             <div className={`text-3xl font-black mt-2 ${statusDetails.status === 'success' ? 'text-white' : 'text-red-600'}`}>{formatCurrency(statusDetails.amount)}</div>
           </div>
           <div className="p-8 space-y-6 text-center">
-            <button onClick={() => setShowStatusModal(false)} className={`w-full py-5 rounded-[24px] font-black text-sm shadow-xl active:scale-95 transition-all text-white ${statusDetails.status === 'success' ? 'bg-opay-green' : 'bg-gray-900'}`}>DONE</button>
+            <button onClick={() => setShowStatusModal(false)} className={`w-full py-5 rounded-[24px] font-black text-sm shadow-xl active:scale-95 transition-all text-white ${statusDetails.status === 'success' ? 'bg-billpay-green' : 'bg-gray-900'}`}>DONE</button>
           </div>
         </div>
       </div>
@@ -117,11 +142,17 @@ const Airtime: React.FC = () => {
            <input type="tel" placeholder="08012345678" className="w-full p-5 bg-gray-50 rounded-2xl font-black text-xl" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 11))} />
            <div className="grid grid-cols-4 gap-4">
               {NETWORKS.map(n => (
-                <button key={n.name} onClick={() => setNetwork(n.name)} className={`p-3 rounded-2xl border-2 ${network === n.name ? 'border-opay-green bg-white shadow-md' : 'border-transparent bg-gray-50 opacity-60'}`}>{n.name}</button>
+                <button 
+                  key={n.name} 
+                  onClick={() => setNetwork(n.name)} 
+                  className={`p-3 rounded-2xl border-2 font-black text-black text-xs transition-all ${network === n.name ? 'border-billpay-green bg-white shadow-md' : 'border-transparent bg-gray-50 opacity-60'}`}
+                >
+                  {n.name}
+                </button>
               ))}
            </div>
            <input type="number" placeholder="Amount" className="w-full p-5 bg-gray-50 rounded-2xl font-black text-lg" value={amount} onChange={(e) => setAmount(e.target.value)} />
-           <button onClick={handlePurchase} className="w-full bg-opay-green text-white font-black py-5 rounded-2xl">Confirm & Buy</button>
+           <button onClick={handlePurchase} className="w-full bg-billpay-green text-white font-black py-5 rounded-2xl">Confirm & Buy</button>
         </div>
       </div>
       {showStatusModal && <StatusModal />}

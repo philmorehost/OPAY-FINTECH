@@ -99,13 +99,13 @@ const Transactions: React.FC = () => {
     try {
       const canvas = await html2canvas(element, {
         backgroundColor: '#ffffff',
-        scale: 2, // Higher quality
+        scale: 2, 
         logging: false,
         useCORS: true
       });
       const image = canvas.toDataURL("image/png");
       const link = document.createElement('a');
-      link.download = `OPay-Receipt-${selectedTx?.id || 'TX'}.png`;
+      link.download = `Billpay-Receipt-${selectedTx?.id || 'TX'}.png`;
       link.href = image;
       link.click();
     } catch (error) {
@@ -132,22 +132,20 @@ const Transactions: React.FC = () => {
       canvas.toBlob(async (blob: Blob | null) => {
         if (!blob) throw new Error('Canvas to Blob failed');
         
-        const file = new File([blob], `OPay-Receipt-${selectedTx?.id}.png`, { type: 'image/png' });
+        const file = new File([blob], `Billpay-Receipt-${selectedTx?.id}.png`, { type: 'image/png' });
         
         if (navigator.share && navigator.canShare({ files: [file] })) {
           await navigator.share({
             files: [file],
-            title: 'OPay Transaction Receipt',
+            title: 'Billpay Transaction Receipt',
             text: `Receipt for ${selectedTx?.type} of ${formatCurrency(selectedTx?.amount || 0)}`
           });
         } else {
-          // Fallback: Just trigger download if sharing isn't supported for files
           handleDownloadImage();
         }
       }, 'image/png');
     } catch (error) {
       console.error('Share failed', error);
-      // Fallback: Copy ID
       if (selectedTx) {
         navigator.clipboard.writeText(selectedTx.id);
         alert('Sharing failed. Transaction ID copied to clipboard.');
@@ -173,8 +171,8 @@ const Transactions: React.FC = () => {
             <div className="flex gap-2">
               <button 
                 onClick={handlePrint} 
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors text-opay-green"
-                title="Download PDF / Print"
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors text-billpay-green"
+                title="Download PDF"
               >
                 <Printer size={20} />
               </button>
@@ -193,7 +191,7 @@ const Transactions: React.FC = () => {
           <div className="p-8 space-y-8 bg-white" id="printable-receipt">
             <div className="text-center space-y-4">
               <div className="flex justify-center mb-2">
-                 <div className="w-16 h-16 bg-opay-green rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-xl">O</div>
+                 <div className="w-16 h-16 bg-billpay-green rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-xl">B</div>
               </div>
               <h2 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Transaction Receipt</h2>
               <div className="text-3xl font-black text-gray-900">{formatCurrency(tx.amount)}</div>
@@ -240,34 +238,28 @@ const Transactions: React.FC = () => {
             )}
 
             <div className="pt-10 border-t border-dashed border-gray-100 flex flex-col items-center gap-4">
-              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Thank you for using O-Pay</div>
+              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Thank you for using Billpay</div>
               <div className="flex gap-4 print:hidden">
                  <div className="p-3 bg-gray-50 rounded-xl">
-                   <ShieldCheck size={24} className="text-opay-green/40" />
+                   <ShieldCheck size={24} className="text-billpay-green/40" />
                  </div>
-                 <button 
-                  onClick={handleDownloadImage}
-                  className="p-3 bg-gray-50 rounded-xl hover:bg-opay-green/10 transition-colors"
-                  title="Download Image"
-                 >
-                   <Download size={24} className="text-opay-green/40" />
-                 </button>
               </div>
             </div>
           </div>
 
           <div className="p-6 bg-gray-50 border-t border-gray-100 flex gap-4 print:hidden">
             <button 
-              onClick={() => setSelectedTx(null)}
-              className="flex-1 bg-white text-gray-900 py-4 rounded-2xl font-black text-xs border border-gray-200 uppercase tracking-widest active:scale-95 transition-all"
+              onClick={handleShare}
+              disabled={isExporting}
+              className="flex-1 bg-white text-gray-900 py-4 rounded-2xl font-black text-xs border border-gray-200 uppercase tracking-widest active:scale-95 transition-all flex items-center justify-center gap-2"
             >
-              Close
+              <Share2 size={16} /> Share
             </button>
             <button 
               onClick={handlePrint}
-              className="flex-1 bg-opay-green text-white py-4 rounded-2xl font-black text-xs shadow-xl uppercase tracking-widest active:scale-95 transition-all"
+              className="flex-1 bg-billpay-green text-white py-4 rounded-2xl font-black text-xs shadow-xl uppercase tracking-widest active:scale-95 transition-all flex items-center justify-center gap-2"
             >
-              Download PDF
+              <Download size={16} /> Download as PDF
             </button>
           </div>
         </div>
@@ -285,7 +277,7 @@ const Transactions: React.FC = () => {
           </div>
           <button 
             onClick={() => setShowFilters(!showFilters)}
-            className={`p-2 rounded-xl transition-all ${showFilters ? 'bg-opay-green text-white shadow-lg' : 'bg-gray-50 text-gray-400'}`}
+            className={`p-2 rounded-xl transition-all ${showFilters ? 'bg-billpay-green text-white shadow-lg' : 'bg-gray-50 text-gray-400'}`}
           >
             <Filter size={20} />
           </button>
@@ -308,14 +300,14 @@ const Transactions: React.FC = () => {
               <div className="space-y-1.5">
                 <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Start Date</label>
                 <div className="relative">
-                   <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-3 bg-gray-50 rounded-xl text-[11px] font-bold outline-none border border-transparent focus:border-opay-green" />
+                   <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-3 bg-gray-50 rounded-xl text-[11px] font-bold outline-none border border-transparent focus:border-billpay-green" />
                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" size={12} />
                 </div>
               </div>
               <div className="space-y-1.5">
                 <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">End Date</label>
                 <div className="relative">
-                  <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full p-3 bg-gray-50 rounded-xl text-[11px] font-bold outline-none border border-transparent focus:border-opay-green" />
+                  <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full p-3 bg-gray-50 rounded-xl text-[11px] font-bold outline-none border border-transparent focus:border-billpay-green" />
                   <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" size={12} />
                 </div>
               </div>
@@ -338,32 +330,6 @@ const Transactions: React.FC = () => {
                   <option value="pending">Pending</option>
                 </select>
               </div>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-               <button 
-                onClick={() => { setStartDate(''); setEndDate(''); setTypeFilter('all'); setStatusFilter('all'); setSearchTerm(''); }}
-                className="flex-1 py-3 text-[10px] font-black uppercase text-gray-400 tracking-widest hover:bg-gray-100 rounded-xl"
-               >
-                Clear All
-               </button>
-               <div className="flex-1 flex gap-2">
-                 <select 
-                    value={sortField} 
-                    onChange={e => setSortField(e.target.value as any)} 
-                    className="flex-1 p-2 bg-gray-100 rounded-xl text-[9px] font-black uppercase"
-                  >
-                   <option value="date">Date</option>
-                   <option value="amount">Amount</option>
-                   <option value="status">Status</option>
-                 </select>
-                 <button 
-                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                  className="p-2 bg-gray-100 rounded-xl"
-                 >
-                   <ArrowUpDown size={14} className="text-gray-400" />
-                 </button>
-               </div>
             </div>
           </div>
         )}
@@ -403,9 +369,9 @@ const Transactions: React.FC = () => {
                     {tx.type === 'Crypto Deposit' || tx.type === 'Referral Bonus' ? '+' : '-'}{formatCurrency(tx.amount)}
                   </div>
                   <div className={`text-[8px] font-black uppercase tracking-widest mt-1 inline-flex items-center gap-1 ${
-                    tx.status === 'successful' ? 'text-opay-green' : 'text-red-400'
+                    tx.status === 'successful' ? 'text-billpay-green' : 'text-red-400'
                   }`}>
-                    <div className={`w-1 h-1 rounded-full ${tx.status === 'successful' ? 'bg-opay-green' : 'bg-red-400'}`} />
+                    <div className={`w-1 h-1 rounded-full ${tx.status === 'successful' ? 'bg-billpay-green' : 'bg-red-400'}`} />
                     {tx.status}
                   </div>
                 </div>
@@ -416,17 +382,9 @@ const Transactions: React.FC = () => {
       </div>
 
       {selectedTx && <TransactionDetailsModal tx={selectedTx} />}
-      
-      {/* Bottom Nav Spacer */}
       <div className="h-20" />
     </div>
   );
 };
-
-const ArrowUpDown = ({ size, className }: { size?: number, className?: string }) => (
-  <svg width={size || 24} height={size || 24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/>
-  </svg>
-);
 
 export default Transactions;

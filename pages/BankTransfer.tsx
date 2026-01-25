@@ -2,24 +2,23 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store';
-import { formatCurrency, generateId } from '../utils';
+import { formatCurrency, generateId, sendNotificationEmail } from '../utils';
 import { ArrowLeft, Landmark, Search, User, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 const BankTransfer: React.FC = () => {
-  const { currentUser, setUsers, setTransactions } = useApp();
+  const { currentUser, setCurrentUser, setUsers, setTransactions, settings } = useApp();
   const navigate = useNavigate();
   
   const [bank, setBank] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [accountName, setAccountName] = useState('');
   const [amount, setAmount] = useState('');
-  const [note, setNote] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   const banks = [
-    "Access Bank", "First Bank", "GTBank", "Kuda Bank", "Moniepoint", "O-Pay Digital Bank", "United Bank for Africa", "Zenith Bank"
+    "Access Bank", "First Bank", "GTBank", "Kuda Bank", "Moniepoint", "Billpay Digital Bank", "United Bank for Africa", "Zenith Bank"
   ];
 
   const handleVerify = () => {
@@ -32,21 +31,23 @@ const BankTransfer: React.FC = () => {
     }
   };
 
-  const handleTransfer = () => {
+  const handleTransfer = async () => {
     if (!currentUser || !accountName) return;
     const numAmount = parseFloat(amount);
     const fee = 10;
     const total = numAmount + fee;
 
     if (currentUser.walletBalance < total) {
-      setStatus({ type: 'error', text: 'Insufficient balance for transfer and fee' });
+      setStatus({ type: 'error', text: 'Insufficient balance' });
       return;
     }
 
     setIsProcessing(true);
-    setTimeout(() => {
+    const ref = generateId();
+
+    setTimeout(async () => {
       const newTx: any = {
-        id: generateId(),
+        id: ref,
         userId: currentUser.id,
         type: 'Transfer',
         amount: numAmount,
@@ -58,7 +59,23 @@ const BankTransfer: React.FC = () => {
       };
 
       setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, walletBalance: u.walletBalance - total } : u));
+      setCurrentUser({ ...currentUser, walletBalance: currentUser.walletBalance - total });
       setTransactions(prev => [newTx, ...prev]);
+      
+      // LIVE EMAIL NOTIFICATION
+      try {
+        await sendNotificationEmail(settings, currentUser.email, 'Transfer Receipt', currentUser.fullName, {
+          'Ref': ref,
+          'Recipient': accountName,
+          'Account': accountNumber,
+          'Bank': bank,
+          'Amount': numAmount,
+          'Fee': fee
+        });
+      } catch (err) {
+        console.warn("Email delivery failed.");
+      }
+
       setIsProcessing(false);
       setStatus({ type: 'success', text: 'Transfer successful!' });
       setAccountNumber('');
@@ -70,7 +87,7 @@ const BankTransfer: React.FC = () => {
   return (
     <div className="max-w-md mx-auto min-h-screen bg-gray-50 flex flex-col">
       <div className="bg-white p-4 flex items-center gap-4 sticky top-0 z-10 border-b">
-        <ArrowLeft className="text-gray-900" onClick={() => navigate('/dashboard')} />
+        <ArrowLeft className="text-gray-900 cursor-pointer" onClick={() => navigate('/dashboard')} />
         <h1 className="text-lg font-black text-gray-900">Transfer to Bank</h1>
       </div>
 
@@ -86,7 +103,7 @@ const BankTransfer: React.FC = () => {
           <div>
             <label className="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest">Select Bank</label>
             <select 
-              className="w-full p-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:border-opay-green outline-none font-bold text-gray-900"
+              className="w-full p-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:border-billpay-green outline-none font-bold text-gray-900"
               value={bank}
               onChange={(e) => setBank(e.target.value)}
             >
@@ -102,7 +119,7 @@ const BankTransfer: React.FC = () => {
                 type="tel"
                 maxLength={10}
                 placeholder="Enter 10-digit account"
-                className="w-full p-4 bg-gray-50 text-gray-900 border-2 border-transparent focus:border-opay-green outline-none rounded-2xl font-black text-lg tracking-widest"
+                className="w-full p-4 bg-gray-50 text-gray-900 border-2 border-transparent focus:border-billpay-green outline-none rounded-2xl font-black text-lg tracking-widest"
                 value={accountNumber}
                 onChange={(e) => {
                   const val = e.target.value.replace(/\D/g, '');
@@ -110,14 +127,9 @@ const BankTransfer: React.FC = () => {
                   if (val.length === 10) handleVerify();
                 }}
               />
-              {isVerifying && <div className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-opay-green border-t-transparent rounded-full animate-spin" />}
+              {isVerifying && <div className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-billpay-green border-t-transparent rounded-full animate-spin" />}
             </div>
-            {accountName && (
-              <div className="mt-2 flex items-center gap-2 px-2 animate-fade-in">
-                <User size={12} className="text-opay-green" />
-                <span className="text-[10px] font-black text-opay-green uppercase tracking-tight">{accountName}</span>
-              </div>
-            )}
+            {accountName && <div className="mt-2 text-[10px] font-black text-billpay-green uppercase">{accountName}</div>}
           </div>
 
           <div>
@@ -125,20 +137,16 @@ const BankTransfer: React.FC = () => {
             <input 
               type="number"
               placeholder="Min ₦100"
-              className="w-full p-4 bg-gray-50 text-gray-900 border-2 border-transparent focus:border-opay-green outline-none rounded-2xl font-black text-xl"
+              className="w-full p-4 bg-gray-50 text-gray-900 border-2 border-transparent focus:border-billpay-green outline-none rounded-2xl font-black text-xl"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
             />
-            <div className="mt-2 flex justify-between px-1">
-              <span className="text-[10px] font-bold text-gray-400">Transfer Fee: ₦10.00</span>
-              <span className="text-[10px] font-bold text-gray-400">Total: {formatCurrency(parseFloat(amount || '0') + (amount ? 10 : 0))}</span>
-            </div>
           </div>
 
           <button
             onClick={handleTransfer}
             disabled={isProcessing || !amount || !accountName}
-            className="w-full bg-opay-green text-white font-black py-5 rounded-2xl shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50"
+            className="w-full bg-billpay-green text-white font-black py-5 rounded-2xl shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50"
           >
             {isProcessing ? 'Processing...' : 'CONFIRM TRANSFER'}
           </button>

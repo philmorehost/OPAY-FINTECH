@@ -26,11 +26,11 @@ const Login: React.FC = () => {
     <div className="flex flex-col items-center justify-center min-h-screen px-6 bg-white">
       <div className="w-full max-w-md">
         <div className="flex flex-col items-center mb-10">
-          <div className="w-20 h-20 bg-opay-green rounded-full flex items-center justify-center text-white text-3xl font-bold mb-4 shadow-lg">
-            O
+          <div className="w-20 h-20 bg-billpay-green rounded-full flex items-center justify-center text-white text-3xl font-bold mb-4 shadow-lg">
+            B
           </div>
-          <h1 className="text-2xl font-bold text-gray-800">Welcome to OPay</h1>
-          <p className="text-gray-500 text-sm mt-1">Reliable, Fast and Easy</p>
+          <h1 className="text-2xl font-bold text-gray-800">Welcome to Billpay</h1>
+          <p className="text-gray-50 text-sm mt-1">Reliable, Fast and Easy</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-6">
@@ -40,7 +40,7 @@ const Login: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
             <input
               type="text"
-              className="w-full p-4 bg-gray-50 text-gray-900 border border-transparent focus:border-opay-green rounded-xl outline-none transition-all"
+              className="w-full p-4 bg-gray-50 text-gray-900 border border-transparent focus:border-billpay-green rounded-xl outline-none transition-all"
               placeholder="Enter your username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -52,7 +52,7 @@ const Login: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
             <input
               type="password"
-              className="w-full p-4 bg-gray-50 text-gray-900 border border-transparent focus:border-opay-green rounded-xl outline-none transition-all"
+              className="w-full p-4 bg-gray-50 text-gray-900 border border-transparent focus:border-billpay-green rounded-xl outline-none transition-all"
               placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -62,7 +62,7 @@ const Login: React.FC = () => {
 
           <button
             type="submit"
-            className="w-full bg-opay-green text-white font-bold py-4 rounded-xl shadow-lg hover:opacity-90 transition-opacity active:scale-[0.98]"
+            className="w-full bg-billpay-green text-white font-bold py-4 rounded-xl shadow-lg hover:opacity-90 transition-opacity active:scale-[0.98]"
           >
             Sign In
           </button>
@@ -70,7 +70,7 @@ const Login: React.FC = () => {
 
         <div className="mt-8 text-center">
           <p className="text-sm text-gray-400">
-            Forgot Password? <span className="text-opay-green font-medium cursor-pointer">Reset here</span>
+            Forgot Password? <span className="text-billpay-green font-medium cursor-pointer">Reset here</span>
           </p>
         </div>
 

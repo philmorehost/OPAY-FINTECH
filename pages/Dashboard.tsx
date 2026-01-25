@@ -35,7 +35,7 @@ const Dashboard: React.FC = () => {
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 max-w-md mx-auto relative shadow-2xl">
       {/* Header */}
-      <div className="bg-opay-green p-6 text-white rounded-b-[40px] shadow-lg">
+      <div className="bg-billpay-green p-6 text-white rounded-b-[40px] shadow-lg">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-3" onClick={() => navigate('/profile')}>
             <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center border border-white/20">
@@ -95,7 +95,7 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
           <div className="text-right">
-            <div className="text-sm font-black text-opay-green">{currentUser.bonusCoins}</div>
+            <div className="text-sm font-black text-billpay-green">{currentUser.bonusCoins}</div>
             <div className="text-[9px] text-gray-400 font-black uppercase">COINS</div>
           </div>
         </div>
@@ -122,7 +122,7 @@ const Dashboard: React.FC = () => {
         <div className="mt-10">
           <div className="flex justify-between items-center px-2 mb-4">
             <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Offers for you</h3>
-            <span className="text-[10px] font-black text-opay-green uppercase">See all</span>
+            <span className="text-[10px] font-black text-billpay-green uppercase">See all</span>
           </div>
           <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
             {settings.offers.length === 0 ? (
@@ -149,32 +149,32 @@ const Dashboard: React.FC = () => {
 
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-gray-100 flex justify-around items-center py-4 px-6 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] max-w-md mx-auto z-50 rounded-t-[32px]">
-        <div onClick={() => navigate('/services')} className={`flex flex-col items-center gap-1.5 cursor-pointer ${location.pathname === '/services' ? 'text-opay-green font-black' : 'text-gray-400'}`}>
-          <div className={`p-1.5 ${location.pathname === '/services' ? 'bg-opay-green/10 rounded-xl' : ''}`}>
+        <div onClick={() => navigate('/services')} className={`flex flex-col items-center gap-1.5 cursor-pointer ${location.pathname === '/services' ? 'text-billpay-green font-black' : 'text-gray-400'}`}>
+          <div className={`p-1.5 ${location.pathname === '/services' ? 'bg-billpay-green/10 rounded-xl' : ''}`}>
             <LayoutGrid size={22} strokeWidth={2.5} />
           </div>
           <span className="text-[9px] font-black uppercase">Services</span>
         </div>
-        <div onClick={() => navigate('/dashboard')} className={`flex flex-col items-center gap-1.5 cursor-pointer ${location.pathname === '/dashboard' ? 'text-opay-green font-black' : 'text-gray-400'}`}>
-          <div className={`p-1.5 ${location.pathname === '/dashboard' ? 'bg-opay-green/10 rounded-xl' : ''}`}>
+        <div onClick={() => navigate('/dashboard')} className={`flex flex-col items-center gap-1.5 cursor-pointer ${location.pathname === '/dashboard' ? 'text-billpay-green font-black' : 'text-gray-400'}`}>
+          <div className={`p-1.5 ${location.pathname === '/dashboard' ? 'bg-billpay-green/10 rounded-xl' : ''}`}>
              <History size={22} className="rotate-90" />
           </div>
           <span className="text-[9px] font-black uppercase">Home</span>
         </div>
-        <div onClick={() => navigate('/rewards')} className={`flex flex-col items-center gap-1.5 cursor-pointer ${location.pathname === '/rewards' ? 'text-opay-green font-black' : 'text-gray-400'}`}>
-          <div className={`p-1.5 ${location.pathname === '/rewards' ? 'bg-opay-green/10 rounded-xl' : ''}`}>
+        <div onClick={() => navigate('/rewards')} className={`flex flex-col items-center gap-1.5 cursor-pointer ${location.pathname === '/rewards' ? 'text-billpay-green font-black' : 'text-gray-400'}`}>
+          <div className={`p-1.5 ${location.pathname === '/rewards' ? 'bg-billpay-green/10 rounded-xl' : ''}`}>
             <Gift size={22} />
           </div>
           <span className="text-[9px] font-bold uppercase">Reward</span>
         </div>
-        <div onClick={() => navigate('/transactions')} className={`flex flex-col items-center gap-1.5 cursor-pointer ${location.pathname === '/transactions' ? 'text-opay-green font-black' : 'text-gray-400'}`}>
-          <div className={`p-1.5 ${location.pathname === '/transactions' ? 'bg-opay-green/10 rounded-xl' : ''}`}>
+        <div onClick={() => navigate('/transactions')} className={`flex flex-col items-center gap-1.5 cursor-pointer ${location.pathname === '/transactions' ? 'text-billpay-green font-black' : 'text-gray-400'}`}>
+          <div className={`p-1.5 ${location.pathname === '/transactions' ? 'bg-billpay-green/10 rounded-xl' : ''}`}>
             <History size={22} />
           </div>
           <span className="text-[9px] font-bold uppercase">History</span>
         </div>
-        <div onClick={() => navigate('/profile')} className={`flex flex-col items-center gap-1.5 cursor-pointer ${location.pathname === '/profile' ? 'text-opay-green font-black' : 'text-gray-400'}`}>
-          <div className={`p-1.5 ${location.pathname === '/profile' ? 'bg-opay-green/10 rounded-xl' : ''}`}>
+        <div onClick={() => navigate('/profile')} className={`flex flex-col items-center gap-1.5 cursor-pointer ${location.pathname === '/profile' ? 'text-billpay-green font-black' : 'text-gray-400'}`}>
+          <div className={`p-1.5 ${location.pathname === '/profile' ? 'bg-billpay-green/10 rounded-xl' : ''}`}>
             <UserIcon size={22} />
           </div>
           <span className="text-[9px] font-bold uppercase">Me</span>

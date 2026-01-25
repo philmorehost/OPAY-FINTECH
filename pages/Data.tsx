@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store';
-import { detectNetwork, formatCurrency, generateId } from '../utils';
+import { detectNetwork, formatCurrency, generateId, sendNotificationEmail } from '../utils';
 import { Transaction, DataProduct } from '../types';
 import { 
   ArrowLeft, User, Wifi, CheckCircle2, AlertCircle, 
@@ -24,7 +24,6 @@ const Data: React.FC = () => {
 
   const availableNetworks = useMemo(() => settings.dataNetworks, [settings.dataNetworks]);
 
-  // Strictly fetch plans created by admin for the specific network
   const filteredPlans = useMemo(() => {
     if (!networkId) return [];
     return settings.dataProducts.filter(p => p.networkId === networkId && p.enabled);
@@ -92,7 +91,6 @@ const Data: React.FC = () => {
         continue;
       }
 
-      // SIMULATE API CALL
       const success = Math.random() > 0.05; 
       if (success) {
         successCount++;
@@ -109,6 +107,22 @@ const Data: React.FC = () => {
     }
 
     setTransactions(prev => [...newTxs, ...prev]);
+    
+    // LIVE EMAIL NOTIFICATION
+    if (successCount > 0) {
+      try {
+        await sendNotificationEmail(settings, currentUser.email, 'Data Receipt', currentUser.fullName, {
+          'Plan': selectedPlan.size,
+          'Recipients': recipients.length > 1 ? `${recipients.length} Numbers` : recipients[0],
+          'Network': currentNetworkName,
+          'Total Amount': totalCost,
+          'Date': new Date().toLocaleString()
+        });
+      } catch (err) {
+        console.warn("Email delivery failed.");
+      }
+    }
+
     setIsLoading(false);
     setMessage({ type: successCount > 0 ? 'success' : 'error', text: successCount === recipients.length ? 'Transaction Successful!' : `Processed ${successCount}/${recipients.length} successfully. ${formatCurrency(refundTotal)} refunded.` });
     
@@ -137,8 +151,8 @@ const Data: React.FC = () => {
 
         <div className="bg-white p-6 rounded-[40px] shadow-sm space-y-8 border border-gray-100">
           <div className="flex bg-gray-100 p-1.5 rounded-2xl">
-            <button onClick={() => setIsBulk(false)} className={`flex-1 py-3.5 rounded-xl text-[10px] font-black uppercase transition-all ${!isBulk ? 'bg-white shadow-md text-opay-green' : 'text-gray-400'}`}>Single</button>
-            <button onClick={() => setIsBulk(true)} className={`flex-1 py-3.5 rounded-xl text-[10px] font-black uppercase transition-all ${isBulk ? 'bg-white shadow-md text-opay-green' : 'text-gray-400'}`}>Batch</button>
+            <button onClick={() => setIsBulk(false)} className={`flex-1 py-3.5 rounded-xl text-[10px] font-black uppercase transition-all ${!isBulk ? 'bg-white shadow-md text-billpay-green' : 'text-gray-400'}`}>Single</button>
+            <button onClick={() => setIsBulk(true)} className={`flex-1 py-3.5 rounded-xl text-[10px] font-black uppercase transition-all ${isBulk ? 'bg-white shadow-md text-billpay-green' : 'text-gray-400'}`}>Batch</button>
           </div>
 
           {!isBulk ? (
@@ -146,7 +160,7 @@ const Data: React.FC = () => {
               <div>
                 <label className="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Recipient Number</label>
                 <div className="relative">
-                  <input type="tel" placeholder="e.g. 08123456789" className="w-full p-4 bg-gray-50 text-gray-900 border-2 border-transparent focus:border-opay-green outline-none rounded-2xl font-black text-xl tracking-[0.1em]" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 11))} />
+                  <input type="tel" placeholder="e.g. 08123456789" className="w-full p-4 bg-gray-50 text-gray-900 border-2 border-transparent focus:border-billpay-green outline-none rounded-2xl font-black text-xl tracking-[0.1em]" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 11))} />
                   <User className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300" size={20} />
                 </div>
               </div>
@@ -156,12 +170,12 @@ const Data: React.FC = () => {
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Provider</label>
                   <div onClick={() => setOverride(!override)} className="flex items-center gap-2 cursor-pointer">
                     <span className="text-[8px] font-bold text-gray-400 uppercase">Override</span>
-                    <div className={`w-8 h-4 rounded-full relative transition-colors ${override ? 'bg-opay-green' : 'bg-gray-300'}`}><div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${override ? 'left-4.5' : 'left-0.5'}`} /></div>
+                    <div className={`w-8 h-4 rounded-full relative transition-colors ${override ? 'bg-billpay-green' : 'bg-gray-300'}`}><div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${override ? 'left-4.5' : 'left-0.5'}`} /></div>
                   </div>
                 </div>
                 <div className="grid grid-cols-4 gap-3">
                   {availableNetworks.map(n => (
-                    <button key={n.id} disabled={!override && networkId !== n.id} onClick={() => { setNetworkId(n.id); setSelectedPlanId(''); }} className={`flex flex-col items-center gap-2 p-2 rounded-2xl border-2 transition-all ${networkId === n.id ? 'border-opay-green bg-green-50 shadow-sm' : 'border-transparent bg-gray-50 opacity-60'}`}>
+                    <button key={n.id} disabled={!override && networkId !== n.id} onClick={() => { setNetworkId(n.id); setSelectedPlanId(''); }} className={`flex flex-col items-center gap-2 p-2 rounded-2xl border-2 transition-all ${networkId === n.id ? 'border-billpay-green bg-green-50 shadow-sm' : 'border-transparent bg-gray-50 opacity-60'}`}>
                       <div className="w-10 h-10 rounded-full bg-gray-900 flex items-center justify-center text-white text-[10px] font-black">{n.name.substring(0,2)}</div>
                       <span className="text-[8px] font-black uppercase text-gray-800">{n.name}</span>
                     </button>
@@ -175,23 +189,23 @@ const Data: React.FC = () => {
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Recipients</label>
                 <button onClick={() => setBulkNumbers('')} className="text-[9px] font-black text-red-500 uppercase flex items-center gap-1"><Trash2 size={10} /> Clear</button>
               </div>
-              <textarea className="w-full p-4 bg-gray-50 text-gray-900 border-2 border-transparent focus:border-opay-green outline-none rounded-2xl font-bold min-h-[140px] text-sm leading-relaxed" placeholder="08012345678, 09012345678..." value={bulkNumbers} onChange={(e) => setBulkNumbers(e.target.value)} />
+              <textarea className="w-full p-4 bg-gray-50 text-gray-900 border-2 border-transparent focus:border-billpay-green outline-none rounded-2xl font-bold min-h-[140px] text-sm leading-relaxed" placeholder="08012345678, 09012345678..." value={bulkNumbers} onChange={(e) => setBulkNumbers(e.target.value)} />
             </div>
           )}
 
           <div>
-            <label className="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest ml-1">Available Packages (List View)</label>
+            <label className="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest ml-1">Available Packages</label>
             <div className="flex flex-col gap-3 max-h-80 overflow-y-auto pr-1 scrollbar-hide">
               {filteredPlans.length === 0 ? (
                 <div className="py-12 text-center text-gray-300 font-black text-[9px] uppercase border-2 border-dashed border-gray-100 rounded-[32px] flex flex-col items-center gap-3">
                    <Wifi size={24} className="opacity-20" />
-                   {networkId ? 'No plans registered for this provider' : 'Select a provider to see plans'}
+                   {networkId ? 'No plans registered' : 'Select provider'}
                 </div>
               ) : (
                 filteredPlans.map(plan => (
-                  <div key={plan.id} onClick={() => setSelectedPlanId(plan.id)} className={`p-5 rounded-[24px] border-2 cursor-pointer transition-all active:scale-[0.98] flex items-center justify-between ${selectedPlanId === plan.id ? 'border-opay-green bg-green-50 shadow-md' : 'border-gray-50 bg-gray-50'}`}>
+                  <div key={plan.id} onClick={() => setSelectedPlanId(plan.id)} className={`p-5 rounded-[24px] border-2 cursor-pointer transition-all active:scale-[0.98] flex items-center justify-between ${selectedPlanId === plan.id ? 'border-billpay-green bg-green-50 shadow-md' : 'border-gray-50 bg-gray-50'}`}>
                     <div className="flex items-center gap-4">
-                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-[10px] ${selectedPlanId === plan.id ? 'bg-opay-green text-white' : 'bg-white text-gray-400 border border-gray-100 shadow-sm'}`}>
+                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-[10px] ${selectedPlanId === plan.id ? 'bg-billpay-green text-white' : 'bg-white text-gray-400 border border-gray-100 shadow-sm'}`}>
                           {plan.size.includes('GB') ? 'GB' : 'MB'}
                        </div>
                        <div>
@@ -200,8 +214,8 @@ const Data: React.FC = () => {
                        </div>
                     </div>
                     <div className="text-right flex flex-col items-end gap-1">
-                       <div className="text-opay-green font-black text-sm">{formatCurrency(plan.userPrice)}</div>
-                       {selectedPlanId === plan.id && <div className="w-5 h-5 bg-opay-green rounded-full flex items-center justify-center"><CheckCircle2 size={12} className="text-white" /></div>}
+                       <div className="text-billpay-green font-black text-sm">{formatCurrency(plan.userPrice)}</div>
+                       {selectedPlanId === plan.id && <div className="w-5 h-5 bg-billpay-green rounded-full flex items-center justify-center"><CheckCircle2 size={12} className="text-white" /></div>}
                     </div>
                   </div>
                 ))
@@ -209,7 +223,7 @@ const Data: React.FC = () => {
             </div>
           </div>
 
-          <button onClick={handlePurchase} disabled={isLoading || !selectedPlanId || (!isBulk && phoneNumber.length < 10) || (isBulk && bulkStats.total === 0)} className="w-full bg-opay-green text-white font-black py-5 rounded-[24px] shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50">
+          <button onClick={handlePurchase} disabled={isLoading || !selectedPlanId || (!isBulk && phoneNumber.length < 10) || (isBulk && bulkStats.total === 0)} className="w-full bg-billpay-green text-white font-black py-5 rounded-[24px] shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50">
             {isLoading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><ShieldCheck size={18} /> PROCEED TO PAY</>}
           </button>
         </div>

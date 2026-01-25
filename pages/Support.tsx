@@ -46,7 +46,7 @@ const Support: React.FC = () => {
       setLoading(false);
       setSubject('');
       setMessage('');
-      alert('Ticket submitted successfully! Our agents will get back to you shortly.');
+      alert('Ticket submitted successfully!');
       navigate('/dashboard');
     }, 1500);
   };
@@ -63,7 +63,7 @@ const Support: React.FC = () => {
       <div className="p-4 space-y-6 flex-1">
         <div className="bg-white p-5 rounded-2xl shadow-sm space-y-4">
           <div className="flex items-center gap-3 mb-2">
-            <MessageSquare className="text-opay-green" />
+            <MessageSquare className="text-billpay-green" />
             <h3 className="font-bold text-gray-800">Open a New Ticket</h3>
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -72,7 +72,7 @@ const Support: React.FC = () => {
               <input 
                 type="text" 
                 required
-                className="w-full p-4 bg-gray-50 text-gray-900 rounded-xl outline-none focus:ring-2 focus:ring-opay-green/20"
+                className="w-full p-4 bg-gray-50 text-gray-900 rounded-xl outline-none focus:ring-2 focus:ring-billpay-green/20"
                 placeholder="e.g. Payment Issue"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
@@ -87,7 +87,7 @@ const Support: React.FC = () => {
             <button 
               type="submit"
               disabled={loading}
-              className="w-full bg-opay-green text-white py-4 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
+              className="w-full bg-billpay-green text-white py-4 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
             >
               {loading ? 'Sending...' : <><Send size={18} /> Send Ticket</>}
             </button>
