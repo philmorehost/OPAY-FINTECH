@@ -2,11 +2,12 @@
 // Core Functions
 
 function sanitize($data) {
+    if (is_array($data)) return array_map('sanitize', $data);
     return htmlspecialchars(strip_tags(trim($data)));
 }
 
 function formatCurrency($amount) {
-    return '₦' . number_format($amount, 2);
+    return '₦' . number_format((float)$amount, 2);
 }
 
 function generateId($prefix = '') {
@@ -41,6 +42,14 @@ function verifyCsrfToken($token) {
 // Session security
 function startSecureSession() {
     if (session_status() === PHP_SESSION_NONE) {
+        session_set_cookie_params([
+            'lifetime' => 86400,
+            'path' => '/',
+            'domain' => '',
+            'secure' => true,
+            'httponly' => true,
+            'samesite' => 'Lax'
+        ]);
         session_start();
     }
 }
@@ -55,6 +64,7 @@ function fetchSettings($pdo) {
         $settings['electricProviders'] = json_decode($settings['electricProviders'], true) ?: [];
         $settings['bettingProviders'] = json_decode($settings['bettingProviders'], true) ?: [];
         $settings['airtimeDiscounts'] = json_decode($settings['airtimeDiscounts'], true) ?: [];
+        $settings['dataProducts'] = json_decode($settings['dataProducts'] ?? '[]', true) ?: [];
     }
     return $settings;
 }

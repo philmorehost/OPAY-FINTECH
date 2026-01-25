@@ -1,4 +1,9 @@
 <?php
+if (!file_exists(__DIR__ . '/includes/db.php')) {
+    header('Location: install.php');
+    exit;
+}
+
 require_once __DIR__ . '/includes/config.php';
 
 if (isLoggedIn()) {
