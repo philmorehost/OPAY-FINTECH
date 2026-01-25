@@ -10,7 +10,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt = $pdo->prepare("UPDATE settings SET
         bankAccount = ?, bankName = ?, accountName = ?,
         minDepositAmount = ?, minAirtimePurchase = ?,
-        bonusPerDay = ?, conversionRate = ?,
+        maxDailyTxPerId = ?,
+        bonusPerDay = ?, referralBonus = ?, welcomeBonus = ?, conversionRate = ?,
         isMaintenanceMode = ?,
         smtpHost = ?, smtpPort = ?, smtpUser = ?,
         smtpPass = ?, senderName = ?, fromEmail = ?
@@ -18,7 +19,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->execute([
         sanitize($_POST['bankAccount']), sanitize($_POST['bankName']), sanitize($_POST['accountName']),
         sanitize($_POST['minDepositAmount']), sanitize($_POST['minAirtimePurchase']),
-        sanitize($_POST['bonusPerDay'] ?? 20), sanitize($_POST['conversionRate'] ?? 20),
+        sanitize($_POST['maxDailyTxPerId'] ?? 5),
+        sanitize($_POST['bonusPerDay'] ?? 20), sanitize($_POST['referralBonus'] ?? 100), sanitize($_POST['welcomeBonus'] ?? 50), sanitize($_POST['conversionRate'] ?? 20),
         isset($_POST['isMaintenanceMode']) ? 1 : 0,
         sanitize($_POST['smtpHost']), sanitize($_POST['smtpPort']), sanitize($_POST['smtpUser']),
         sanitize($_POST['smtpPass']), sanitize($_POST['senderName']), sanitize($_POST['fromEmail'])
@@ -77,12 +79,24 @@ require_once __DIR__ . '/header.php';
             </div>
         </div>
 
-        <!-- System Limits -->
+        <!-- Loyalty & Rewards Engine -->
         <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
-            <h3 class="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><i data-lucide="shield-half" class="text-billpay-green"></i> Security & Limits</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div><label class="text-[10px] font-black text-gray-400 uppercase">Min. Deposit (₦)</label><input type="number" name="minDepositAmount" value="<?php echo $settings['minDepositAmount']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none"></div>
-                <div><label class="text-[10px] font-black text-gray-400 uppercase">Min. Airtime (₦)</label><input type="number" name="minAirtimePurchase" value="<?php echo $settings['minAirtimePurchase']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none"></div>
+            <h3 class="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><i data-lucide="gift" class="text-pink-500"></i> Loyalty & Rewards Engine</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div><label class="text-[10px] font-black text-gray-400 uppercase">Daily Check-in (Coins)</label><input type="number" name="bonusPerDay" value="<?php echo $settings['bonusPerDay']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
+                <div><label class="text-[10px] font-black text-gray-400 uppercase">Referral Reward (Coins)</label><input type="number" name="referralBonus" value="<?php echo $settings['referralBonus']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
+                <div><label class="text-[10px] font-black text-gray-400 uppercase">Welcome Bonus (Coins)</label><input type="number" name="welcomeBonus" value="<?php echo $settings['welcomeBonus']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
+                <div><label class="text-[10px] font-black text-gray-400 uppercase">Rate (₦1 = X Coins)</label><input type="number" name="conversionRate" value="<?php echo $settings['conversionRate']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
+            </div>
+        </div>
+
+        <!-- Security & System Guard -->
+        <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
+            <h3 class="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><i data-lucide="shield-half" class="text-billpay-green"></i> Security & System Guard</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div><label class="text-[10px] font-black text-gray-400 uppercase">Min. Wallet Deposit (₦)</label><input type="number" name="minDepositAmount" value="<?php echo $settings['minDepositAmount']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
+                <div><label class="text-[10px] font-black text-gray-400 uppercase">Min. Airtime Purchase (₦)</label><input type="number" name="minAirtimePurchase" value="<?php echo $settings['minAirtimePurchase']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
+                <div><label class="text-[10px] font-black text-gray-400 uppercase">Max Daily Tx Per ID (Phone/IUC/Meter)</label><input type="number" name="maxDailyTxPerId" value="<?php echo $settings['maxDailyTxPerId']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
             </div>
         </div>
 

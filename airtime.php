@@ -31,13 +31,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
     $totalCost = count($recipients) * $amount;
 
-    if ($amount < 50) {
-        $error = 'Minimum airtime is ₦50';
+    if (isKycRejected($currentUser)) {
+        $error = 'Account restricted. Please update your KYC.';
+    } elseif ($amount < $settings['minAirtimePurchase']) {
+        $error = 'Minimum airtime is ' . formatCurrency($settings['minAirtimePurchase']);
     } elseif (empty($recipients)) {
         $error = 'Enter valid phone numbers';
     } elseif ($currentUser['walletBalance'] < $totalCost) {
         $error = 'Insufficient balance';
     } else {
+        // Daily Limit Check
+        foreach ($recipients as $num) {
+            if (!checkDailyLimit($pdo, $currentUser['id'], $num, $settings['maxDailyTxPerId'])) {
+                $error = "Daily transaction limit reached for $num";
+                break;
+            }
+        }
+
+        if ($error) {
+            // Error already set
+        } else {
         // Process purchase
         $pdo->beginTransaction();
         try {
@@ -75,6 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         } catch (Exception $e) {
             $pdo->rollBack();
             $error = 'Transaction failed: ' . $e->getMessage();
+        }
         }
     }
 }

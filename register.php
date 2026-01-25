@@ -18,6 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $phone = sanitize($_POST['phone']);
     $password = $_POST['password'];
     $confirm_password = $_POST['confirm_password'];
+    $referrerUsername = sanitize($_POST['referrer'] ?? '');
 
     if ($password !== $confirm_password) {
         $error = 'Passwords do not match';
@@ -30,8 +31,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $userId = 'u' . bin2hex(random_bytes(4));
             $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
 
-            $stmt = $pdo->prepare("INSERT INTO users (id, username, fullName, email, phone, password, role, walletBalance, bonusCoins) VALUES (?, ?, ?, ?, ?, ?, 'user', ?, ?)");
-            $stmt->execute([$userId, $username, $fullName, $email, $phone, $hashedPassword, $settings['welcomeBonus'] / $settings['conversionRate'], $settings['welcomeBonus']]);
+            $pdo->beginTransaction();
+            try {
+                $stmt = $pdo->prepare("INSERT INTO users (id, username, fullName, email, phone, password, role, walletBalance, bonusCoins) VALUES (?, ?, ?, ?, ?, ?, 'user', ?, ?)");
+                $stmt->execute([$userId, $username, $fullName, $email, $phone, $hashedPassword, $settings['welcomeBonus'] / $settings['conversionRate'], $settings['welcomeBonus']]);
+
+                // Handle Referral
+                if ($referrerUsername) {
+                    $refBonusCoins = $settings['referralBonus'];
+                    $refBonusCash = $refBonusCoins / $settings['conversionRate'];
+
+                    $stmt = $pdo->prepare("UPDATE users SET referralCount = referralCount + 1, referralEarnings = referralEarnings + ?, bonusCoins = bonusCoins + ?, walletBalance = walletBalance + ? WHERE username = ?");
+                    $stmt->execute([$refBonusCash, $refBonusCoins, $refBonusCash, $referrerUsername]);
+                }
+
+                $pdo->commit();
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                die("Registration failed: " . $e->getMessage());
+            }
 
             // Welcome Email
             sendMail($pdo, $email, "Welcome to Billpay", "Hi $fullName,<br><br>Thank you for joining Billpay! Your account has been created successfully.<br><br>Enjoy seamless bill payments and rewards.");
@@ -73,6 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <form method="POST" class="space-y-4">
             <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+            <input type="hidden" name="referrer" value="<?php echo sanitize($_GET['ref'] ?? ''); ?>">
             <div class="space-y-1">
                 <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Full Name</label>
                 <input type="text" name="fullName" class="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-bold text-sm" required>

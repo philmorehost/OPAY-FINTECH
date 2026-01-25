@@ -4,14 +4,54 @@ if (!isAdmin()) redirect('/login');
 
 $pageTitle = 'Global Transaction Log';
 
-$stmt = $pdo->query("SELECT t.*, u.fullName, u.username FROM transactions t JOIN users u ON t.userId = u.id ORDER BY t.date DESC LIMIT 100");
+$typeFilter = $_GET['type'] ?? '';
+$search = $_GET['search'] ?? '';
+
+$sql = "SELECT t.*, u.fullName, u.username FROM transactions t JOIN users u ON t.userId = u.id WHERE 1=1";
+$params = [];
+
+if ($typeFilter) {
+    $sql .= " AND t.type = ?";
+    $params[] = $typeFilter;
+}
+
+if ($search) {
+    $sql .= " AND (t.recipient LIKE ? OR t.details LIKE ? OR t.id LIKE ? OR u.username LIKE ? OR u.fullName LIKE ?)";
+    $searchParam = "%$search%";
+    $params[] = $searchParam;
+    $params[] = $searchParam;
+    $params[] = $searchParam;
+    $params[] = $searchParam;
+    $params[] = $searchParam;
+}
+
+$sql .= " ORDER BY t.date DESC LIMIT 100";
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
 $transactions = $stmt->fetchAll();
 
 require_once __DIR__ . '/header.php';
 ?>
 <div class="space-y-6 animate-fade-in">
     <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-        <h2 class="text-2xl font-black uppercase tracking-tighter mb-6">Live Audit Log</h2>
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+            <h2 class="text-2xl font-black uppercase tracking-tighter">Live Audit Log</h2>
+
+            <form method="GET" class="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+                <input type="text" name="search" value="<?php echo sanitize($search); ?>" placeholder="Search ID, User, Number..." class="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold outline-none focus:border-billpay-green w-full md:w-64">
+                <select name="type" class="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold outline-none focus:border-billpay-green">
+                    <option value="">All Services</option>
+                    <?php
+                    $types = ['Airtime', 'Data', 'Transfer', 'Cable TV', 'Electricity', 'Betting', 'Bulk SMS', 'Deposit'];
+                    foreach ($types as $t):
+                    ?>
+                        <option value="<?php echo $t; ?>" <?php echo $typeFilter === $t ? 'selected' : ''; ?>><?php echo $t; ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <button type="submit" class="p-3 bg-gray-900 text-white rounded-xl text-xs font-black uppercase px-6">Filter</button>
+            </form>
+        </div>
+
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
                 <thead>

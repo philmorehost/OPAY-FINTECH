@@ -16,8 +16,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $customerId = sanitize($_POST['customerId']);
     $amount = (float)$_POST['amount'];
 
-    if ($currentUser['walletBalance'] < $amount) {
+    if (isKycRejected($currentUser)) {
+        $error = 'Account restricted. Please update your KYC.';
+    } elseif ($currentUser['walletBalance'] < $amount) {
         $error = 'Insufficient balance';
+    } elseif (!checkDailyLimit($pdo, $currentUser['id'], $customerId, $settings['maxDailyTxPerId'])) {
+        $error = "Daily transaction limit reached for $customerId";
     } else {
         $pdo->beginTransaction();
         try {

@@ -75,6 +75,16 @@ function updateWallet($pdo, $userId, $amount, $type = 'credit') {
     return $stmt->execute([$amount, $userId]);
 }
 
+function isKycRejected($user) {
+    return ($user['kycStatus'] ?? 'none') === 'rejected';
+}
+
+function checkDailyLimit($pdo, $userId, $recipient, $limit) {
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM transactions WHERE userId = ? AND recipient = ? AND DATE(date) = CURDATE() AND status = 'successful'");
+    $stmt->execute([$userId, $recipient]);
+    return $stmt->fetchColumn() < $limit;
+}
+
 function logTransaction($pdo, $userId, $type, $amount, $status, $details, $recipient, $provider = null) {
     $id = 'TX-' . strtoupper(bin2hex(random_bytes(4)));
     $stmt = $pdo->prepare("INSERT INTO transactions (id, userId, type, amount, status, details, recipient, provider) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");

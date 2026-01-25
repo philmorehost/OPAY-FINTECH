@@ -45,7 +45,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $recipients[] = sanitize($_POST['phoneNumber']);
     }
 
-    if (!$selectedPlan) {
+    if (isKycRejected($currentUser)) {
+        $error = 'Account restricted. Please update your KYC.';
+    } elseif (!$selectedPlan) {
         $error = 'Invalid data plan selected';
     } elseif (empty($recipients)) {
         $error = 'Enter valid phone numbers';
@@ -54,6 +56,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         if ($currentUser['walletBalance'] < $totalCost) {
             $error = 'Insufficient balance';
         } else {
+            // Daily Limit Check
+            foreach ($recipients as $num) {
+                if (!checkDailyLimit($pdo, $currentUser['id'], $num, $settings['maxDailyTxPerId'])) {
+                    $error = "Daily transaction limit reached for $num";
+                    break;
+                }
+            }
+
+            if ($error) {
+                // Error already set
+            } else {
             $pdo->beginTransaction();
             try {
                 updateWallet($pdo, $currentUser['id'], $totalCost, 'debit');
@@ -89,6 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             } catch (Exception $e) {
                 $pdo->rollBack();
                 $error = 'Transaction failed: ' . $e->getMessage();
+            }
             }
         }
     }

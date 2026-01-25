@@ -3,8 +3,28 @@ require_once __DIR__ . '/includes/config.php';
 if (!isLoggedIn()) redirect('/login');
 $pageTitle = 'Transactions';
 
-$stmt = $pdo->prepare("SELECT * FROM transactions WHERE userId = ? ORDER BY date DESC");
-$stmt->execute([$currentUser['id']]);
+$typeFilter = $_GET['type'] ?? '';
+$search = $_GET['search'] ?? '';
+
+$sql = "SELECT * FROM transactions WHERE userId = ?";
+$params = [$currentUser['id']];
+
+if ($typeFilter) {
+    $sql .= " AND type = ?";
+    $params[] = $typeFilter;
+}
+
+if ($search) {
+    $sql .= " AND (recipient LIKE ? OR details LIKE ? OR id LIKE ?)";
+    $searchParam = "%$search%";
+    $params[] = $searchParam;
+    $params[] = $searchParam;
+    $params[] = $searchParam;
+}
+
+$sql .= " ORDER BY date DESC";
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
 $transactions = $stmt->fetchAll();
 
 require_once __DIR__ . '/includes/header.php';
@@ -14,7 +34,25 @@ require_once __DIR__ . '/includes/header.php';
         <a href="/dashboard"><i data-lucide="arrow-left" class="w-6 h-6 text-gray-900"></i></a>
         <h1 class="text-lg font-black text-gray-900 uppercase tracking-tight">Activity Log</h1>
     </div>
-    <div class="p-4 space-y-4">
+    <div class="p-4 space-y-6">
+        <!-- Search & Filter -->
+        <form method="GET" class="space-y-4">
+            <div class="relative">
+                <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"></i>
+                <input type="text" name="search" value="<?php echo sanitize($search); ?>" placeholder="Search by number or ID..." class="w-full p-4 pl-12 bg-white rounded-2xl border border-gray-100 outline-none font-bold text-xs uppercase">
+            </div>
+            <div class="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
+                <a href="transactions" class="px-5 py-2.5 rounded-full text-[9px] font-black uppercase whitespace-nowrap transition-all <?php echo !$typeFilter ? 'bg-billpay-green text-white shadow-lg' : 'bg-white text-gray-400 border border-gray-100'; ?>">All</a>
+                <?php
+                $types = ['Airtime', 'Data', 'Transfer', 'Cable TV', 'Electricity', 'Betting', 'Bulk SMS', 'Deposit'];
+                foreach ($types as $t):
+                ?>
+                <a href="?type=<?php echo $t; ?>&search=<?php echo urlencode($search); ?>" class="px-5 py-2.5 rounded-full text-[9px] font-black uppercase whitespace-nowrap transition-all <?php echo $typeFilter === $t ? 'bg-billpay-green text-white shadow-lg' : 'bg-white text-gray-400 border border-gray-100'; ?>"><?php echo $t; ?></a>
+                <?php endforeach; ?>
+            </div>
+        </form>
+
+        <div class="space-y-4">
         <?php if (empty($transactions)): ?>
             <div class="py-20 text-center text-gray-300 font-black uppercase text-xs">No transactions yet</div>
         <?php else: ?>

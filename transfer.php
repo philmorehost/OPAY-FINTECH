@@ -18,7 +18,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $fee = 10;
     $totalCost = $amount + $fee;
 
-    if ($amount < 100) {
+    if (isKycRejected($currentUser)) {
+        $error = 'Account restricted. Please update your KYC.';
+    } elseif ($amount < 100) {
         $error = 'Minimum transfer is ₦100';
     } elseif ($currentUser['walletBalance'] < $totalCost) {
         $error = 'Insufficient balance';

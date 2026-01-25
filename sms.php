@@ -29,7 +29,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pages = ceil(strlen($message) / $charLimit) ?: 1;
         $totalCost = count($recipients) * $pages * $settings['smsRate'];
 
-        if (empty($senderId)) {
+        if (isKycRejected($currentUser)) {
+            $error = 'Account restricted. Please update your KYC.';
+        } elseif (empty($senderId)) {
             $error = 'Select an approved Sender ID';
         } elseif (empty($recipients)) {
             $error = 'Enter valid recipients';
