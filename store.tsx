@@ -45,6 +45,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         phone: '08123456789',
         email: 'demo@example.com',
         password: '123456',
+        paymentPin: '0000',
         isSuspended: false,
         streakCount: 3,
         referralCount: 5,
@@ -53,6 +54,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         tier: 1,
         loginAlertsEnabled: true,
         biometricEnabled: true,
+        marketingEmailsEnabled: true,
+        smsAlertsEnabled: false,
         authorizedDevices: [
           { id: 'dev-1', name: 'iPhone 15 Pro', location: 'Lagos, Nigeria', lastActive: new Date().toISOString(), isCurrent: true }
         ]

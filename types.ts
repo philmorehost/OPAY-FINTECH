@@ -20,6 +20,7 @@ export interface User {
   role: UserRole;
   phone: string;
   password?: string;
+  paymentPin?: string; // Added field
   isSuspended: boolean;
   streakCount: number;
   lastPurchaseDate?: string;
@@ -30,6 +31,8 @@ export interface User {
   email: string;
   loginAlertsEnabled: boolean;
   biometricEnabled: boolean;
+  marketingEmailsEnabled?: boolean; // Added field
+  smsAlertsEnabled?: boolean; // Added field
   authorizedDevices: Device[];
 }
 

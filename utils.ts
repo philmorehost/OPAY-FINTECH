@@ -26,8 +26,7 @@ export const detectNetwork = (phone: string): string => {
     '0809', '0817', '0818', '0908', '0909'
   ];
 
-  if (mtn.includes(prefix5)) return 'MTN';
-  if (mtn.includes(prefix4)) return 'MTN';
+  if (mtn.includes(prefix5) || mtn.includes(prefix4)) return 'MTN';
   if (airtel.includes(prefix4)) return 'Airtel';
   if (glo.includes(prefix4)) return 'Glo';
   if (nineMobile.includes(prefix4)) return '9mobile';
