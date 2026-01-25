@@ -11,13 +11,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         bankAccount = ?, bankName = ?, accountName = ?,
         minDepositAmount = ?, minAirtimePurchase = ?,
         bonusPerDay = ?, conversionRate = ?,
-        isMaintenanceMode = ?
+        isMaintenanceMode = ?,
+        smtpHost = ?, smtpPort = ?, smtpUser = ?,
+        smtpPass = ?, senderName = ?, fromEmail = ?
         WHERE id = 1");
     $stmt->execute([
         sanitize($_POST['bankAccount']), sanitize($_POST['bankName']), sanitize($_POST['accountName']),
         sanitize($_POST['minDepositAmount']), sanitize($_POST['minAirtimePurchase']),
         sanitize($_POST['bonusPerDay'] ?? 20), sanitize($_POST['conversionRate'] ?? 20),
-        isset($_POST['isMaintenanceMode']) ? 1 : 0
+        isset($_POST['isMaintenanceMode']) ? 1 : 0,
+        sanitize($_POST['smtpHost']), sanitize($_POST['smtpPort']), sanitize($_POST['smtpUser']),
+        sanitize($_POST['smtpPass']), sanitize($_POST['senderName']), sanitize($_POST['fromEmail'])
     ]);
 
     // Refresh settings
@@ -57,6 +61,19 @@ require_once __DIR__ . '/header.php';
                 <div><label class="text-[10px] font-black text-gray-400 uppercase">Account Number</label><input type="text" name="bankAccount" value="<?php echo $settings['bankAccount']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
                 <div><label class="text-[10px] font-black text-gray-400 uppercase">Bank Name</label><input type="text" name="bankName" value="<?php echo $settings['bankName']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
                 <div><label class="text-[10px] font-black text-gray-400 uppercase">Account Name</label><input type="text" name="accountName" value="<?php echo $settings['accountName']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
+            </div>
+        </div>
+
+        <!-- SMTP Configuration -->
+        <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
+            <h3 class="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><i data-lucide="mail" class="text-blue-500"></i> SMTP Configuration</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div><label class="text-[10px] font-black text-gray-400 uppercase">Host</label><input type="text" name="smtpHost" value="<?php echo $settings['smtpHost']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
+                <div><label class="text-[10px] font-black text-gray-400 uppercase">Port</label><input type="text" name="smtpPort" value="<?php echo $settings['smtpPort']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
+                <div><label class="text-[10px] font-black text-gray-400 uppercase">User</label><input type="text" name="smtpUser" value="<?php echo $settings['smtpUser']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
+                <div><label class="text-[10px] font-black text-gray-400 uppercase">Password</label><input type="password" name="smtpPass" value="<?php echo $settings['smtpPass']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
+                <div><label class="text-[10px] font-black text-gray-400 uppercase">Sender Name</label><input type="text" name="senderName" value="<?php echo $settings['senderName']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
+                <div><label class="text-[10px] font-black text-gray-400 uppercase">Sender Email</label><input type="text" name="fromEmail" value="<?php echo $settings['fromEmail']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
             </div>
         </div>
 
