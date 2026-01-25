@@ -70,7 +70,13 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
                 <?php endforeach; ?>
             </nav>
 
-            <div class="p-6 border-t border-gray-50">
+            <div class="p-6 border-t border-gray-50 space-y-2">
+                <?php if (isset($_SESSION['original_admin_id'])): ?>
+                    <a href="/admin/users?action=return_admin" class="w-full flex items-center gap-4 px-6 py-4 bg-gray-900 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl shadow-lg transition-all">
+                        <i data-lucide="shield-check" class="w-5 h-5"></i>
+                        Back to Admin
+                    </a>
+                <?php endif; ?>
                 <a href="/logout" class="w-full flex items-center gap-4 px-6 py-4 text-red-500 font-black text-[10px] uppercase tracking-widest hover:bg-red-50 rounded-2xl transition-all">
                     <i data-lucide="log-out" class="w-5 h-5"></i>
                     Sign Out
