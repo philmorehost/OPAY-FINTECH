@@ -83,7 +83,7 @@ $templateId = $settings['templateId'] ?? 1;
             </div>
         </div>
     </div>
-    <?php else: ?>
+    <?php elseif ($templateId == 3): ?>
     <!-- Balance Card Section - Template 3 (Fintech Elite) -->
     <div class="p-6 bg-white border-b border-gray-100 mb-6">
         <div class="flex justify-between items-center mb-8">
@@ -135,6 +135,99 @@ $templateId = $settings['templateId'] ?? 1;
             lucide.createIcons();
         }
     </script>
+    <?php else: ?>
+    <!-- Balance Card Section - Template 4 (Crypto Hub) -->
+    <div class="p-6">
+        <div class="bg-gray-900 rounded-[40px] p-8 text-white relative overflow-hidden shadow-2xl">
+            <div class="absolute -right-20 -top-20 w-64 h-64 bg-billpay-green/10 rounded-full blur-[80px]"></div>
+
+            <div class="flex justify-between items-start mb-10 relative z-10">
+                <div>
+                    <div class="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] mb-1">Portfolio Balance</div>
+                    <div class="text-4xl font-black tracking-tighter" id="balanceText4"><?php echo formatCurrency($currentUser['walletBalance']); ?></div>
+                </div>
+                <a href="/add-money" class="bg-billpay-green text-white p-3 rounded-2xl shadow-lg shadow-green-500/20 active:scale-90 transition-all">
+                    <i data-lucide="plus" class="w-5 h-5"></i>
+                </a>
+            </div>
+
+            <div class="grid grid-cols-4 gap-4 relative z-10">
+                <a href="/crypto" class="flex flex-col items-center gap-2">
+                    <div class="w-12 h-12 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center hover:bg-billpay-green transition-colors">
+                        <i data-lucide="shopping-cart" class="w-5 h-5 text-white"></i>
+                    </div>
+                    <span class="text-[8px] font-black uppercase text-white/40">Buy</span>
+                </a>
+                <a href="/crypto" class="flex flex-col items-center gap-2">
+                    <div class="w-12 h-12 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center hover:bg-red-500 transition-colors">
+                        <i data-lucide="trending-down" class="w-5 h-5 text-white"></i>
+                    </div>
+                    <span class="text-[8px] font-black uppercase text-white/40">Sell</span>
+                </a>
+                <a href="/crypto" class="flex flex-col items-center gap-2">
+                    <div class="w-12 h-12 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center hover:bg-blue-500 transition-colors">
+                        <i data-lucide="arrow-down-left" class="w-5 h-5 text-white"></i>
+                    </div>
+                    <span class="text-[8px] font-black uppercase text-white/40">Deposit</span>
+                </a>
+                <a href="/crypto" class="flex flex-col items-center gap-2">
+                    <div class="w-12 h-12 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center hover:bg-purple-500 transition-colors">
+                        <i data-lucide="arrow-up-right" class="w-5 h-5 text-white"></i>
+                    </div>
+                    <span class="text-[8px] font-black uppercase text-white/40">Withdraw</span>
+                </a>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <?php if ($templateId == 4): ?>
+    <!-- Crypto Marquee - Template 4 -->
+    <div class="bg-gray-100/50 py-3 overflow-hidden whitespace-nowrap border-y border-gray-100">
+        <div class="flex animate-marquee gap-8 items-center px-4">
+            <div class="flex items-center gap-2">
+                <span class="w-2 h-2 bg-orange-500 rounded-full"></span>
+                <span class="text-[10px] font-black text-gray-400">BTC</span>
+                <span class="text-[10px] font-black text-gray-800">$64,231.50</span>
+                <span class="text-[8px] font-bold text-green-500">+1.2%</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+                <span class="text-[10px] font-black text-gray-400">ETH</span>
+                <span class="text-[10px] font-black text-gray-800">$3,452.12</span>
+                <span class="text-[8px] font-bold text-red-500">-0.4%</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="w-2 h-2 bg-yellow-500 rounded-full"></span>
+                <span class="text-[10px] font-black text-gray-400">BNB</span>
+                <span class="text-[10px] font-black text-gray-800">$592.40</span>
+                <span class="text-[8px] font-bold text-green-500">+2.1%</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                <span class="text-[10px] font-black text-gray-400">USDT</span>
+                <span class="text-[10px] font-black text-gray-800">$1.00</span>
+                <span class="text-[8px] font-bold text-gray-400">0.0%</span>
+            </div>
+            <!-- Repeat for loop effect -->
+            <div class="flex items-center gap-2">
+                <span class="w-2 h-2 bg-orange-500 rounded-full"></span>
+                <span class="text-[10px] font-black text-gray-400">BTC</span>
+                <span class="text-[10px] font-black text-gray-800">$64,231.50</span>
+            </div>
+        </div>
+    </div>
+    <style>
+        @keyframes marquee {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        .animate-marquee {
+            display: inline-flex;
+            animation: marquee 20s linear infinite;
+            width: max-content;
+        }
+    </style>
     <?php endif; ?>
 
     <?php if ($templateId == 2): ?>
@@ -199,8 +292,8 @@ $templateId = $settings['templateId'] ?? 1;
         </div>
     </div>
 
-    <?php if ($templateId == 3): ?>
-    <!-- Daily Streak (Template 3 - Follows Services) -->
+    <?php if ($templateId == 3 || $templateId == 4): ?>
+    <!-- Daily Streak (Template 3 & 4 - Follows Services) -->
     <div class="px-4 mt-8 mb-6">
         <a href="/rewards" class="bg-white p-6 rounded-[32px] shadow-sm flex justify-between items-center border border-gray-100">
             <div class="flex items-center gap-4">
@@ -217,8 +310,8 @@ $templateId = $settings['templateId'] ?? 1;
     </div>
     <?php endif; ?>
 
-    <?php if ($templateId == 1 || $templateId == 3): ?>
-    <!-- Promotions - Template 1 & 3 (Below) -->
+    <?php if ($templateId == 1 || $templateId == 3 || $templateId == 4): ?>
+    <!-- Promotions - Template 1, 3 & 4 (Below) -->
     <div class="mt-10 px-4">
         <div class="flex justify-between items-center px-2 mb-4">
             <h3 class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Offers for you</h3>

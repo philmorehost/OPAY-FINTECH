@@ -10,7 +10,8 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="<?php echo $settings['primaryColor'] ?? '#00c689'; ?>">
     <title><?php echo $pageTitle; ?> - Billpay</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -39,8 +40,8 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
         }
     </style>
 </head>
-<body class="bg-gray-50">
-    <div class="flex min-h-screen">
+<body class="bg-gray-50 overflow-x-hidden w-full">
+    <div class="flex min-h-screen w-full overflow-x-hidden">
         <!-- Desktop Sidebar -->
         <aside class="w-72 bg-white border-r border-gray-100 hidden lg:flex flex-col fixed h-full z-40">
             <div class="p-8 flex items-center gap-3">
