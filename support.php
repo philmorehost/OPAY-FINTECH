@@ -1,5 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/config.php';
+if (!isLoggedIn()) redirect('/login');
+
 $pageTitle = 'Support';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'new_ticket') {

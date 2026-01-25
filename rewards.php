@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/includes/config.php';
+if (!isLoggedIn()) redirect('/login');
 $pageTitle = 'Rewards';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'checkin') {

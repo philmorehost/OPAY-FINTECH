@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/includes/config.php';
+if (!isLoggedIn()) redirect('/login');
 $pageTitle = 'Transactions';
 
 $stmt = $pdo->prepare("SELECT * FROM transactions WHERE userId = ? ORDER BY date DESC");

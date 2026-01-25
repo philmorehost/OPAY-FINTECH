@@ -113,17 +113,59 @@ function sendMail($pdo, $to, $subject, $message) {
     $headers .= "From: $senderName <$fromEmail>" . "\r\n";
 
     $htmlBody = "
-    <div style='font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;'>
-        <div style='text-align: center; margin-bottom: 20px;'>
-            <h2 style='color: #00c689;'>$senderName</h2>
-        </div>
-        <div style='line-height: 1.6; color: #333;'>
-            $message
-        </div>
-        <div style='margin-top: 30px; font-size: 12px; color: #999; text-align: center; border-top: 1px solid #eee; padding-top: 20px;'>
-            &copy; " . date('Y') . " $senderName. All rights reserved.
-        </div>
-    </div>";
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset='UTF-8'>
+        <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    </head>
+    <body style='margin: 0; padding: 0; background-color: #f6f9fc; font-family: \"Inter\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif;'>
+        <table width='100%' border='0' cellspacing='0' cellpadding='0' style='background-color: #f6f9fc; padding: 40px 20px;'>
+            <tr>
+                <td align='center'>
+                    <table width='600' border='0' cellspacing='0' cellpadding='0' style='background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.05);'>
+                        <!-- Header -->
+                        <tr>
+                            <td style='background: linear-gradient(135deg, #00c689 0%, #00a672 100%); padding: 60px 40px; text-align: center;'>
+                                <div style='width: 60px; height: 60px; background-color: rgba(255,255,255,0.2); border-radius: 16px; margin: 0 auto 20px; display: inline-block; line-height: 60px; color: #ffffff; font-size: 32px; font-weight: 900; border: 1px solid rgba(255,255,255,0.3);'>B</div>
+                                <h1 style='margin: 0; color: #ffffff; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;'>$senderName</h1>
+                                <p style='margin: 10px 0 0; color: rgba(255,255,255,0.8); font-size: 14px; font-weight: 500; text-transform: uppercase; letter-spacing: 2px;'>$subject</p>
+                            </td>
+                        </tr>
+                        <!-- Content -->
+                        <tr>
+                            <td style='padding: 50px 40px; line-height: 1.8; color: #4a5568;'>
+                                <div style='font-size: 16px; font-weight: 500;'>
+                                    $message
+                                </div>
+                                <div style='margin-top: 40px; padding-top: 30px; border-top: 1px solid #edf2f7;'>
+                                    <p style='margin: 0; font-size: 14px; font-weight: 700; color: #1a202c;'>Need help?</p>
+                                    <p style='margin: 5px 0 0; font-size: 13px; color: #718096;'>Contact our 24/7 support team if you have any questions.</p>
+                                </div>
+                            </td>
+                        </tr>
+                        <!-- Footer -->
+                        <tr>
+                            <td style='background-color: #fcfdfe; padding: 40px; text-align: center; border-top: 1px solid #f1f5f9;'>
+                                <div style='margin-bottom: 20px;'>
+                                    <a href='#' style='display: inline-block; margin: 0 10px; color: #a0aec0; text-decoration: none;'><span style='font-size: 18px;'>●</span></a>
+                                    <a href='#' style='display: inline-block; margin: 0 10px; color: #a0aec0; text-decoration: none;'><span style='font-size: 18px;'>●</span></a>
+                                    <a href='#' style='display: inline-block; margin: 0 10px; color: #a0aec0; text-decoration: none;'><span style='font-size: 18px;'>●</span></a>
+                                </div>
+                                <p style='margin: 0; font-size: 12px; font-weight: 600; color: #a0aec0; text-transform: uppercase; letter-spacing: 1px;'>
+                                    &copy; " . date('Y') . " $senderName. All rights reserved.
+                                </p>
+                                <p style='margin: 10px 0 0; font-size: 11px; color: #cbd5e0;'>
+                                    This is an automated notification from our system.
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>";
 
     return @mail($to, $subject, $htmlBody, $headers);
 }
