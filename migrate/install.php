@@ -77,6 +77,7 @@ if ($stage === 2 && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 details TEXT,
                 recipient VARCHAR(100),
                 provider VARCHAR(50),
+                token VARCHAR(255),
                 refunded BOOLEAN DEFAULT FALSE,
                 FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
             )",
@@ -191,6 +192,7 @@ if ($stage === 2 && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 gradientFrom VARCHAR(20),
                 gradientTo VARCHAR(20),
                 textColor VARCHAR(20) DEFAULT '#ffffff',
+                useGradient TINYINT(1) DEFAULT 1,
                 expiryDate DATETIME NOT NULL,
                 createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
             )"

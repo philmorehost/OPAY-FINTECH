@@ -40,8 +40,8 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
         }
     </style>
 </head>
-<body class="bg-gray-50 overflow-x-hidden w-full">
-    <div class="flex min-h-screen w-full overflow-x-hidden">
+<body class="bg-gray-50 w-full">
+    <div class="flex min-h-screen w-full">
         <!-- Desktop Sidebar -->
         <aside class="w-72 bg-white border-r border-gray-100 hidden lg:flex flex-col fixed h-full z-40">
             <div class="p-8 flex items-center gap-3">
@@ -86,7 +86,7 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
         </aside>
 
         <!-- Main Content -->
-        <main class="flex-1 lg:ml-72 flex flex-col min-h-screen pb-24 lg:pb-0">
+        <main class="flex-1 lg:ml-72 flex flex-col min-h-screen w-full pb-24 lg:pb-0 overflow-x-hidden">
             <!-- Header -->
             <header class="h-20 bg-white/80 backdrop-blur-md border-b border-gray-50 sticky top-0 z-30 px-6 lg:px-12 flex items-center justify-between">
                 <div class="flex items-center gap-4 lg:hidden">
@@ -106,4 +106,4 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
                 </div>
             </header>
 
-            <div class="p-6 lg:p-12 max-w-6xl mx-auto w-full <?php echo isAdmin() ? '' : 'lg:max-w-[70%]'; ?>">
+            <div class="px-4 py-6 lg:p-12 lg:max-w-6xl mx-auto w-full <?php echo isAdmin() ? '' : 'lg:max-w-[70%]'; ?>">

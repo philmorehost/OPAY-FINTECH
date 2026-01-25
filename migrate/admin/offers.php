@@ -18,6 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $gradientTo = sanitize($_POST['gradientTo']);
         $textColor = sanitize($_POST['textColor']);
         $expiryDate = $_POST['expiryDate'];
+        $useGradient = isset($_POST['useGradient']) ? 1 : 0;
         $id = isset($_POST['id']) ? (int)$_POST['id'] : 0;
 
         if ($_POST['action'] === 'add') {
@@ -30,8 +31,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 move_uploaded_file($_FILES['image']['tmp_name'], __DIR__ . '/../' . $image);
             }
 
-            $stmt = $pdo->prepare("INSERT INTO offers (title, content, image, gradientFrom, gradientTo, textColor, expiryDate) VALUES (?, ?, ?, ?, ?, ?, ?)");
-            if ($stmt->execute([$title, $content, $image, $gradientFrom, $gradientTo, $textColor, $expiryDate])) {
+            $stmt = $pdo->prepare("INSERT INTO offers (title, content, image, gradientFrom, gradientTo, textColor, expiryDate, useGradient) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+            if ($stmt->execute([$title, $content, $image, $gradientFrom, $gradientTo, $textColor, $expiryDate, $useGradient])) {
                 $success = "Offer added successfully!";
             } else {
                 $error = "Failed to add offer.";
@@ -45,11 +46,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $image = 'uploads/offers/offer_' . time() . '.' . $ext;
                 move_uploaded_file($_FILES['image']['tmp_name'], __DIR__ . '/../' . $image);
 
-                $stmt = $pdo->prepare("UPDATE offers SET title = ?, content = ?, image = ?, gradientFrom = ?, gradientTo = ?, textColor = ?, expiryDate = ? WHERE id = ?");
-                $stmt->execute([$title, $content, $image, $gradientFrom, $gradientTo, $textColor, $expiryDate, $id]);
+                $stmt = $pdo->prepare("UPDATE offers SET title = ?, content = ?, image = ?, gradientFrom = ?, gradientTo = ?, textColor = ?, expiryDate = ?, useGradient = ? WHERE id = ?");
+                $stmt->execute([$title, $content, $image, $gradientFrom, $gradientTo, $textColor, $expiryDate, $useGradient, $id]);
             } else {
-                $stmt = $pdo->prepare("UPDATE offers SET title = ?, content = ?, gradientFrom = ?, gradientTo = ?, textColor = ?, expiryDate = ? WHERE id = ?");
-                $stmt->execute([$title, $content, $gradientFrom, $gradientTo, $textColor, $expiryDate, $id]);
+                $stmt = $pdo->prepare("UPDATE offers SET title = ?, content = ?, gradientFrom = ?, gradientTo = ?, textColor = ?, expiryDate = ?, useGradient = ? WHERE id = ?");
+                $stmt->execute([$title, $content, $gradientFrom, $gradientTo, $textColor, $expiryDate, $useGradient, $id]);
             }
             $success = "Offer updated successfully!";
         }
@@ -83,10 +84,14 @@ require_once __DIR__ . '/header.php';
     <?php endif; ?>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        <?php foreach ($offers as $offer): ?>
+        <?php foreach ($offers as $offer):
+            $bgStyle = (isset($offer['useGradient']) && $offer['useGradient'] == 1)
+                ? "background: linear-gradient(to bottom right, {$offer['gradientFrom']}, {$offer['gradientTo']});"
+                : "background-color: {$offer['gradientFrom']};";
+        ?>
             <div class="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden flex flex-col group">
-                <div class="h-48 relative overflow-hidden flex flex-col justify-center p-8" style="background: linear-gradient(to bottom right, <?php echo $offer['gradientFrom']; ?>, <?php echo $offer['gradientTo']; ?>); color: <?php echo $offer['textColor']; ?>;">
-                    <?php if ($offer['image']): ?>
+                <div class="h-48 relative overflow-hidden flex flex-col justify-center p-8" style="<?php echo $bgStyle; ?> color: <?php echo $offer['textColor']; ?>;">
+                    <?php if (!empty($offer['image'])): ?>
                         <img src="/<?php echo $offer['image']; ?>" class="absolute top-0 left-0 w-full h-full object-cover opacity-20 group-hover:scale-110 transition-transform duration-500">
                     <?php endif; ?>
                     <div class="relative z-10">
@@ -149,12 +154,17 @@ require_once __DIR__ . '/header.php';
                 <textarea name="content" rows="3" required class="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-bold text-sm"></textarea>
             </div>
 
+            <div class="flex items-center gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                <input type="checkbox" name="useGradient" id="useGradient" checked class="w-5 h-5 rounded border-gray-300 text-billpay-green focus:ring-billpay-green">
+                <label for="useGradient" class="text-[10px] font-black text-gray-500 uppercase tracking-widest cursor-pointer">Enable Gradient Background</label>
+            </div>
+
             <div class="grid grid-cols-3 gap-6">
                 <div class="space-y-2">
-                    <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Gradient From</label>
+                    <label class="text-[10px] font-black text-gray-400 uppercase ml-1" id="labelFrom">Gradient From</label>
                     <input type="color" name="gradientFrom" value="#00c689" class="w-full h-12 p-1 bg-gray-50 rounded-xl border border-gray-100 outline-none cursor-pointer">
                 </div>
-                <div class="space-y-2">
+                <div class="space-y-2" id="gradientToContainer">
                     <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Gradient To</label>
                     <input type="color" name="gradientTo" value="#00a672" class="w-full h-12 p-1 bg-gray-50 rounded-xl border border-gray-100 outline-none cursor-pointer">
                 </div>
@@ -193,6 +203,10 @@ function openOfferModal(offer = null) {
         modal.querySelector('[name="gradientFrom"]').value = offer.gradientFrom;
         modal.querySelector('[name="gradientTo"]').value = offer.gradientTo;
         modal.querySelector('[name="textColor"]').value = offer.textColor;
+        modal.querySelector('[name="useGradient"]').checked = offer.useGradient == 1;
+
+        // Trigger gradient toggle logic
+        document.getElementById('useGradient').dispatchEvent(new Event('change'));
 
         // Format date for datetime-local
         const date = new Date(offer.expiryDate);
@@ -212,6 +226,18 @@ function openOfferModal(offer = null) {
 function closeOfferModal() {
     document.getElementById('offerModal').classList.add('hidden');
 }
+
+document.getElementById('useGradient').addEventListener('change', function() {
+    const toContainer = document.getElementById('gradientToContainer');
+    const labelFrom = document.getElementById('labelFrom');
+    if (this.checked) {
+        toContainer.classList.remove('opacity-30', 'pointer-events-none');
+        labelFrom.innerText = 'Gradient From';
+    } else {
+        toContainer.classList.add('opacity-30', 'pointer-events-none');
+        labelFrom.innerText = 'Background Color';
+    }
+});
 </script>
 
 <?php require_once __DIR__ . '/footer.php'; ?>

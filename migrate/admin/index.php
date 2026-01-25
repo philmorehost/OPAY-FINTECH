@@ -5,11 +5,25 @@ if (!isAdmin()) {
     redirect('/login');
 }
 
+// Auto-migration helper
+function addColumnIfNotExists($pdo, $table, $column, $definition) {
+    try {
+        $stmt = $pdo->query("SHOW COLUMNS FROM `$table` LIKE '$column'");
+        if ($stmt->rowCount() == 0) {
+            $pdo->exec("ALTER TABLE `$table` ADD `$column` $definition");
+        }
+    } catch (PDOException $e) {
+        // Handle error or silent fail
+    }
+}
+
 // Auto-migration
 try {
-    $pdo->exec("ALTER TABLE settings ADD COLUMN IF NOT EXISTS templateId INT DEFAULT 1");
-    $pdo->exec("ALTER TABLE settings ADD COLUMN IF NOT EXISTS primaryColor VARCHAR(20) DEFAULT '#00c689'");
-    $pdo->exec("ALTER TABLE transactions ADD COLUMN IF NOT EXISTS token VARCHAR(255)");
+    addColumnIfNotExists($pdo, 'settings', 'templateId', "INT DEFAULT 1");
+    addColumnIfNotExists($pdo, 'settings', 'primaryColor', "VARCHAR(20) DEFAULT '#00c689'");
+    addColumnIfNotExists($pdo, 'transactions', 'token', "VARCHAR(255)");
+    addColumnIfNotExists($pdo, 'transactions', 'provider', "VARCHAR(50)");
+
     $pdo->exec("CREATE TABLE IF NOT EXISTS offers (
         id INT AUTO_INCREMENT PRIMARY KEY,
         title VARCHAR(255) NOT NULL,
@@ -21,8 +35,10 @@ try {
         expiryDate DATETIME NOT NULL,
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
     )");
+
+    addColumnIfNotExists($pdo, 'offers', 'useGradient', "TINYINT(1) DEFAULT 1");
 } catch (PDOException $e) {
-    // Silent fail if columns already exist and IF NOT EXISTS is not supported or other DB issues
+    // Silent fail
 }
 
 $pageTitle = 'Admin Dashboard';

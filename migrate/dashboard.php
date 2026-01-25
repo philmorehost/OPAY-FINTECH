@@ -25,7 +25,7 @@ $templateId = $settings['templateId'] ?? 1;
 
 ?>
 
-<div class="max-w-md mx-auto bg-gray-50 min-h-screen pb-24 relative">
+<div class="lg:max-w-md mx-auto bg-gray-50 min-h-screen pb-24 relative">
     <?php if ($templateId == 1): ?>
     <!-- Balance Card Section - Template 1 -->
     <div class="bg-billpay-green p-6 text-white rounded-b-[40px] shadow-lg mb-6">
