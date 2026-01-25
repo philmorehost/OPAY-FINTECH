@@ -76,6 +76,7 @@ require_once __DIR__ . '/header.php';
                     <select name="templateId" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green">
                         <option value="1" <?php echo $settings['templateId'] == 1 ? 'selected' : ''; ?>>Classic Template (Standard)</option>
                         <option value="2" <?php echo $settings['templateId'] == 2 ? 'selected' : ''; ?>>Modern Template (Offers Top)</option>
+                        <option value="3" <?php echo $settings['templateId'] == 3 ? 'selected' : ''; ?>>Fintech Template (Icons Top)</option>
                     </select>
                 </div>
             </div>

@@ -61,7 +61,7 @@ $templateId = $settings['templateId'] ?? 1;
             </div>
         </div>
     </div>
-    <?php else: ?>
+    <?php elseif ($templateId == 2): ?>
     <!-- Balance Card Section - Template 2 -->
     <div class="px-4 pt-6 mb-6">
         <div class="bg-gray-900 p-8 rounded-[40px] text-white shadow-2xl relative overflow-hidden">
@@ -83,6 +83,58 @@ $templateId = $settings['templateId'] ?? 1;
             </div>
         </div>
     </div>
+    <?php else: ?>
+    <!-- Balance Card Section - Template 3 (Fintech Elite) -->
+    <div class="p-6 bg-white border-b border-gray-100 mb-6">
+        <div class="flex justify-between items-center mb-8">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 bg-gray-900 rounded-2xl flex items-center justify-center text-white font-black text-xl">
+                    <?php echo strtoupper(substr($currentUser['username'], 0, 1)); ?>
+                </div>
+                <div>
+                    <div class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Good Day,</div>
+                    <div class="text-sm font-black text-gray-900"><?php echo explode(' ', $currentUser['fullName'])[0]; ?> 👋</div>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <a href="/support" class="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-billpay-green transition-colors"><i data-lucide="message-circle" class="w-5 h-5"></i></a>
+                <a href="/profile" class="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-billpay-green transition-colors"><i data-lucide="settings" class="w-5 h-5"></i></a>
+            </div>
+        </div>
+
+        <div class="bg-gray-50 p-8 rounded-[40px] border border-gray-100 relative group">
+            <div class="flex flex-col items-center text-center">
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">Total Assets</span>
+                    <button onclick="toggleBalance()" class="text-gray-300 hover:text-billpay-green transition-colors"><i data-lucide="eye" id="eyeIcon" class="w-4 h-4"></i></button>
+                </div>
+                <div class="text-4xl font-black text-gray-900 tracking-tighter mb-8 transition-all" id="balanceText">
+                    <?php echo formatCurrency($currentUser['walletBalance']); ?>
+                </div>
+                <div class="flex gap-3 w-full">
+                    <a href="/add-money" class="flex-1 bg-gray-900 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl active:scale-95 transition-all">Add Money</a>
+                    <a href="/transfer" class="flex-1 bg-white border border-gray-200 text-gray-900 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all">Withdraw</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        let balanceHidden = false;
+        const originalBalance = "<?php echo formatCurrency($currentUser['walletBalance']); ?>";
+        function toggleBalance() {
+            balanceHidden = !balanceHidden;
+            const text = document.getElementById('balanceText');
+            const icon = document.getElementById('eyeIcon');
+            if (balanceHidden) {
+                text.innerText = "₦ ****.**";
+                icon.setAttribute('data-lucide', 'eye-off');
+            } else {
+                text.innerText = originalBalance;
+                icon.setAttribute('data-lucide', 'eye');
+            }
+            lucide.createIcons();
+        }
+    </script>
     <?php endif; ?>
 
     <?php if ($templateId == 2): ?>
@@ -112,7 +164,8 @@ $templateId = $settings['templateId'] ?? 1;
     </div>
     <?php endif; ?>
 
-    <!-- Daily Streak -->
+    <?php if ($templateId != 3): ?>
+    <!-- Daily Streak (T1, T2) -->
     <div class="px-4 mb-6">
         <a href="/rewards" class="bg-white p-5 rounded-3xl shadow-xl flex justify-between items-center border border-gray-100/50">
             <div class="flex items-center gap-4">
@@ -130,6 +183,7 @@ $templateId = $settings['templateId'] ?? 1;
             </div>
         </a>
     </div>
+    <?php endif; ?>
 
     <!-- Services Grid -->
     <div class="px-4 py-2">
@@ -145,8 +199,26 @@ $templateId = $settings['templateId'] ?? 1;
         </div>
     </div>
 
-    <?php if ($templateId == 1): ?>
-    <!-- Promotions - Template 1 (Below Services) -->
+    <?php if ($templateId == 3): ?>
+    <!-- Daily Streak (Template 3 - Follows Services) -->
+    <div class="px-4 mt-8 mb-6">
+        <a href="/rewards" class="bg-white p-6 rounded-[32px] shadow-sm flex justify-between items-center border border-gray-100">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-500">
+                    <i data-lucide="award" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <div class="text-xs font-black text-gray-900 uppercase">Loyalty Reward</div>
+                    <div class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Claim your daily coins</div>
+                </div>
+            </div>
+            <i data-lucide="chevron-right" class="w-5 h-5 text-gray-300"></i>
+        </a>
+    </div>
+    <?php endif; ?>
+
+    <?php if ($templateId == 1 || $templateId == 3): ?>
+    <!-- Promotions - Template 1 & 3 (Below) -->
     <div class="mt-10 px-4">
         <div class="flex justify-between items-center px-2 mb-4">
             <h3 class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Offers for you</h3>

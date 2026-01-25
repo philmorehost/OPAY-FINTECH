@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Handle file uploads
         $uploadDir = __DIR__ . '/uploads/kyc/';
-        if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
+        if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
 
         $idImageUrl = '';
         if (isset($_FILES['idImage']) && $_FILES['idImage']['error'] === 0) {

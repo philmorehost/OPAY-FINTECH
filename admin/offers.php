@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $image = '';
         if (isset($_FILES['image']) && $_FILES['image']['error'] == 0) {
             $uploadDir = __DIR__ . '/../uploads/offers/';
-            if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
+            if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
             $ext = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
             $image = 'uploads/offers/offer_' . time() . '.' . $ext;
             move_uploaded_file($_FILES['image']['tmp_name'], __DIR__ . '/../' . $image);
