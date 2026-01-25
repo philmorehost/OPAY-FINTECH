@@ -2,15 +2,7 @@
 if (!isLoggedIn()) {
     redirect('/login');
 }
-
-$stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
-$stmt->execute([$_SESSION['user_id']]);
-$currentUser = $stmt->fetch();
-
-if (!$currentUser || $currentUser['isSuspended']) {
-    session_destroy();
-    redirect('/login');
-}
+// $currentUser is now defined in config.php
 
 $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
 ?>
