@@ -56,6 +56,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 require_once __DIR__ . '/includes/header.php';
 ?>
 <div class="space-y-10 animate-fade-in pb-20">
+    <?php if (isset($_GET['error']) && $_GET['error'] === 'restricted'): ?>
+        <div class="p-6 bg-amber-50 border border-amber-100 rounded-[32px] flex items-center gap-4 animate-bounce">
+            <div class="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center text-amber-600">
+                <i data-lucide="shield-alert" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <div class="text-sm font-black text-amber-800 uppercase">Verification Required</div>
+                <p class="text-[10px] font-bold text-amber-600 uppercase tracking-widest">Please verify your identity to access restricted features.</p>
+            </div>
+        </div>
+    <?php endif; ?>
+
     <div class="flex items-center justify-between">
         <div>
             <h1 class="text-3xl font-black text-gray-900 uppercase tracking-tight">Identity Verification</h1>

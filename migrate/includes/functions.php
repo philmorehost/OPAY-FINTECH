@@ -22,6 +22,26 @@ function isAdmin() {
     return (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') || isset($_SESSION['original_admin_id']);
 }
 
+function checkKycRestriction($settings, $currentUser) {
+    if (!isset($settings['isKycEnforced']) || !$settings['isKycEnforced']) {
+        return; // KYC not enforced
+    }
+
+    if ($currentUser['kycStatus'] !== 'verified') {
+        if ($currentUser['kycStatus'] === 'rejected') {
+            // Redirect to KYC with error or just let KYC page show the rejection
+            header('Location: /kyc?error=restricted');
+        } else {
+            header('Location: /kyc');
+        }
+        exit;
+    }
+}
+
+function isKycRejected($currentUser) {
+    return $currentUser['kycStatus'] === 'rejected';
+}
+
 function redirect($path) {
     header("Location: $path");
     exit;

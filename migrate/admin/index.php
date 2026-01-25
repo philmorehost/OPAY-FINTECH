@@ -21,6 +21,7 @@ function addColumnIfNotExists($pdo, $table, $column, $definition) {
 try {
     addColumnIfNotExists($pdo, 'settings', 'templateId', "INT DEFAULT 1");
     addColumnIfNotExists($pdo, 'settings', 'primaryColor', "VARCHAR(20) DEFAULT '#00c689'");
+    addColumnIfNotExists($pdo, 'settings', 'isKycEnforced', "TINYINT(1) DEFAULT 1");
     addColumnIfNotExists($pdo, 'transactions', 'token', "VARCHAR(255)");
     addColumnIfNotExists($pdo, 'transactions', 'provider', "VARCHAR(50)");
 

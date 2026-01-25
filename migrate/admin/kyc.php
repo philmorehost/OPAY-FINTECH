@@ -62,7 +62,11 @@ require_once __DIR__ . '/header.php';
                     </div>
                     <div>
                         <div class="text-sm font-black text-gray-800"><?php echo $sub['fullName']; ?></div>
-                        <div class="text-[10px] text-gray-400 font-bold uppercase tracking-tight"><?php echo $sub['idType']; ?> • <?php echo $sub['idNumber']; ?></div>
+                        <div class="text-[10px] text-gray-400 font-bold uppercase tracking-tight mb-2"><?php echo $sub['idType']; ?> • <?php echo $sub['idNumber']; ?></div>
+                        <div class="flex gap-2">
+                            <a href="/<?php echo $sub['idImageUrl']; ?>" target="_blank" class="text-[8px] font-black uppercase bg-gray-100 px-2 py-1 rounded text-gray-500 hover:bg-gray-200">View ID</a>
+                            <a href="/<?php echo $sub['addressImageUrl']; ?>" target="_blank" class="text-[8px] font-black uppercase bg-gray-100 px-2 py-1 rounded text-gray-500 hover:bg-gray-200">View Proof</a>
+                        </div>
                     </div>
                 </div>
                 <?php if ($sub['status'] === 'pending'): ?>

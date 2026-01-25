@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         maxDailyTxPerId = ?,
         bonusPerDay = ?, referralBonus = ?, welcomeBonus = ?, conversionRate = ?,
         templateId = ?, primaryColor = ?,
-        isMaintenanceMode = ?,
+        isMaintenanceMode = ?, isKycEnforced = ?,
         smtpHost = ?, smtpPort = ?, smtpUser = ?,
         smtpPass = ?, senderName = ?, fromEmail = ?
         WHERE id = 1");
@@ -24,6 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         sanitize($_POST['bonusPerDay'] ?? 20), sanitize($_POST['referralBonus'] ?? 100), sanitize($_POST['welcomeBonus'] ?? 50), sanitize($_POST['conversionRate'] ?? 20),
         sanitize($_POST['templateId'] ?? 1), sanitize($_POST['primaryColor'] ?? '#00c689'),
         isset($_POST['isMaintenanceMode']) ? 1 : 0,
+        isset($_POST['isKycEnforced']) ? 1 : 0,
         sanitize($_POST['smtpHost']), sanitize($_POST['smtpPort']), sanitize($_POST['smtpUser']),
         sanitize($_POST['smtpPass']), sanitize($_POST['senderName']), sanitize($_POST['fromEmail'])
     ]);
@@ -124,6 +125,19 @@ require_once __DIR__ . '/header.php';
                 <div><label class="text-[10px] font-black text-gray-400 uppercase">Min. Wallet Deposit (₦)</label><input type="number" name="minDepositAmount" value="<?php echo $settings['minDepositAmount']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
                 <div><label class="text-[10px] font-black text-gray-400 uppercase">Min. Airtime Purchase (₦)</label><input type="number" name="minAirtimePurchase" value="<?php echo $settings['minAirtimePurchase']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
                 <div><label class="text-[10px] font-black text-gray-400 uppercase">Max Daily Tx Per ID (Phone/IUC/Meter)</label><input type="number" name="maxDailyTxPerId" value="<?php echo $settings['maxDailyTxPerId']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
+            </div>
+
+            <div class="mt-8 pt-8 border-t border-gray-100">
+                <div class="flex items-center justify-between p-6 bg-amber-50 rounded-3xl border border-amber-100">
+                    <div class="flex-1 mr-4">
+                        <div class="text-sm font-black text-amber-800 uppercase">KYC Enforcement</div>
+                        <p class="text-[10px] text-amber-600 font-bold uppercase">Require users to be verified before accessing Crypto & Transfers.</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" name="isKycEnforced" class="sr-only peer" <?php echo isset($settings['isKycEnforced']) && $settings['isKycEnforced'] ? 'checked' : ''; ?>>
+                        <div class="w-14 h-8 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-amber-500"></div>
+                    </label>
+                </div>
             </div>
         </div>
 

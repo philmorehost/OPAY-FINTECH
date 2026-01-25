@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/includes/config.php';
+checkKycRestriction($settings, $currentUser);
 $pageTitle = 'Crypto';
 require_once __DIR__ . '/includes/header.php';
 ?>

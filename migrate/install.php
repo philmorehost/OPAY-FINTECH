@@ -113,6 +113,7 @@ if ($stage === 2 && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 minAirtimePurchase DECIMAL(15, 2) DEFAULT 50.00,
                 templateId INT DEFAULT 1,
                 primaryColor VARCHAR(20) DEFAULT '#00c689',
+                isKycEnforced BOOLEAN DEFAULT TRUE,
                 isMaintenanceMode BOOLEAN DEFAULT FALSE,
                 adminTheme ENUM('light', 'dark') DEFAULT 'light',
                 smtpHost VARCHAR(255),
