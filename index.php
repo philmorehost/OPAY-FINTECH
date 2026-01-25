@@ -1,17 +1,7 @@
 <?php
-if (!file_exists(__DIR__ . '/includes/db.php')) {
-    header('Location: install.php');
-    exit;
-}
-
-require_once __DIR__ . '/includes/config.php';
-
-if (isLoggedIn()) {
-    if (isAdmin()) {
-        redirect('/admin/index');
-    } else {
-        redirect('/dashboard');
-    }
+if (!file_exists(__DIR__ . '/migrate/includes/db.php')) {
+    header('Location: migrate/install.php');
 } else {
-    redirect('/login');
+    header('Location: migrate/');
 }
+exit;

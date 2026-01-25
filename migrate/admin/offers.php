@@ -11,28 +11,47 @@ $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrfToken($_POST['csrf_token'])) die('CSRF Failed');
 
-    if (isset($_POST['action']) && $_POST['action'] === 'add') {
+    if (isset($_POST['action']) && ($_POST['action'] === 'add' || $_POST['action'] === 'edit')) {
         $title = sanitize($_POST['title']);
         $content = sanitize($_POST['content']);
         $gradientFrom = sanitize($_POST['gradientFrom']);
         $gradientTo = sanitize($_POST['gradientTo']);
         $textColor = sanitize($_POST['textColor']);
         $expiryDate = $_POST['expiryDate'];
+        $id = isset($_POST['id']) ? (int)$_POST['id'] : 0;
 
-        $image = '';
-        if (isset($_FILES['image']) && $_FILES['image']['error'] == 0) {
-            $uploadDir = __DIR__ . '/../uploads/offers/';
-            if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
-            $ext = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
-            $image = 'uploads/offers/offer_' . time() . '.' . $ext;
-            move_uploaded_file($_FILES['image']['tmp_name'], __DIR__ . '/../' . $image);
-        }
+        if ($_POST['action'] === 'add') {
+            $image = '';
+            if (isset($_FILES['image']) && $_FILES['image']['error'] == 0) {
+                $uploadDir = __DIR__ . '/../uploads/offers/';
+                if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+                $ext = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
+                $image = 'uploads/offers/offer_' . time() . '.' . $ext;
+                move_uploaded_file($_FILES['image']['tmp_name'], __DIR__ . '/../' . $image);
+            }
 
-        $stmt = $pdo->prepare("INSERT INTO offers (title, content, image, gradientFrom, gradientTo, textColor, expiryDate) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        if ($stmt->execute([$title, $content, $image, $gradientFrom, $gradientTo, $textColor, $expiryDate])) {
-            $success = "Offer added successfully!";
+            $stmt = $pdo->prepare("INSERT INTO offers (title, content, image, gradientFrom, gradientTo, textColor, expiryDate) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            if ($stmt->execute([$title, $content, $image, $gradientFrom, $gradientTo, $textColor, $expiryDate])) {
+                $success = "Offer added successfully!";
+            } else {
+                $error = "Failed to add offer.";
+            }
         } else {
-            $error = "Failed to add offer.";
+            // Edit
+            if (isset($_FILES['image']) && $_FILES['image']['error'] == 0) {
+                $uploadDir = __DIR__ . '/../uploads/offers/';
+                if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+                $ext = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
+                $image = 'uploads/offers/offer_' . time() . '.' . $ext;
+                move_uploaded_file($_FILES['image']['tmp_name'], __DIR__ . '/../' . $image);
+
+                $stmt = $pdo->prepare("UPDATE offers SET title = ?, content = ?, image = ?, gradientFrom = ?, gradientTo = ?, textColor = ?, expiryDate = ? WHERE id = ?");
+                $stmt->execute([$title, $content, $image, $gradientFrom, $gradientTo, $textColor, $expiryDate, $id]);
+            } else {
+                $stmt = $pdo->prepare("UPDATE offers SET title = ?, content = ?, gradientFrom = ?, gradientTo = ?, textColor = ?, expiryDate = ? WHERE id = ?");
+                $stmt->execute([$title, $content, $gradientFrom, $gradientTo, $textColor, $expiryDate, $id]);
+            }
+            $success = "Offer updated successfully!";
         }
     }
 
@@ -54,7 +73,7 @@ require_once __DIR__ . '/header.php';
 <div class="space-y-10 animate-fade-in pb-20 text-gray-900">
     <div class="flex items-center justify-between">
         <h2 class="text-3xl font-black uppercase tracking-tighter">Promotions Hub</h2>
-        <button onclick="document.getElementById('addOfferModal').classList.remove('hidden')" class="bg-gray-900 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase shadow-xl hover:bg-black transition-all flex items-center gap-3">
+        <button onclick="openOfferModal()" class="bg-gray-900 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase shadow-xl hover:bg-black transition-all flex items-center gap-3">
             <i data-lucide="plus" class="w-4 h-4"></i> New Offer
         </button>
     </div>
@@ -81,9 +100,14 @@ require_once __DIR__ . '/header.php';
                         <?php
                         $isExpired = strtotime($offer['expiryDate']) < time();
                         ?>
-                        <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase <?php echo $isExpired ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-600'; ?>">
-                            <?php echo $isExpired ? 'Expired' : 'Active'; ?>
-                        </span>
+                        <div class="flex items-center gap-2">
+                            <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase <?php echo $isExpired ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-600'; ?>">
+                                <?php echo $isExpired ? 'Expired' : 'Active'; ?>
+                            </span>
+                            <button onclick='openOfferModal(<?php echo json_encode($offer, JSON_HEX_APOS); ?>)' class="p-2 bg-gray-50 text-gray-400 hover:text-billpay-green rounded-xl transition-colors">
+                                <i data-lucide="edit-3" class="w-4 h-4"></i>
+                            </button>
+                        </div>
                         <form method="POST" onsubmit="return confirm('Are you sure?')">
                             <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                             <input type="hidden" name="action" value="delete">
@@ -97,16 +121,17 @@ require_once __DIR__ . '/header.php';
     </div>
 </div>
 
-<!-- Add Offer Modal -->
-<div id="addOfferModal" class="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] hidden items-center justify-center p-6 flex">
+<!-- Offer Modal -->
+<div id="offerModal" class="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] hidden items-center justify-center p-6 flex">
     <div class="bg-white w-full max-w-2xl rounded-[40px] shadow-2xl overflow-hidden animate-slide-up">
         <div class="p-10 border-b border-gray-50 flex justify-between items-center">
-            <h3 class="text-xl font-black uppercase tracking-tight text-gray-900">New Promotion</h3>
-            <button onclick="document.getElementById('addOfferModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-900"><i data-lucide="x" class="w-6 h-6"></i></button>
+            <h3 id="modalTitle" class="text-xl font-black uppercase tracking-tight text-gray-900">New Promotion</h3>
+            <button onclick="closeOfferModal()" class="text-gray-400 hover:text-gray-900"><i data-lucide="x" class="w-6 h-6"></i></button>
         </div>
         <form method="POST" enctype="multipart/form-data" class="p-10 space-y-6">
             <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
-            <input type="hidden" name="action" value="add">
+            <input type="hidden" name="action" id="modalAction" value="add">
+            <input type="hidden" name="id" id="offerId">
 
             <div class="grid grid-cols-2 gap-6">
                 <div class="space-y-2">
@@ -144,9 +169,49 @@ require_once __DIR__ . '/header.php';
                 <input type="file" name="image" accept="image/*" class="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-bold text-sm">
             </div>
 
-            <button type="submit" class="w-full py-5 bg-gray-900 text-white rounded-[24px] font-black uppercase tracking-widest shadow-xl hover:bg-black transition-all mt-4">Publish Offer</button>
+            <button type="submit" id="modalSubmit" class="w-full py-5 bg-gray-900 text-white rounded-[24px] font-black uppercase tracking-widest shadow-xl hover:bg-black transition-all mt-4">Publish Offer</button>
         </form>
     </div>
 </div>
+
+<script>
+function openOfferModal(offer = null) {
+    const modal = document.getElementById('offerModal');
+    const title = document.getElementById('modalTitle');
+    const action = document.getElementById('modalAction');
+    const submit = document.getElementById('modalSubmit');
+    const idInput = document.getElementById('offerId');
+
+    if (offer) {
+        title.innerText = 'Edit Promotion';
+        action.value = 'edit';
+        submit.innerText = 'Update Offer';
+        idInput.value = offer.id;
+
+        modal.querySelector('[name="title"]').value = offer.title;
+        modal.querySelector('[name="content"]').value = offer.content;
+        modal.querySelector('[name="gradientFrom"]').value = offer.gradientFrom;
+        modal.querySelector('[name="gradientTo"]').value = offer.gradientTo;
+        modal.querySelector('[name="textColor"]').value = offer.textColor;
+
+        // Format date for datetime-local
+        const date = new Date(offer.expiryDate);
+        const formattedDate = date.toISOString().slice(0, 16);
+        modal.querySelector('[name="expiryDate"]').value = formattedDate;
+    } else {
+        title.innerText = 'New Promotion';
+        action.value = 'add';
+        submit.innerText = 'Publish Offer';
+        idInput.value = '';
+        modal.querySelector('form').reset();
+    }
+
+    modal.classList.remove('hidden');
+}
+
+function closeOfferModal() {
+    document.getElementById('offerModal').classList.add('hidden');
+}
+</script>
 
 <?php require_once __DIR__ . '/footer.php'; ?>
