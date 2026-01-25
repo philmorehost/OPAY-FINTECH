@@ -12,6 +12,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $message = sanitize($_POST['message']);
         $stmt = $pdo->prepare("INSERT INTO support_replies (ticketId, author, message) VALUES (?, 'Admin', ?)");
         $stmt->execute([$ticketId, $message]);
+
+        // Notify User
+        $stmt = $pdo->prepare("SELECT t.subject, u.email, u.fullName FROM support_tickets t JOIN users u ON t.userId = u.id WHERE t.id = ?");
+        $stmt->execute([$ticketId]);
+        $ticket = $stmt->fetch();
+        if ($ticket) {
+            sendMail($pdo, $ticket['email'], "Re: " . $ticket['subject'], "Hi {$ticket['fullName']},<br><br>An administrator has replied to your support ticket.<br><br>Reply: $message<br><br>Log in to your dashboard to view more details.");
+        }
     } elseif ($_POST['action'] === 'close') {
         $stmt = $pdo->prepare("UPDATE support_tickets SET status = 'closed' WHERE id = ?");
         $stmt->execute([$ticketId]);

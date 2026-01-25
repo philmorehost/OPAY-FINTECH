@@ -20,6 +20,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $stmt = $pdo->prepare("INSERT INTO deposit_requests (id, userId, amount, method, status, charge) VALUES (?, ?, ?, ?, 'pending', ?)");
         $stmt->execute([$id, $currentUser['id'], $amount, $method, $charge]);
 
+        // Notify user
+        sendMail($pdo, $currentUser['email'], "Deposit Request Received", "Hi {$currentUser['fullName']},<br><br>We have received your deposit request of " . formatCurrency($amount) . " via " . strtoupper($method) . ".<br><br>Reference: $id<br>Status: Pending Approval.");
+
         $success = true;
     }
 }

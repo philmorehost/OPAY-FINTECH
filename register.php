@@ -33,6 +33,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare("INSERT INTO users (id, username, fullName, email, phone, password, role, walletBalance, bonusCoins) VALUES (?, ?, ?, ?, ?, ?, 'user', ?, ?)");
             $stmt->execute([$userId, $username, $fullName, $email, $phone, $hashedPassword, $settings['welcomeBonus'] / $settings['conversionRate'], $settings['welcomeBonus']]);
 
+            // Welcome Email
+            sendMail($pdo, $email, "Welcome to Billpay", "Hi $fullName,<br><br>Thank you for joining Billpay! Your account has been created successfully.<br><br>Enjoy seamless bill payments and rewards.");
+
             $_SESSION['user_id'] = $userId;
             $_SESSION['username'] = $username;
             $_SESSION['role'] = 'user';

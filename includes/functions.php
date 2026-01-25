@@ -100,3 +100,30 @@ function checkRateLimit($key, $limit = 5, $period = 60) {
     $data['count']++;
     return true;
 }
+
+function sendMail($pdo, $to, $subject, $message) {
+    $stmt = $pdo->query("SELECT senderName, fromEmail FROM settings WHERE id = 1");
+    $settings = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    $senderName = $settings['senderName'] ?? 'Billpay Support';
+    $fromEmail = $settings['fromEmail'] ?? 'no-reply@' . $_SERVER['HTTP_HOST'];
+
+    $headers = "MIME-Version: 1.0" . "\r\n";
+    $headers .= "Content-type:text/html;charset=UTF-8" . "\r\n";
+    $headers .= "From: $senderName <$fromEmail>" . "\r\n";
+
+    $htmlBody = "
+    <div style='font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;'>
+        <div style='text-align: center; margin-bottom: 20px;'>
+            <h2 style='color: #00c689;'>$senderName</h2>
+        </div>
+        <div style='line-height: 1.6; color: #333;'>
+            $message
+        </div>
+        <div style='margin-top: 30px; font-size: 12px; color: #999; text-align: center; border-top: 1px solid #eee; padding-top: 20px;'>
+            &copy; " . date('Y') . " $senderName. All rights reserved.
+        </div>
+    </div>";
+
+    return @mail($to, $subject, $htmlBody, $headers);
+}

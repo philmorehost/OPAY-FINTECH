@@ -30,6 +30,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             try {
                 updateWallet($pdo, $currentUser['id'], $totalCost, 'debit');
                 logTransaction($pdo, $currentUser['id'], 'Exam PIN', $totalCost, 'successful', "Purchase of $qty " . $selectedProv['name'] . " PIN(s)", 'Self', $selectedProv['name']);
+
+                // Receipt Email
+                $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Your purchase of $qty " . $selectedProv['name'] . " Exam PIN(s) was successful.<br><br>Total: " . formatCurrency($totalCost) . "<br><br>PINs will be sent to this email address shortly.";
+                sendMail($pdo, $currentUser['email'], "Exam PIN Receipt", $receiptMsg);
+
                 $pdo->commit();
                 $success = true;
                 $stmt = $pdo->prepare("SELECT walletBalance FROM users WHERE id = ?");

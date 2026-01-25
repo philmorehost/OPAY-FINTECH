@@ -11,6 +11,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
     $stmt = $pdo->prepare("INSERT INTO support_tickets (id, userId, subject, message, status) VALUES (?, ?, ?, ?, 'open')");
     $stmt->execute([$id, $currentUser['id'], $subject, $message]);
+
+    // Notify User
+    sendMail($pdo, $currentUser['email'], "Support Ticket Created", "Hi {$currentUser['fullName']},<br><br>Your support ticket has been received.<br><br>Ticket ID: $id<br>Subject: $subject<br><br>Our team will get back to you shortly.");
+
     $success = "Ticket created!";
 }
 

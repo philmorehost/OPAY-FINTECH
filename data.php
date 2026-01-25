@@ -72,6 +72,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     logTransaction($pdo, $currentUser['id'], 'Data', $selectedPlan['userPrice'], $isSuccess ? 'successful' : 'failed', "{$selectedPlan['size']} Plan for $num", $num, $currentNetworkName);
                 }
 
+                // Receipt Email
+                $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Your data purchase was processed.<br><br>";
+                $receiptMsg .= "Network: $currentNetworkName<br>Plan: {$selectedPlan['size']}<br>Total: " . formatCurrency($totalCost);
+                sendMail($pdo, $currentUser['email'], "Data Receipt", $receiptMsg);
+
                 $pdo->commit();
                 $success = true;
                 $msg = "Processed $successCount/" . count($recipients) . " successfully.";

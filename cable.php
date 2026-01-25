@@ -23,6 +23,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         try {
             updateWallet($pdo, $currentUser['id'], $amount, 'debit');
             logTransaction($pdo, $currentUser['id'], 'Cable TV', $amount, 'successful', "Cable Subscription ($providerId) for $iucNumber", $iucNumber, $providerId);
+
+            // Receipt Email
+            $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Your cable subscription was successful.<br><br>Provider: $providerId<br>IUC: $iucNumber<br>Amount: " . formatCurrency($amount);
+            sendMail($pdo, $currentUser['email'], "Cable TV Receipt", $receiptMsg);
+
             $pdo->commit();
             $success = true;
             // Refresh balance

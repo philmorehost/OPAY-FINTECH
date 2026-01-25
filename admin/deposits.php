@@ -10,7 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $id = $_POST['depositId'];
     $status = $_POST['action'] === 'approve' ? 'successful' : 'rejected';
 
-    $stmt = $pdo->prepare("SELECT * FROM deposit_requests WHERE id = ?");
+    $stmt = $pdo->prepare("SELECT d.*, u.email, u.fullName FROM deposit_requests d JOIN users u ON d.userId = u.id WHERE d.id = ?");
     $stmt->execute([$id]);
     $req = $stmt->fetch();
 
@@ -24,6 +24,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $creditAmount = $req['amount'] - $req['charge'];
                 updateWallet($pdo, $req['userId'], $creditAmount, 'credit');
                 logTransaction($pdo, $req['userId'], 'Wallet Funding', $creditAmount, 'successful', "Manual Deposit Approved", 'Wallet', 'Manual');
+
+                // Notify User
+                sendMail($pdo, $req['email'], "Deposit Approved", "Hi {$req['fullName']},<br><br>Your deposit of " . formatCurrency($req['amount']) . " has been approved and credited to your wallet.<br><br>Balance: " . formatCurrency($creditAmount));
+            } else {
+                // Notify User of Rejection
+                sendMail($pdo, $req['email'], "Deposit Rejected", "Hi {$req['fullName']},<br><br>Your deposit request of " . formatCurrency($req['amount']) . " was rejected. Please contact support for more details.");
             }
             $pdo->commit();
         } catch (Exception $e) {

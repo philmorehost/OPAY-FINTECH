@@ -51,6 +51,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 logTransaction($pdo, $currentUser['id'], 'Airtime', $amount, $isSuccess ? 'successful' : 'failed', "$network Airtime recharge for $num", $num, $network);
             }
 
+            // Receipt Email
+            $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Your airtime purchase was processed.<br><br>";
+            $receiptMsg .= "Network: $network<br>Amount: " . formatCurrency($totalCost) . "<br>Status: " . ($successCount > 0 ? 'Successful' : 'Failed');
+            sendMail($pdo, $currentUser['email'], "Airtime Receipt", $receiptMsg);
+
             $pdo->commit();
             $success = true;
             $statusDetails = [

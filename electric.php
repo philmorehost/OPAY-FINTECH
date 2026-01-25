@@ -23,6 +23,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         try {
             updateWallet($pdo, $currentUser['id'], $amount, 'debit');
             logTransaction($pdo, $currentUser['id'], 'Electricity', $amount, 'successful', "Electricity Payment ($providerId) for Meter: $meterNumber ($meterType)", $meterNumber, $providerId);
+
+            // Receipt Email
+            $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Your electricity payment was successful.<br><br>Provider: $providerId<br>Meter: $meterNumber ($meterType)<br>Amount: " . formatCurrency($amount);
+            sendMail($pdo, $currentUser['email'], "Electricity Receipt", $receiptMsg);
+
             $pdo->commit();
             $success = true;
             $stmt = $pdo->prepare("SELECT walletBalance FROM users WHERE id = ?");

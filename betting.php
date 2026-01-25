@@ -22,6 +22,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         try {
             updateWallet($pdo, $currentUser['id'], $amount, 'debit');
             logTransaction($pdo, $currentUser['id'], 'Betting', $amount, 'successful', "Betting Wallet Fund ($providerId) for ID: $customerId", $customerId, $providerId);
+
+            // Receipt Email
+            $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Your betting account funding was successful.<br><br>Provider: $providerId<br>Customer ID: $customerId<br>Amount: " . formatCurrency($amount);
+            sendMail($pdo, $currentUser['email'], "Betting Funding Receipt", $receiptMsg);
+
             $pdo->commit();
             $success = true;
             $stmt = $pdo->prepare("SELECT walletBalance FROM users WHERE id = ?");
