@@ -68,9 +68,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="<?php echo $settings['primaryColor'] ?? '#00c689'; ?>">
+    <?php if (!empty($settings['pwaEnabled'])): ?>
+    <link rel="manifest" href="/manifest.json.php?v=<?php echo $settings['siteVersion'] ?? '1.0.0'; ?>">
+    <link rel="apple-touch-icon" href="<?php echo !empty($settings['pwaIcon']) ? '/'.$settings['pwaIcon'].'?v='.($settings['siteVersion'] ?? '1.0.0') : '/uploads/logo.png'; ?>">
+    <?php endif; ?>
     <title>Register - Billpay</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <?php if (!empty($settings['pwaEnabled'])): ?>
+    <script>
+        window.addEventListener('load', () => {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/sw.js?v=<?php echo $settings['siteVersion'] ?? '1.0.0'; ?>');
+            }
+        });
+    </script>
+    <?php endif; ?>
     <style>
         :root {
             --primary-color: <?php echo $settings['primaryColor'] ?? '#00c689'; ?>;

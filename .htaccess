@@ -15,3 +15,8 @@ RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{DOCUMENT_ROOT}/migrate/$1 -f
 RewriteRule ^(.*)$ migrate/$1 [L,QSA]
+
+# Allow Service Worker to control the root scope
+<Files "sw.js">
+    Header set Service-Worker-Allowed "/"
+</Files>

@@ -10,7 +10,10 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS);
+      // Cache assets individually so that if one fails, the others still succeed
+      return Promise.allSettled(
+        ASSETS.map(asset => cache.add(asset).catch(err => console.error('Failed to cache:', asset, err)))
+      );
     })
   );
 });

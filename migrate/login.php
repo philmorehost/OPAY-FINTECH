@@ -103,6 +103,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="<?php echo $settings['primaryColor'] ?? '#00c689'; ?>">
+    <?php if (!empty($settings['pwaEnabled'])): ?>
+    <link rel="manifest" href="/manifest.json.php?v=<?php echo $settings['siteVersion'] ?? '1.0.0'; ?>">
+    <link rel="apple-touch-icon" href="<?php echo !empty($settings['pwaIcon']) ? '/'.$settings['pwaIcon'].'?v='.($settings['siteVersion'] ?? '1.0.0') : '/uploads/logo.png'; ?>">
+    <?php endif; ?>
     <title>Login - Billpay</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -114,6 +119,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             window.deferredPrompt = e;
             console.log('beforeinstallprompt captured');
         });
+
+        <?php if (!empty($settings['pwaEnabled'])): ?>
+        window.addEventListener('load', () => {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/sw.js?v=<?php echo $settings['siteVersion'] ?? '1.0.0'; ?>');
+            }
+        });
+        <?php endif; ?>
     </script>
     <style>
         :root {
@@ -219,17 +232,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </div>
 
+    <?php if (!empty($settings['pwaEnabled'])): ?>
     <script>
         function checkPwaInstallation() {
             const isPwa = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
             if (!isPwa) {
                 const modal = document.getElementById('installModal');
+                if (!modal) return;
+
                 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
                 if (isIOS) {
                     document.getElementById('install-instructions-default').classList.add('hidden');
                     document.getElementById('install-instructions-ios').classList.remove('hidden');
                     document.getElementById('installBtn').classList.add('hidden');
+                } else {
+                    // Check if browser supports automated prompt after a delay
+                    setTimeout(() => {
+                        if (!window.deferredPrompt) {
+                            document.getElementById('install-instructions-default').classList.add('hidden');
+                            document.getElementById('install-instructions-generic').classList.remove('hidden');
+                            document.getElementById('installBtn').classList.add('hidden');
+                        }
+                    }, 3000);
                 }
 
                 modal.classList.remove('hidden');
@@ -282,6 +307,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 </div>
 
+                <div id="install-instructions-generic" class="hidden text-left bg-gray-50 p-6 rounded-3xl border border-gray-100 mb-8">
+                    <p class="text-[10px] font-black text-gray-400 uppercase mb-4 tracking-widest text-center">Manual Installation</p>
+                    <div class="space-y-4">
+                        <div class="flex items-center gap-4">
+                            <div class="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-sm">
+                                <i data-lucide="more-vertical" class="w-4 h-4 text-gray-700"></i>
+                            </div>
+                            <span class="text-[10px] font-bold text-gray-700 uppercase">1. Tap the three dots menu</span>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <div class="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-sm">
+                                <i data-lucide="plus-square" class="w-4 h-4 text-gray-700"></i>
+                            </div>
+                            <span class="text-[10px] font-bold text-gray-700 uppercase">2. Select 'Install' or 'Add to Home'</span>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="space-y-3">
                     <button id="installBtn" class="w-full py-5 bg-billpay-green text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-green-100 hover:scale-[1.02] transition-all">Install Now</button>
                     <button onclick="document.getElementById('installModal').classList.add('hidden')" class="w-full py-5 bg-gray-50 text-gray-400 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-100 transition-all">Dismiss</button>
@@ -289,5 +332,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </div>
     </div>
+    <?php endif; ?>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>lucide.createIcons();</script>
 </body>
 </html>

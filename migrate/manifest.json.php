@@ -15,6 +15,7 @@ $manifest = [
     "short_name" => $siteName,
     "description" => $description,
     "start_url" => "/dashboard",
+    "scope" => "/",
     "display" => "standalone",
     "background_color" => "#ffffff",
     "theme_color" => $settings['primaryColor'] ?? "#00c689",
