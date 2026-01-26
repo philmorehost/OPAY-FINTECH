@@ -91,6 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $receiptMsg .= "Network: $currentNetworkName<br>Plan: {$selectedPlan['size']}<br>Total: " . formatCurrency($totalCost);
                 sendMail($pdo, $currentUser['email'], "Data Receipt", $receiptMsg);
 
+                claimDailyRewardIfEligible($pdo, $currentUser['id']);
                 $pdo->commit();
                 $success = true;
                 $msg = "Processed $successCount/" . count($recipients) . " successfully.";

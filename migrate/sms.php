@@ -43,6 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 updateWallet($pdo, $currentUser['id'], $totalCost, 'debit');
                 logTransaction($pdo, $currentUser['id'], 'Bulk SMS', $totalCost, 'successful', "Bulk SMS to " . count($recipients) . " recipients. Sender: $senderId", count($recipients) . " recipients", 'KudiSMS');
+                claimDailyRewardIfEligible($pdo, $currentUser['id']);
                 $pdo->commit();
                 $success = 'SMS sent successfully!';
 

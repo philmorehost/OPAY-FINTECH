@@ -106,4 +106,32 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
                 </div>
             </header>
 
+            <?php
+            // Min Deposit Enforcement
+            $isRestricted = checkMinDepositRestriction($settings, $currentUser);
+            $servicePages = ['airtime.php', 'data.php', 'cable.php', 'electric.php', 'betting.php', 'exam.php', 'giftcards.php', 'crypto.php', 'transfer.php', 'sms.php', 'vcard.php', 'services.php'];
+            $currentFile = basename($_SERVER['PHP_SELF']);
+            $isServicePage = in_array($currentFile, $servicePages);
+
+            if ($isRestricted && $isServicePage):
+            ?>
+            <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-6">
+                <div class="bg-white w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl animate-slide-up">
+                    <div class="p-10 text-center">
+                        <div class="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <i data-lucide="shield-alert" class="w-10 h-10 text-amber-500"></i>
+                        </div>
+                        <h3 class="text-xl font-black uppercase tracking-tight text-gray-900 mb-2">Access Restricted</h3>
+                        <p class="text-xs font-bold text-gray-400 uppercase leading-relaxed mb-8">
+                            To access our premium services, you must complete an initial wallet deposit of at least <span class="text-gray-900"><?php echo formatCurrency($settings['minDepositAmount']); ?></span>.
+                        </p>
+                        <div class="space-y-3">
+                            <a href="/add-money" class="block w-full py-5 bg-billpay-green text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-green-100 hover:scale-[1.02] transition-all">Fund Wallet Now</a>
+                            <a href="/dashboard" class="block w-full py-5 bg-gray-50 text-gray-400 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-100 transition-all">Back to Home</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+
             <div class="px-4 py-6 lg:p-12 lg:max-w-6xl mx-auto w-full <?php echo isAdmin() ? '' : 'lg:max-w-[70%]'; ?>">

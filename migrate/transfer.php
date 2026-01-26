@@ -35,6 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Transfer of " . formatCurrency($amount) . " to $accountName ($bank, $accountNumber) was successful.<br><br>Fee: " . formatCurrency($fee);
             sendMail($pdo, $currentUser['email'], "Transfer Receipt", $receiptMsg);
 
+            claimDailyRewardIfEligible($pdo, $currentUser['id']);
             $pdo->commit();
             $success = true;
 

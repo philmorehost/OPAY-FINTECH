@@ -32,6 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Your betting account funding was successful.<br><br>Provider: $providerId<br>Customer ID: $customerId<br>Amount: " . formatCurrency($amount);
             sendMail($pdo, $currentUser['email'], "Betting Funding Receipt", $receiptMsg);
 
+            claimDailyRewardIfEligible($pdo, $currentUser['id']);
             $pdo->commit();
             $success = true;
             $stmt = $pdo->prepare("SELECT walletBalance FROM users WHERE id = ?");

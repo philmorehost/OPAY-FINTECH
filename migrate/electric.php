@@ -39,6 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Your electricity payment was successful.<br><br>Provider: $providerId<br>Meter: $meterNumber ($meterType)<br>Amount: " . formatCurrency($amount);
             sendMail($pdo, $currentUser['email'], "Electricity Receipt", $receiptMsg);
 
+            claimDailyRewardIfEligible($pdo, $currentUser['id']);
             $pdo->commit();
             $success = true;
             $stmt = $pdo->prepare("SELECT walletBalance FROM users WHERE id = ?");
