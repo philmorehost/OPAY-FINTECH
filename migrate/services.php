@@ -21,13 +21,13 @@ $services = [
 ];
 ?>
 
-<div class="max-w-md mx-auto bg-white min-h-screen pb-24 relative">
+<div class="mx-auto bg-white min-h-screen pb-24 relative">
     <div class="p-6 border-b border-gray-100 flex items-center gap-4 sticky top-0 bg-white z-10">
         <a href="/dashboard"><i data-lucide="arrow-left" class="w-6 h-6 text-gray-900"></i></a>
         <h1 class="text-xl font-black text-gray-900 uppercase tracking-tight">All Services</h1>
     </div>
 
-    <div class="p-6 grid grid-cols-4 gap-y-10">
+    <div class="p-6 grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-y-10">
         <?php foreach ($services as $service): ?>
             <a href="<?php echo $service['path']; ?>" class="flex flex-col items-center gap-2.5 group">
                 <div class="w-14 h-14 bg-gray-50 group-active:scale-90 rounded-2xl flex items-center justify-center shadow-sm border border-gray-100 transition-all <?php echo $service['color']; ?>">

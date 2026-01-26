@@ -25,7 +25,7 @@ $templateId = $settings['templateId'] ?? 1;
 
 ?>
 
-<div class="lg:max-w-md mx-auto bg-gray-50 min-h-screen pb-24 relative">
+<div class="mx-auto bg-gray-50 min-h-screen pb-24 relative">
     <?php if ($templateId == 1): ?>
     <!-- Balance Card Section - Template 1 -->
     <div class="bg-billpay-green p-6 text-white rounded-b-[40px] shadow-lg mb-6">
@@ -291,7 +291,7 @@ $templateId = $settings['templateId'] ?? 1;
 
     <!-- Services Grid -->
     <div class="px-4 py-2">
-        <div class="bg-white p-6 rounded-[32px] shadow-sm grid grid-cols-4 gap-y-10 border border-gray-100">
+        <div class="bg-white p-6 rounded-[32px] shadow-sm grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-y-10 border border-gray-100">
             <?php foreach ($services as $service): ?>
                 <a href="<?php echo $service['path']; ?>" class="flex flex-col items-center gap-2.5 group">
                     <div class="w-14 h-14 bg-gray-50 group-active:scale-90 rounded-2xl flex items-center justify-center shadow-sm border border-gray-100 transition-all <?php echo $service['color']; ?>">

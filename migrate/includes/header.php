@@ -216,4 +216,4 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
             </div>
             <?php endif; ?>
 
-            <div class="px-4 py-6 lg:p-12 lg:max-w-6xl mx-auto w-full <?php echo isAdmin() ? '' : 'lg:max-w-[70%]'; ?>">
+            <div class="px-4 py-6 lg:p-12 lg:max-w-6xl mx-auto w-full">

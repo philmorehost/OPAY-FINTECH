@@ -115,7 +115,7 @@ $allPlans = $settings['dataProducts'] ?? [];
 if (is_string($allPlans)) $allPlans = json_decode($allPlans, true) ?: [];
 ?>
 
-<div class="max-w-md mx-auto min-h-screen bg-gray-50 flex flex-col pb-24">
+<div class="mx-auto min-h-screen bg-gray-50 flex flex-col pb-24">
     <div class="bg-white p-4 flex items-center gap-4 sticky top-0 z-10 border-b shadow-sm">
         <a href="/dashboard"><i data-lucide="arrow-left" class="w-6 h-6 text-gray-900"></i></a>
         <h1 class="text-lg font-black text-gray-900 uppercase tracking-tight">Data Services</h1>
