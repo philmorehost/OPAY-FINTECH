@@ -26,6 +26,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $amount = (float)$_POST['amount'];
         $type = $_POST['adjustType'];
         updateWallet($pdo, $userId, $amount, $type);
+
+        if ($type === 'credit') {
+            $settings = fetchSettings($pdo);
+            if ($amount >= $settings['minDepositAmount']) {
+                $stmt = $pdo->prepare("UPDATE users SET hasCompletedInitialDeposit = 1 WHERE id = ?");
+                $stmt->execute([$userId]);
+            }
+        }
+
         logTransaction($pdo, $userId, 'Admin Adjustment', $amount, 'successful', "Admin " . strtoupper($type) . " adjustment", 'Wallet', 'Admin');
         $success = "Balance adjusted successfully.";
     } elseif ($action === 'create') {

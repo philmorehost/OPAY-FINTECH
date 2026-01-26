@@ -19,6 +19,7 @@ startSecureSession();
 
 $settings = isset($pdo) ? fetchSettings($pdo) : [];
 $csrf_token = generateCsrfToken();
+$isServiceRestricted = false;
 
 // Maintenance Mode Enforcement
 if (!empty($settings['isMaintenanceMode'])) {

@@ -23,6 +23,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             if ($status === 'successful') {
                 $creditAmount = $req['amount'] - $req['charge'];
                 updateWallet($pdo, $req['userId'], $creditAmount, 'credit');
+
+                // Check if this fulfills the initial deposit requirement
+                $settings = fetchSettings($pdo);
+                if ($req['amount'] >= $settings['minDepositAmount']) {
+                    $stmt = $pdo->prepare("UPDATE users SET hasCompletedInitialDeposit = 1 WHERE id = ?");
+                    $stmt->execute([$req['userId']]);
+                }
+
                 logTransaction($pdo, $req['userId'], 'Wallet Funding', $creditAmount, 'successful', "Manual Deposit Approved", 'Wallet', 'Manual');
 
                 // Notify User

@@ -42,6 +42,12 @@ function isKycRejected($user) {
     return ($user['kycStatus'] ?? 'none') === 'rejected';
 }
 
+function checkMinDepositRestriction($settings, $currentUser) {
+    if (empty($settings['isMinDepositForced'])) return false;
+    if (isAdmin()) return false;
+    return !$currentUser['hasCompletedInitialDeposit'];
+}
+
 function redirect($path) {
     header("Location: $path");
     exit;
@@ -109,7 +115,27 @@ function checkDailyLimit($pdo, $userId, $recipient, $limit) {
 function logTransaction($pdo, $userId, $type, $amount, $status, $details, $recipient, $provider = null, $token = null) {
     $id = 'TX-' . strtoupper(bin2hex(random_bytes(4)));
     $stmt = $pdo->prepare("INSERT INTO transactions (id, userId, type, amount, status, details, recipient, provider, token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    return $stmt->execute([$id, $userId, $type, $amount, $status, $details, $recipient, $provider, $token]);
+    $result = $stmt->execute([$id, $userId, $type, $amount, $status, $details, $recipient, $provider, $token]);
+
+    // Automatic Reward on Purchase
+    $purchases = ['Airtime', 'Data', 'Cable TV', 'Electricity', 'Betting', 'Exam PIN', 'Bulk SMS', 'Transfer', 'Crypto'];
+    if ($status === 'successful' && in_array($type, $purchases)) {
+        $today = date('Y-m-d');
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM transactions WHERE userId = ? AND type = 'Daily Reward' AND DATE(date) = ?");
+        $stmt->execute([$userId, $today]);
+        if ($stmt->fetchColumn() == 0) {
+            $stmt = $pdo->query("SELECT bonusPerDay FROM settings WHERE id = 1");
+            $bonusPerDay = $stmt->fetchColumn() ?: 20;
+
+            $stmt = $pdo->prepare("UPDATE users SET bonusCoins = bonusCoins + ? WHERE id = ?");
+            $stmt->execute([$bonusPerDay, $userId]);
+
+            $rid = 'RW-' . strtoupper(bin2hex(random_bytes(4)));
+            $stmt = $pdo->prepare("INSERT INTO transactions (id, userId, type, amount, status, details, recipient, provider) VALUES (?, ?, 'Daily Reward', ?, 'successful', 'Automatic daily purchase reward', 'Wallet', 'System')");
+            $stmt->execute([$rid, $userId, $bonusPerDay]);
+        }
+    }
+    return $result;
 }
 
 function checkRateLimit($key, $limit = 5, $period = 60) {

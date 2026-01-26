@@ -25,6 +25,7 @@ require_once __DIR__ . '/includes/header.php';
         <!-- Modern Receipt Design -->
         <div class="bg-white rounded-[50px] shadow-2xl overflow-hidden border border-gray-100 relative">
             <div class="bg-billpay-green p-12 text-white text-center relative">
+                <div class="absolute top-6 left-1/2 -translate-x-1/2 text-[10px] font-black uppercase tracking-[0.3em] opacity-40"><?php echo $settings['senderName'] ?? 'BILLPAY'; ?></div>
                 <div class="w-20 h-20 bg-white/20 backdrop-blur-md rounded-[30px] flex items-center justify-center mx-auto mb-6 border border-white/30">
                     <i data-lucide="check-circle-2" class="w-10 h-10"></i>
                 </div>

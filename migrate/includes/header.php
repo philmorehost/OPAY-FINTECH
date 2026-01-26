@@ -107,3 +107,23 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
             </header>
 
             <div class="px-4 py-6 lg:p-12 lg:max-w-6xl mx-auto w-full <?php echo isAdmin() ? '' : 'lg:max-w-[70%]'; ?>">
+
+            <!-- Service Restriction Modal -->
+            <?php if (isset($isServiceRestricted) && $isServiceRestricted): ?>
+            <div class="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-6">
+                <div class="bg-white w-full max-w-sm rounded-[40px] overflow-hidden animate-slide-up shadow-2xl">
+                    <div class="p-8 bg-blue-500 text-white flex flex-col items-center text-center">
+                        <div class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-4 text-white">
+                            <i data-lucide="lock" class="w-10 h-10"></i>
+                        </div>
+                        <h3 class="text-xl font-black uppercase tracking-tight">Access Restricted</h3>
+                    </div>
+                    <div class="p-10 space-y-6 text-center">
+                        <p class="text-sm font-bold text-gray-500 leading-relaxed uppercase">You must fund your wallet with at least <span class="text-blue-600"><?php echo formatCurrency($settings['minDepositAmount']); ?></span> to unlock all services.</p>
+                        <a href="/add-money" class="block w-full py-5 rounded-[24px] font-black text-sm shadow-xl active:scale-95 transition-all text-white bg-blue-500 uppercase text-center">Fund Wallet Now</a>
+                        <a href="/dashboard" class="block text-[10px] font-black text-gray-400 uppercase tracking-widest hover:text-gray-600 transition-all">Go Back</a>
+                    </div>
+                </div>
+            </div>
+            <style>main { pointer-events: none; } .fixed { pointer-events: auto; }</style>
+            <?php endif; ?>

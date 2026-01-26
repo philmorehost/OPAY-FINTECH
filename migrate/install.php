@@ -64,6 +64,7 @@ if ($stage === 2 && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 biometricEnabled BOOLEAN DEFAULT FALSE,
                 marketingEmailsEnabled BOOLEAN DEFAULT TRUE,
                 smsAlertsEnabled BOOLEAN DEFAULT FALSE,
+                hasCompletedInitialDeposit BOOLEAN DEFAULT FALSE,
                 lastPurchaseDate DATETIME,
                 createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
             )",
@@ -114,6 +115,7 @@ if ($stage === 2 && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 templateId INT DEFAULT 1,
                 primaryColor VARCHAR(20) DEFAULT '#00c689',
                 isKycEnforced BOOLEAN DEFAULT TRUE,
+                isMinDepositForced BOOLEAN DEFAULT FALSE,
                 isMaintenanceMode BOOLEAN DEFAULT FALSE,
                 adminTheme ENUM('light', 'dark') DEFAULT 'light',
                 smtpHost VARCHAR(255),

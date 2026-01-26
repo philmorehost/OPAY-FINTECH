@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/includes/config.php';
 if (!isLoggedIn()) redirect('/login');
+$isServiceRestricted = checkMinDepositRestriction($settings, $currentUser);
+if (!isLoggedIn()) redirect('/login');
 $pageTitle = 'Exam PIN';
 
 $examProviders = $settings['examProviders'] ?? [];

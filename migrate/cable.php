@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/config.php';
 if (!isLoggedIn()) redirect('/login');
+$isServiceRestricted = checkMinDepositRestriction($settings, $currentUser);
 $pageTitle = 'Cable TV';
 
 $cableProviders = $settings['cableProviders'] ?? [];
