@@ -4,11 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="<?php echo $settings['primaryColor'] ?? '#00c689'; ?>">
-    <link rel="manifest" href="/manifest.json.php?v=<?php echo $settings['siteVersion'] ?? '1.0.0'; ?>">
+    <link rel="manifest" href="/manifest.json.php">
     <title><?php echo $pageTitle; ?> - Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
+    <?php if (!empty($settings['pwaEnabled'])): ?>
+    <script>
+        window.addEventListener('load', () => {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/sw.js?v=<?php echo $settings['siteVersion'] ?? '1.0.0'; ?>', { scope: '/' });
+            }
+        });
+    </script>
+    <?php endif; ?>
     <script>
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');

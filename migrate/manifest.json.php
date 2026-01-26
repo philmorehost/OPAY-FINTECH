@@ -11,15 +11,27 @@ if (!empty($settings['pwaIcon'])) {
 }
 
 $manifest = [
+    "id" => "/",
     "name" => $siteName,
     "short_name" => $siteName,
+    "dir" => "ltr",
+    "lang" => "en-US",
     "description" => $description,
-    "start_url" => "/dashboard",
+    "start_url" => "/",
     "scope" => "/",
     "display" => "standalone",
+    "orientation" => "portrait",
+    "categories" => ["finance", "productivity"],
+    "prefer_related_applications" => false,
     "background_color" => "#ffffff",
     "theme_color" => $settings['primaryColor'] ?? "#00c689",
     "icons" => [
+        [
+            "src" => $icon,
+            "sizes" => "144x144",
+            "type" => "image/png",
+            "purpose" => "any maskable"
+        ],
         [
             "src" => $icon,
             "sizes" => "192x192",

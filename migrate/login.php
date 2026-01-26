@@ -105,7 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="<?php echo $settings['primaryColor'] ?? '#00c689'; ?>">
     <?php if (!empty($settings['pwaEnabled'])): ?>
-    <link rel="manifest" href="/manifest.json.php?v=<?php echo $settings['siteVersion'] ?? '1.0.0'; ?>">
+    <link rel="manifest" href="/manifest.json.php">
     <link rel="apple-touch-icon" href="<?php echo !empty($settings['pwaIcon']) ? '/'.$settings['pwaIcon'].'?v='.($settings['siteVersion'] ?? '1.0.0') : '/uploads/logo.png'; ?>">
     <?php endif; ?>
     <title>Login - Billpay</title>
@@ -123,7 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php if (!empty($settings['pwaEnabled'])): ?>
         window.addEventListener('load', () => {
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/sw.js?v=<?php echo $settings['siteVersion'] ?? '1.0.0'; ?>');
+                navigator.serviceWorker.register('/sw.js?v=<?php echo $settings['siteVersion'] ?? '1.0.0'; ?>', { scope: '/' });
             }
         });
         <?php endif; ?>
@@ -165,16 +165,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <button type="submit" class="w-full py-5 bg-billpay-green text-white rounded-[24px] font-black uppercase tracking-widest shadow-xl shadow-green-100 hover:scale-[1.02] transition-all">Sign In</button>
         </form>
 
-        <div id="biometric-area" class="hidden mt-6">
-            <div class="flex items-center gap-4 mb-6">
-                <div class="flex-1 h-px bg-gray-100"></div>
-                <span class="text-[10px] font-black text-gray-300 uppercase">Or Secure With</span>
-                <div class="flex-1 h-px bg-gray-100"></div>
+        <div id="biometric-area" class="hidden mt-8 text-center animate-slide-up">
+            <div class="flex items-center gap-4 mb-8">
+                <div class="flex-1 h-px bg-gray-50"></div>
+                <span class="text-[9px] font-black text-gray-300 uppercase tracking-[0.2em]">Quick Access</span>
+                <div class="flex-1 h-px bg-gray-50"></div>
             </div>
-            <button type="button" onclick="loginWithBiometrics()" class="w-full py-5 bg-gray-900 text-white rounded-[24px] font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all">
-                <i data-lucide="fingerprint" class="w-6 h-6 text-billpay-green"></i>
-                Biometric Login
-            </button>
+
+            <div class="flex flex-col items-center gap-4">
+                <button type="button" onclick="loginWithBiometrics()" class="group relative">
+                    <div class="w-20 h-20 bg-gray-50 rounded-3xl flex items-center justify-center border-2 border-gray-100 group-hover:border-billpay-green group-active:scale-90 transition-all duration-300">
+                        <i data-lucide="fingerprint" class="w-10 h-10 text-gray-300 group-hover:text-billpay-green transition-colors"></i>
+                    </div>
+                    <div class="absolute -top-1 -right-1 w-6 h-6 bg-billpay-green rounded-full border-4 border-white flex items-center justify-center shadow-sm">
+                        <div class="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
+                    </div>
+                </button>
+                <div>
+                    <p class="text-[10px] font-black text-gray-900 uppercase tracking-widest mb-1" id="biometric-user-text">Continue as User</p>
+                    <p class="text-[9px] font-bold text-gray-400 uppercase">Touch ID / Face ID</p>
+                </div>
+            </div>
+
             <form id="biometricForm" method="POST">
                 <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                 <input type="hidden" name="action" value="biometric">
@@ -187,9 +199,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 const lastUser = JSON.parse(localStorage.getItem('lastUser') || 'null');
                 const isGloballyEnforced = <?php echo !empty($settings['isBiometricEnforced']) ? 'true' : 'false'; ?>;
 
-                // Show if in PWA and (user enabled it OR (no user yet and globally enforced))
                 if (isPwa && ( (lastUser && lastUser.biometricEnabled) || (!lastUser && isGloballyEnforced) )) {
                     document.getElementById('biometric-area').classList.remove('hidden');
+                    if (lastUser && lastUser.username) {
+                        document.getElementById('biometric-user-text').innerText = 'Continue as ' + lastUser.username;
+                    }
                 }
             }
             window.addEventListener('DOMContentLoaded', initBiometricArea);

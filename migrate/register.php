@@ -70,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="<?php echo $settings['primaryColor'] ?? '#00c689'; ?>">
     <?php if (!empty($settings['pwaEnabled'])): ?>
-    <link rel="manifest" href="/manifest.json.php?v=<?php echo $settings['siteVersion'] ?? '1.0.0'; ?>">
+    <link rel="manifest" href="/manifest.json.php">
     <link rel="apple-touch-icon" href="<?php echo !empty($settings['pwaIcon']) ? '/'.$settings['pwaIcon'].'?v='.($settings['siteVersion'] ?? '1.0.0') : '/uploads/logo.png'; ?>">
     <?php endif; ?>
     <title>Register - Billpay</title>
@@ -80,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <script>
         window.addEventListener('load', () => {
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/sw.js?v=<?php echo $settings['siteVersion'] ?? '1.0.0'; ?>');
+                navigator.serviceWorker.register('/sw.js?v=<?php echo $settings['siteVersion'] ?? '1.0.0'; ?>', { scope: '/' });
             }
         });
     </script>

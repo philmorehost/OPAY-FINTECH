@@ -12,7 +12,7 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="<?php echo $settings['primaryColor'] ?? '#00c689'; ?>">
-    <link rel="manifest" href="/manifest.json.php?v=<?php echo $settings['siteVersion'] ?? '1.0.0'; ?>">
+    <link rel="manifest" href="/manifest.json.php">
     <link rel="apple-touch-icon" href="<?php echo !empty($settings['pwaIcon']) ? '/'.$settings['pwaIcon'].'?v='.($settings['siteVersion'] ?? '1.0.0') : '/uploads/logo.png'; ?>">
     <title><?php echo $pageTitle; ?> - Billpay</title>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -102,7 +102,7 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
     <script>
         window.addEventListener('load', () => {
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/sw.js?v=<?php echo $settings['siteVersion'] ?? '1.0.0'; ?>');
+                navigator.serviceWorker.register('/sw.js?v=<?php echo $settings['siteVersion'] ?? '1.0.0'; ?>', { scope: '/' });
             }
 
             const isPwa = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
