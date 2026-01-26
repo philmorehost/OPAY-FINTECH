@@ -182,41 +182,52 @@ $templateId = $settings['templateId'] ?? 1;
     <?php endif; ?>
 
     <?php if ($templateId == 4): ?>
-    <!-- Crypto Marquee - Template 4 -->
+    <!-- Live Crypto Marquee - Template 4 -->
     <div class="bg-gray-100/50 py-3 overflow-hidden whitespace-nowrap border-y border-gray-100">
-        <div class="flex animate-marquee gap-8 items-center px-4">
+        <div id="crypto-marquee" class="flex animate-marquee gap-8 items-center px-4">
+            <!-- Dynamic Content -->
             <div class="flex items-center gap-2">
-                <span class="w-2 h-2 bg-orange-500 rounded-full"></span>
-                <span class="text-[10px] font-black text-gray-400">BTC</span>
-                <span class="text-[10px] font-black text-gray-800">$64,231.50</span>
-                <span class="text-[8px] font-bold text-green-500">+1.2%</span>
-            </div>
-            <div class="flex items-center gap-2">
-                <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
-                <span class="text-[10px] font-black text-gray-400">ETH</span>
-                <span class="text-[10px] font-black text-gray-800">$3,452.12</span>
-                <span class="text-[8px] font-bold text-red-500">-0.4%</span>
-            </div>
-            <div class="flex items-center gap-2">
-                <span class="w-2 h-2 bg-yellow-500 rounded-full"></span>
-                <span class="text-[10px] font-black text-gray-400">BNB</span>
-                <span class="text-[10px] font-black text-gray-800">$592.40</span>
-                <span class="text-[8px] font-bold text-green-500">+2.1%</span>
-            </div>
-            <div class="flex items-center gap-2">
-                <span class="w-2 h-2 bg-emerald-500 rounded-full"></span>
-                <span class="text-[10px] font-black text-gray-400">USDT</span>
-                <span class="text-[10px] font-black text-gray-800">$1.00</span>
-                <span class="text-[8px] font-bold text-gray-400">0.0%</span>
-            </div>
-            <!-- Repeat for loop effect -->
-            <div class="flex items-center gap-2">
-                <span class="w-2 h-2 bg-orange-500 rounded-full"></span>
-                <span class="text-[10px] font-black text-gray-400">BTC</span>
-                <span class="text-[10px] font-black text-gray-800">$64,231.50</span>
+                <span class="text-[10px] font-black text-gray-400 animate-pulse">Loading live prices...</span>
             </div>
         </div>
     </div>
+    <script>
+        async function fetchCryptoPrices() {
+            try {
+                const response = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,binancecoin,tether,solana&order=market_cap_desc&per_page=5&page=1&sparkline=false&price_change_percentage=24h');
+                const data = await response.json();
+
+                const marquee = document.getElementById('crypto-marquee');
+                let html = '';
+
+                // Double the items for seamless loop
+                const items = [...data, ...data];
+
+                items.forEach(coin => {
+                    const change = coin.price_change_percentage_24h || 0;
+                    const colorClass = change >= 0 ? 'text-green-500' : 'text-red-500';
+                    const iconColor = change >= 0 ? 'bg-green-500' : 'bg-red-500';
+                    const sign = change >= 0 ? '+' : '';
+
+                    html += `
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 ${iconColor} rounded-full"></span>
+                            <span class="text-[10px] font-black text-gray-400">${coin.symbol.toUpperCase()}</span>
+                            <span class="text-[10px] font-black text-gray-800">$${coin.current_price.toLocaleString()}</span>
+                            <span class="text-[8px] font-bold ${colorClass}">${sign}${change.toFixed(2)}%</span>
+                        </div>
+                    `;
+                });
+
+                marquee.innerHTML = html;
+            } catch (err) {
+                console.error('Failed to fetch crypto prices:', err);
+            }
+        }
+
+        fetchCryptoPrices();
+        setInterval(fetchCryptoPrices, 60000); // Update every minute
+    </script>
     <style>
         @keyframes marquee {
             0% { transform: translateX(0); }
