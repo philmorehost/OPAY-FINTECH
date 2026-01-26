@@ -84,8 +84,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body class="min-h-screen flex items-center justify-center p-6">
     <div class="max-w-md w-full bg-white rounded-[40px] shadow-2xl p-10 border border-gray-100">
         <div class="text-center mb-10">
-            <div class="w-16 h-16 bg-billpay-green rounded-2xl flex items-center justify-center text-white font-black text-3xl shadow-lg mx-auto mb-4">B</div>
-            <h1 class="text-2xl font-black text-gray-800">Create Account</h1>
+            <img src="/<?php echo !empty($settings['pwaIcon']) ? $settings['pwaIcon'] : 'uploads/logo.png'; ?>" class="w-16 h-16 object-contain mx-auto mb-4 rounded-2xl shadow-lg">
+            <h1 class="text-2xl font-black text-gray-800"><?php echo $settings['senderName'] ?? 'Billpay'; ?></h1>
+            <h1 class="text-lg font-bold text-gray-600 mt-2">Create Account</h1>
             <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Join the future of bill payments</p>
         </div>
 

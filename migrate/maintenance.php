@@ -33,8 +33,8 @@ if (isset($_GET['logout'])) {
 <body class="bg-gray-50 min-h-screen flex flex-col items-center justify-center p-6 text-center">
     <div class="max-w-md w-full space-y-8 animate-fade-in">
         <div class="relative inline-block">
-            <div class="w-32 h-32 bg-white rounded-[40px] shadow-2xl flex items-center justify-center mx-auto mb-8 animate-float">
-                <i data-lucide="cog" class="w-16 h-16 text-billpay-green animate-spin" style="animation-duration: 10s"></i>
+            <div class="w-32 h-32 bg-white rounded-[40px] shadow-2xl flex items-center justify-center mx-auto mb-8 animate-float overflow-hidden">
+                <img src="/<?php echo !empty($settings['pwaIcon']) ? $settings['pwaIcon'] : 'uploads/logo.png'; ?>" class="w-full h-full object-contain">
             </div>
             <div class="absolute -top-2 -right-2 w-12 h-12 bg-red-500 rounded-2xl flex items-center justify-center text-white shadow-lg animate-pulse">
                 <i data-lucide="shield-alert" class="w-6 h-6"></i>

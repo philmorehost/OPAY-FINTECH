@@ -75,11 +75,13 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
 
             const isPwa = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
             const splash = document.getElementById('splash-screen');
+            const hasSeenSplash = sessionStorage.getItem('hasSeenSplash');
 
-            if (isPwa && splash) {
+            if (isPwa && splash && !hasSeenSplash) {
                 setTimeout(() => {
                     splash.style.opacity = '0';
                     splash.style.visibility = 'hidden';
+                    sessionStorage.setItem('hasSeenSplash', 'true');
                 }, 3000);
             } else if (splash) {
                 splash.style.display = 'none';

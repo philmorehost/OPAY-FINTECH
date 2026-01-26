@@ -98,8 +98,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body class="min-h-screen flex items-center justify-center p-6">
     <div class="max-w-md w-full bg-white rounded-[40px] shadow-2xl p-10 border border-gray-100">
         <div class="text-center mb-10">
-            <div class="w-16 h-16 bg-billpay-green rounded-2xl flex items-center justify-center text-white font-black text-3xl shadow-lg mx-auto mb-4">B</div>
-            <h1 class="text-2xl font-black text-gray-800">Welcome Back</h1>
+            <img src="/<?php echo !empty($settings['pwaIcon']) ? $settings['pwaIcon'] : 'uploads/logo.png'; ?>" class="w-16 h-16 object-contain mx-auto mb-4 rounded-2xl shadow-lg">
+            <h1 class="text-2xl font-black text-gray-800"><?php echo $settings['senderName'] ?? 'Billpay'; ?></h1>
+            <h1 class="text-lg font-bold text-gray-600 mt-2">Welcome Back</h1>
             <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Secure Login to your wallet</p>
         </div>
 
@@ -173,6 +174,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <div class="mt-8 text-center">
             <p class="text-[10px] font-black text-gray-400 uppercase">Don't have an account? <a href="/register" class="text-billpay-green">Create One</a></p>
+        </div>
+    </div>
+
+    <script>
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            const isPwa = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+            if (!isPwa) {
+                document.getElementById('installModal').classList.remove('hidden');
+                document.getElementById('installModal').classList.add('flex');
+            }
+        });
+
+        document.getElementById('installBtn')?.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    console.log('User accepted the install prompt');
+                }
+                deferredPrompt = null;
+                document.getElementById('installModal').classList.add('hidden');
+            }
+        });
+    </script>
+
+    <!-- Install App Modal -->
+    <div id="installModal" class="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] hidden items-center justify-center p-6">
+        <div class="bg-white w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl animate-slide-up">
+            <div class="p-10 text-center">
+                <img src="/<?php echo !empty($settings['pwaIcon']) ? $settings['pwaIcon'] : 'uploads/logo.png'; ?>" class="w-24 h-24 object-contain mx-auto mb-6 rounded-3xl shadow-xl">
+                <h3 class="text-2xl font-black uppercase tracking-tight text-gray-900 mb-2">Install Our App</h3>
+                <p class="text-xs font-bold text-gray-400 uppercase leading-relaxed mb-8">
+                    Get the best experience by installing the <span class="text-gray-900"><?php echo $settings['senderName'] ?? 'Billpay'; ?></span> app on your home screen.
+                </p>
+                <div class="space-y-3">
+                    <button id="installBtn" class="w-full py-5 bg-billpay-green text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-green-100 hover:scale-[1.02] transition-all">Install Now</button>
+                    <button onclick="document.getElementById('installModal').classList.add('hidden')" class="w-full py-5 bg-gray-50 text-gray-400 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-100 transition-all">Maybe Later</button>
+                </div>
+            </div>
         </div>
     </div>
 </body>
