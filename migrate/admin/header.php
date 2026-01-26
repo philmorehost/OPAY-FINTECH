@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="<?php echo $settings['primaryColor'] ?? '#00c689'; ?>">
+    <link rel="manifest" href="/manifest.json.php?v=<?php echo $settings['siteVersion'] ?? '1.0.0'; ?>">
     <title><?php echo $pageTitle; ?> - Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -45,7 +46,7 @@
     <header class="lg:hidden h-16 bg-white border-b border-gray-100 flex items-center justify-between px-6 sticky top-0 z-30">
         <div class="flex items-center gap-3">
             <?php if (!empty($settings['pwaIcon'])): ?>
-                <img src="/<?php echo $settings['pwaIcon']; ?>" class="w-8 h-8 rounded-lg object-contain shadow-md">
+                <img src="/<?php echo $settings['pwaIcon']; ?>?v=<?php echo $settings['siteVersion'] ?? '1.0.0'; ?>" class="w-8 h-8 rounded-lg object-contain shadow-md">
             <?php else: ?>
                 <div class="w-8 h-8 bg-billpay-green rounded-lg flex items-center justify-center text-white font-black text-lg shadow-md">B</div>
             <?php endif; ?>
@@ -64,7 +65,7 @@
             <div class="p-8 flex items-center justify-between">
                 <div class="flex items-center gap-3">
                     <?php if (!empty($settings['pwaIcon'])): ?>
-                        <img src="/<?php echo $settings['pwaIcon']; ?>" class="w-10 h-10 rounded-xl object-contain shadow-md">
+                        <img src="/<?php echo $settings['pwaIcon']; ?>?v=<?php echo $settings['siteVersion'] ?? '1.0.0'; ?>" class="w-10 h-10 rounded-xl object-contain shadow-md">
                     <?php else: ?>
                         <div class="w-10 h-10 bg-billpay-green rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg">B</div>
                     <?php endif; ?>

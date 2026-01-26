@@ -13,8 +13,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (isset($_POST['action']) && $_POST['action'] === 'biometric') {
-        // NOTE: This is a simplified biometric authentication check for demonstration.
-        // In a production environment, you MUST implement full WebAuthn signature verification.
+        /**
+         * SECURITY WARNING:
+         * This is a simplified biometric authentication logic for functional demonstration.
+         * In a PRODUCTION fintech environment, you MUST implement full WebAuthn verification
+         * including challenge verification, origin checks, and cryptographic signature validation.
+         * Do NOT use this simplified logic for high-value financial systems without upgrades.
+         */
         $credentialId = $_POST['credentialId'];
         $stmt = $pdo->prepare("SELECT * FROM users WHERE biometricCredentialId = ? AND biometricEnabled = 1");
         $stmt->execute([$credentialId]);
@@ -101,6 +106,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title>Login - Billpay</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+        // Move PWA listener as early as possible
+        window.deferredPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            window.deferredPrompt = e;
+            console.log('beforeinstallprompt captured');
+        });
+    </script>
     <style>
         :root {
             --primary-color: <?php echo $settings['primaryColor'] ?? '#00c689'; ?>;
@@ -206,41 +220,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <script>
-        let deferredPrompt;
-
         function checkPwaInstallation() {
             const isPwa = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
             if (!isPwa) {
                 const modal = document.getElementById('installModal');
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+                if (isIOS) {
+                    document.getElementById('install-instructions-default').classList.add('hidden');
+                    document.getElementById('install-instructions-ios').classList.remove('hidden');
+                    document.getElementById('installBtn').classList.add('hidden');
+                }
+
                 modal.classList.remove('hidden');
                 modal.classList.add('flex');
             }
         }
 
-        // Show modal immediately if not PWA
         window.addEventListener('DOMContentLoaded', checkPwaInstallation);
 
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-        });
-
         document.getElementById('installBtn')?.addEventListener('click', async () => {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                if (outcome === 'accepted') {
-                    console.log('User accepted the install prompt');
-                }
-                deferredPrompt = null;
+            if (window.deferredPrompt) {
+                window.deferredPrompt.prompt();
+                const { outcome } = await window.deferredPrompt.userChoice;
+                window.deferredPrompt = null;
                 document.getElementById('installModal').classList.add('hidden');
             } else {
-                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-                if (isIOS) {
-                    alert("To install: Tap the 'Share' icon in your browser bottom bar, then select 'Add to Home Screen' from the menu.");
-                } else {
-                    alert("Please use the 'Install' or 'Add to Home Screen' option in your browser menu to install the app.");
-                }
+                alert("Installation is not supported on this browser or it's already installed. Use your browser's 'Add to Home Screen' option.");
             }
         });
     </script>
@@ -249,14 +255,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div id="installModal" class="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] hidden items-center justify-center p-6">
         <div class="bg-white w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl animate-slide-up">
             <div class="p-10 text-center">
-                <img src="/<?php echo !empty($settings['pwaIcon']) ? $settings['pwaIcon'] : 'uploads/logo.png'; ?>" class="w-24 h-24 object-contain mx-auto mb-6 rounded-3xl shadow-xl">
+                <img src="/<?php echo !empty($settings['pwaIcon']) ? $settings['pwaIcon'] : 'uploads/logo.png'; ?>?v=<?php echo $settings['siteVersion'] ?? '1.0.0'; ?>" class="w-24 h-24 object-contain mx-auto mb-6 rounded-3xl shadow-xl">
                 <h3 class="text-2xl font-black uppercase tracking-tight text-gray-900 mb-2">Install Our App</h3>
-                <p class="text-xs font-bold text-gray-400 uppercase leading-relaxed mb-8">
-                    Get the best experience by installing the <span class="text-gray-900"><?php echo $settings['senderName'] ?? 'Billpay'; ?></span> app on your home screen.
-                </p>
+
+                <div id="install-instructions-default">
+                    <p class="text-xs font-bold text-gray-400 uppercase leading-relaxed mb-8">
+                        Get the best experience by installing the <span class="text-gray-900"><?php echo $settings['senderName'] ?? 'Billpay'; ?></span> app on your home screen.
+                    </p>
+                </div>
+
+                <div id="install-instructions-ios" class="hidden text-left bg-gray-50 p-6 rounded-3xl border border-gray-100 mb-8">
+                    <p class="text-[10px] font-black text-gray-400 uppercase mb-4 tracking-widest text-center">iOS Instructions</p>
+                    <div class="space-y-4">
+                        <div class="flex items-center gap-4">
+                            <div class="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-sm">
+                                <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+                            </div>
+                            <span class="text-[10px] font-bold text-gray-700 uppercase">1. Tap the 'Share' button</span>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <div class="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-sm">
+                                <svg class="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                            </div>
+                            <span class="text-[10px] font-bold text-gray-700 uppercase">2. Select 'Add to Home Screen'</span>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="space-y-3">
                     <button id="installBtn" class="w-full py-5 bg-billpay-green text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-green-100 hover:scale-[1.02] transition-all">Install Now</button>
-                    <button onclick="document.getElementById('installModal').classList.add('hidden')" class="w-full py-5 bg-gray-50 text-gray-400 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-100 transition-all">Maybe Later</button>
+                    <button onclick="document.getElementById('installModal').classList.add('hidden')" class="w-full py-5 bg-gray-50 text-gray-400 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-100 transition-all">Dismiss</button>
                 </div>
             </div>
         </div>

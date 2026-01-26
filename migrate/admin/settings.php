@@ -4,7 +4,7 @@ if (!isAdmin()) redirect('/login');
 
 $pageTitle = 'Global Settings';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['action'])) {
     if (!verifyCsrfToken($_POST['csrf_token'])) die('CSRF Failed');
 
     $pwaIcon = $settings['pwaIcon'];
@@ -51,6 +51,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Refresh settings
     $settings = fetchSettings($pdo);
     $success = "Settings updated successfully!";
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'clear_cache') {
+    if (!verifyCsrfToken($_POST['csrf_token'])) die('CSRF Failed');
+
+    $newVersion = time();
+    $stmt = $pdo->prepare("UPDATE settings SET siteVersion = ? WHERE id = 1");
+    $stmt->execute([$newVersion]);
+
+    $settings = fetchSettings($pdo);
+    $success = "Site cache cleared successfully! Global version updated to $newVersion.";
 }
 
 require_once __DIR__ . '/header.php';
@@ -231,5 +242,23 @@ require_once __DIR__ . '/header.php';
 
         <button type="submit" class="w-full bg-gray-900 text-white py-5 rounded-[32px] font-black uppercase shadow-xl hover:bg-black transition-all">Save Configuration</button>
     </form>
+
+    <!-- Cache Management -->
+    <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100 mt-10">
+        <h3 class="text-xl font-black uppercase tracking-widest mb-4 flex items-center gap-3"><i data-lucide="refresh-cw" class="text-orange-500"></i> Cache Management</h3>
+        <p class="text-[10px] text-gray-400 font-bold uppercase mb-8">Force all users to fetch the latest settings and assets by clearing the site cache.</p>
+
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+            <input type="hidden" name="action" value="clear_cache">
+            <div class="flex items-center justify-between p-6 bg-orange-50 rounded-3xl border border-orange-100">
+                <div>
+                    <div class="text-sm font-black text-orange-800 uppercase">Clear Global Site Cache</div>
+                    <p class="text-[10px] text-orange-600 font-bold uppercase">Current Version: <?php echo $settings['siteVersion'] ?? '1.0.0'; ?></p>
+                </div>
+                <button type="submit" class="bg-orange-500 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg hover:bg-orange-600 active:scale-95 transition-all">Clear Cache Now</button>
+            </div>
+        </form>
+    </div>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>

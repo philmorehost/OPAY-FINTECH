@@ -123,6 +123,7 @@ if ($stage === 2 && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 pwaIcon VARCHAR(255),
                 pwaSplash VARCHAR(255),
                 siteDescription TEXT,
+                siteVersion VARCHAR(50) DEFAULT '1.0.0',
                 isMaintenanceMode BOOLEAN DEFAULT FALSE,
                 adminTheme ENUM('light', 'dark') DEFAULT 'light',
                 smtpHost VARCHAR(255),

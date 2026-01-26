@@ -12,8 +12,8 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="<?php echo $settings['primaryColor'] ?? '#00c689'; ?>">
-    <link rel="manifest" href="/manifest.json.php">
-    <link rel="apple-touch-icon" href="<?php echo !empty($settings['pwaIcon']) ? '/'.$settings['pwaIcon'] : '/uploads/logo.png'; ?>">
+    <link rel="manifest" href="/manifest.json.php?v=<?php echo $settings['siteVersion'] ?? '1.0.0'; ?>">
+    <link rel="apple-touch-icon" href="<?php echo !empty($settings['pwaIcon']) ? '/'.$settings['pwaIcon'].'?v='.($settings['siteVersion'] ?? '1.0.0') : '/uploads/logo.png'; ?>">
     <title><?php echo $pageTitle; ?> - Billpay</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -39,6 +39,13 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
         }
         .animate-slide-down {
           animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes slideUp {
+          from { transform: translateY(100%); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        .animate-slide-up {
+          animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
         @keyframes rollRight {
           0% { transform: translateX(-150%) rotate(-360deg); opacity: 0; }
@@ -88,14 +95,14 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
     <?php if (!empty($settings['pwaEnabled'])): ?>
     <div id="splash-screen">
         <div class="text-center animate-roll-right">
-            <img src="/<?php echo !empty($settings['pwaSplash']) ? $settings['pwaSplash'] : (!empty($settings['pwaIcon']) ? $settings['pwaIcon'] : 'uploads/logo.png'); ?>" class="w-32 h-32 object-contain mx-auto mb-4 rounded-3xl shadow-2xl">
+            <img src="/<?php echo !empty($settings['pwaSplash']) ? $settings['pwaSplash'] : (!empty($settings['pwaIcon']) ? $settings['pwaIcon'] : 'uploads/logo.png'); ?>?v=<?php echo $settings['siteVersion'] ?? '1.0.0'; ?>" class="w-32 h-32 object-contain mx-auto mb-4 rounded-3xl shadow-2xl">
             <h1 class="text-2xl font-black uppercase tracking-tighter text-gray-900"><?php echo $settings['senderName'] ?? 'Billpay'; ?></h1>
         </div>
     </div>
     <script>
         window.addEventListener('load', () => {
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/sw.js');
+                navigator.serviceWorker.register('/sw.js?v=<?php echo $settings['siteVersion'] ?? '1.0.0'; ?>');
             }
 
             const isPwa = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
@@ -120,7 +127,7 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
         <aside class="w-72 bg-white border-r border-gray-100 hidden lg:flex flex-col fixed h-full z-40">
             <div class="p-8 flex items-center gap-3">
                 <?php if (!empty($settings['pwaIcon'])): ?>
-                    <img src="/<?php echo $settings['pwaIcon']; ?>" class="w-10 h-10 rounded-xl object-contain shadow-md">
+                    <img src="/<?php echo $settings['pwaIcon']; ?>?v=<?php echo $settings['siteVersion'] ?? '1.0.0'; ?>" class="w-10 h-10 rounded-xl object-contain shadow-md">
                 <?php else: ?>
                     <div class="w-10 h-10 bg-billpay-green rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg">B</div>
                 <?php endif; ?>
@@ -169,7 +176,7 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
             <header class="h-20 bg-white/80 backdrop-blur-md border-b border-gray-50 sticky top-0 z-30 px-6 lg:px-12 flex items-center justify-between">
                 <div class="flex items-center gap-4 lg:hidden">
                     <?php if (!empty($settings['pwaIcon'])): ?>
-                        <img src="/<?php echo $settings['pwaIcon']; ?>" class="w-10 h-10 rounded-xl object-contain shadow-md">
+                        <img src="/<?php echo $settings['pwaIcon']; ?>?v=<?php echo $settings['siteVersion'] ?? '1.0.0'; ?>" class="w-10 h-10 rounded-xl object-contain shadow-md">
                     <?php else: ?>
                         <div class="w-10 h-10 bg-billpay-green rounded-xl flex items-center justify-center text-white font-black text-xl">B</div>
                     <?php endif; ?>
