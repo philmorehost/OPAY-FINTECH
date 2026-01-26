@@ -82,7 +82,37 @@ $pendingKyc = $stmt->fetchColumn();
 
 $stmt = $pdo->query("SELECT COUNT(*) FROM transactions");
 $totalTransactions = $stmt->fetchColumn();
+
+// Platform Activity Data (Last 7 Days)
+$activityData = [];
+$activityLabels = [];
+for ($i = 6; $i >= 0; $i--) {
+    $date = date('Y-m-d', strtotime("-$i days"));
+    $activityLabels[] = date('D', strtotime($date));
+
+    $stmt = $pdo->prepare("SELECT SUM(amount) FROM transactions WHERE DATE(date) = ? AND status = 'successful'");
+    $stmt->execute([$date]);
+    $activityData[] = (float)$stmt->fetchColumn() ?: 0;
+}
+
+// Calculate Growth
+$currentPeriodSum = array_sum($activityData);
+$prevPeriodSum = 0;
+for ($i = 13; $i >= 7; $i--) {
+    $date = date('Y-m-d', strtotime("-$i days"));
+    $stmt = $pdo->prepare("SELECT SUM(amount) FROM transactions WHERE DATE(date) = ? AND status = 'successful'");
+    $stmt->execute([$date]);
+    $prevPeriodSum += (float)$stmt->fetchColumn() ?: 0;
+}
+
+$growthPercent = 0;
+if ($prevPeriodSum > 0) {
+    $growthPercent = (($currentPeriodSum - $prevPeriodSum) / $prevPeriodSum) * 100;
+} elseif ($currentPeriodSum > 0) {
+    $growthPercent = 100;
+}
 ?>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <div class="space-y-8 animate-fade-in text-gray-900">
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -120,13 +150,14 @@ $totalTransactions = $stmt->fetchColumn();
         <div class="lg:col-span-2 bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm">
             <div class="flex justify-between items-center mb-8">
                 <h3 class="text-sm font-black uppercase tracking-widest">Platform Activity</h3>
-                <span class="px-3 py-1 bg-green-50 text-green-600 text-[10px] font-black rounded-full">+12.5% Growth</span>
+                <?php
+                $growthClass = $growthPercent >= 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600';
+                $growthSign = $growthPercent >= 0 ? '+' : '';
+                ?>
+                <span class="px-3 py-1 <?php echo $growthClass; ?> text-[10px] font-black rounded-full"><?php echo $growthSign . number_format($growthPercent, 1); ?>% Growth</span>
             </div>
-            <div class="h-[300px] w-full flex items-center justify-center bg-gray-50 rounded-3xl border-2 border-dashed border-gray-100">
-                <div class="text-center">
-                    <i data-lucide="trending-up" class="w-12 h-12 text-gray-200 mx-auto mb-2"></i>
-                    <p class="text-[10px] font-black text-gray-300 uppercase">Charts will appear here</p>
-                </div>
+            <div class="h-[300px] w-full relative">
+                <canvas id="activityChart"></canvas>
             </div>
         </div>
         <div class="bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm">
@@ -152,5 +183,77 @@ $totalTransactions = $stmt->fetchColumn();
         </div>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('activityChart').getContext('2d');
+        const primaryColor = '<?php echo $settings['primaryColor'] ?? '#00c689'; ?>';
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: <?php echo json_encode($activityLabels); ?>,
+                datasets: [{
+                    label: 'Transaction Volume',
+                    data: <?php echo json_encode($activityData); ?>,
+                    borderColor: primaryColor,
+                    backgroundColor: 'rgba(' + hexToRgb(primaryColor) + ', 0.1)',
+                    borderWidth: 4,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHoverRadius: 6,
+                    pointHoverBackgroundColor: primaryColor,
+                    pointHoverBorderColor: '#fff',
+                    pointHoverBorderWidth: 3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        backgroundColor: '#111827',
+                        titleFont: { size: 10, weight: 'bold' },
+                        bodyFont: { size: 12, weight: '900' },
+                        padding: 12,
+                        displayColors: false,
+                        callbacks: {
+                            label: function(context) {
+                                return '₦' + context.parsed.y.toLocaleString();
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { size: 10, weight: '800' }, color: '#9ca3af' }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: '#f3f4f6', drawBorder: false },
+                        ticks: {
+                            font: { size: 10, weight: '800' },
+                            color: '#9ca3af',
+                            callback: function(value) {
+                                if (value >= 1000) return '₦' + (value/1000) + 'k';
+                                return '₦' + value;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? parseInt(result[1], 16) + ',' + parseInt(result[2], 16) + ',' + parseInt(result[3], 16) : '0,198,137';
+        }
+    });
+</script>
 
 <?php require_once __DIR__ . '/footer.php'; ?>
