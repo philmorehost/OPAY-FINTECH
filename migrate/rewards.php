@@ -14,6 +14,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $error = "Invalid amount of coins.";
         } elseif ($currentUser['bonusCoins'] < $coinsToConvert) {
             $error = "Insufficient coins.";
+        } elseif (($settings['conversionRate'] ?? 0) <= 0) {
+            $error = "Conversion is currently disabled.";
         } else {
             $nairaAmount = $coinsToConvert / $settings['conversionRate'];
             if ($nairaAmount < 0.01) {
@@ -55,7 +57,7 @@ require_once __DIR__ . '/includes/header.php';
             <i data-lucide="coins" class="w-20 h-20 text-white/20 absolute -right-4 -bottom-4"></i>
             <div class="text-[10px] font-black uppercase tracking-widest opacity-80 mb-2">Available Coins</div>
             <div class="text-5xl font-black"><?php echo $currentUser['bonusCoins']; ?></div>
-            <p class="text-[9px] font-bold uppercase mt-4 opacity-70">1 Coin = <?php echo formatCurrency(1/$settings['conversionRate']); ?></p>
+            <p class="text-[9px] font-bold uppercase mt-4 opacity-70">1 Coin = <?php echo ($settings['conversionRate'] ?? 0) > 0 ? formatCurrency(1/$settings['conversionRate']) : 'N/A'; ?></p>
         </div>
 
         <div class="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100 space-y-6">

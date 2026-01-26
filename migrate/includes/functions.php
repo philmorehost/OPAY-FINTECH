@@ -57,14 +57,18 @@ function claimDailyRewardIfEligible($pdo, $userId) {
     $bonus = $stmt->fetchColumn();
 
     if ($bonus > 0) {
-        $pdo->beginTransaction();
+        $startedTransaction = false;
+        if (!$pdo->inTransaction()) {
+            $pdo->beginTransaction();
+            $startedTransaction = true;
+        }
         try {
             $stmt = $pdo->prepare("UPDATE users SET bonusCoins = bonusCoins + ? WHERE id = ?");
             $stmt->execute([$bonus, $userId]);
             logTransaction($pdo, $userId, 'Daily Reward', $bonus, 'successful', "Daily check-in reward (Auto-claimed)", 'Wallet', 'System');
-            $pdo->commit();
+            if ($startedTransaction) $pdo->commit();
         } catch (Exception $e) {
-            $pdo->rollBack();
+            if ($startedTransaction) $pdo->rollBack();
         }
     }
 }
