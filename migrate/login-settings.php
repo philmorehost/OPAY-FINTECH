@@ -89,6 +89,13 @@ require_once __DIR__ . '/includes/header.php';
     </div>
 </div>
 <script>
+    window.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('setup') === 'biometric') {
+            registerBiometrics();
+        }
+    });
+
     async function registerBiometrics() {
         if (!window.PublicKeyCredential) {
             alert("Biometrics not supported on this device.");

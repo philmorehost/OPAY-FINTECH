@@ -65,11 +65,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['username'] = $user['username'];
             $_SESSION['role'] = $user['role'];
 
+            // Store user info in script for JS to save to localStorage
+            $jsUser = [
+                'username' => $user['username'],
+                'biometricEnabled' => (bool)$user['biometricEnabled'],
+                'hasBiometrics' => !empty($user['biometricCredentialId'])
+            ];
+
             if ($user['role'] === 'admin') {
-                redirect('/admin/');
+                $target = '/admin/';
             } else {
-                redirect('/dashboard');
+                $target = '/dashboard';
+                // If biometric enabled in settings but not set up, take them to setup
+                if ($user['biometricEnabled'] && empty($user['biometricCredentialId'])) {
+                    $target = '/login-settings?setup=biometric';
+                }
             }
+            echo "<script>
+                localStorage.setItem('lastUser', '".json_encode($jsUser)."');
+                window.location.href = '$target';
+            </script>";
+            exit;
         }
     } else {
         $error = 'Invalid username or password';
@@ -122,7 +138,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <button type="submit" class="w-full py-5 bg-billpay-green text-white rounded-[24px] font-black uppercase tracking-widest shadow-xl shadow-green-100 hover:scale-[1.02] transition-all">Sign In</button>
         </form>
 
-        <?php if (!empty($settings['isBiometricEnforced'])): ?>
         <div id="biometric-area" class="hidden mt-6">
             <div class="flex items-center gap-4 mb-6">
                 <div class="flex-1 h-px bg-gray-100"></div>
@@ -140,11 +155,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </form>
         </div>
         <script>
-            if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) {
-                document.getElementById('biometric-area').classList.remove('hidden');
+            function initBiometricArea() {
+                const isPwa = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+                const lastUser = JSON.parse(localStorage.getItem('lastUser') || 'null');
+                const isGloballyEnforced = <?php echo !empty($settings['isBiometricEnforced']) ? 'true' : 'false'; ?>;
+
+                // Show if in PWA and (user enabled it OR (no user yet and globally enforced))
+                if (isPwa && ( (lastUser && lastUser.biometricEnabled) || (!lastUser && isGloballyEnforced) )) {
+                    document.getElementById('biometric-area').classList.remove('hidden');
+                }
             }
+            window.addEventListener('DOMContentLoaded', initBiometricArea);
 
             async function loginWithBiometrics() {
+                const lastUser = JSON.parse(localStorage.getItem('lastUser') || 'null');
+                if (!lastUser || !lastUser.hasBiometrics) {
+                    alert("Please login with your username and password first to enable biometric login on this device.");
+                    return;
+                }
+
                 if (!window.PublicKeyCredential) return;
 
                 const challenge = new Uint8Array(32);
@@ -170,7 +199,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         </script>
-        <?php endif; ?>
 
         <div class="mt-8 text-center">
             <p class="text-[10px] font-black text-gray-400 uppercase">Don't have an account? <a href="/register" class="text-billpay-green">Create One</a></p>
@@ -179,14 +207,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <script>
         let deferredPrompt;
+
+        function checkPwaInstallation() {
+            const isPwa = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+            if (!isPwa) {
+                const modal = document.getElementById('installModal');
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+        }
+
+        // Show modal immediately if not PWA
+        window.addEventListener('DOMContentLoaded', checkPwaInstallation);
+
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
-            const isPwa = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
-            if (!isPwa) {
-                document.getElementById('installModal').classList.remove('hidden');
-                document.getElementById('installModal').classList.add('flex');
-            }
         });
 
         document.getElementById('installBtn')?.addEventListener('click', async () => {

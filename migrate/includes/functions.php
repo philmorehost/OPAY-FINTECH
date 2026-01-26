@@ -96,8 +96,9 @@ function verifyCsrfToken($token) {
 // Session security
 function startSecureSession() {
     if (session_status() === PHP_SESSION_NONE) {
+        // Set lifetime to 1 year (31536000 seconds) for persistent login
         session_set_cookie_params([
-            'lifetime' => 86400,
+            'lifetime' => 31536000,
             'path' => '/',
             'domain' => '',
             'secure' => true,
@@ -133,10 +134,16 @@ function updateWallet($pdo, $userId, $amount, $type = 'credit') {
     $stmt = $pdo->prepare("UPDATE users SET walletBalance = walletBalance $operator ? WHERE id = ?");
     $res = $stmt->execute([$amount, $userId]);
     if ($res && $type === 'credit') {
-        // Only mark as completed if the credit amount meets or exceeds the minimum required deposit
+        // Fetch current balance after credit
+        $uStmt = $pdo->prepare("SELECT walletBalance FROM users WHERE id = ?");
+        $uStmt->execute([$userId]);
+        $currentBalance = (float)$uStmt->fetchColumn();
+
         $sStmt = $pdo->query("SELECT minDepositAmount FROM settings WHERE id = 1");
-        $min = $sStmt->fetchColumn() ?: 0;
-        if ($amount >= $min) {
+        $min = (float)$sStmt->fetchColumn() ?: 0;
+
+        // Lift restriction if balance reaches the threshold
+        if ($currentBalance >= $min) {
             $pdo->prepare("UPDATE users SET hasCompletedInitialDeposit = 1 WHERE id = ?")->execute([$userId]);
         }
     }

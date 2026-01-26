@@ -60,6 +60,31 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
     </style>
 </head>
 <body class="bg-gray-50 w-full">
+    <div id="offline-toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-[10000] hidden">
+        <div class="bg-red-500 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 animate-bounce">
+            <i data-lucide="wifi-off" class="w-5 h-5"></i>
+            <span class="text-[10px] font-black uppercase tracking-widest">Connection Lost</span>
+        </div>
+    </div>
+    <div id="online-toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-[10000] hidden">
+        <div class="bg-green-500 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 animate-slide-down">
+            <i data-lucide="wifi" class="w-5 h-5"></i>
+            <span class="text-[10px] font-black uppercase tracking-widest">Back Online</span>
+        </div>
+    </div>
+    <script>
+        window.addEventListener('online', () => {
+            document.getElementById('offline-toast').classList.add('hidden');
+            document.getElementById('online-toast').classList.remove('hidden');
+            setTimeout(() => document.getElementById('online-toast').classList.add('hidden'), 3000);
+        });
+        window.addEventListener('offline', () => {
+            document.getElementById('online-toast').classList.add('hidden');
+            document.getElementById('offline-toast').classList.remove('hidden');
+        });
+        if (!navigator.onLine) document.getElementById('offline-toast').classList.remove('hidden');
+    </script>
+
     <?php if (!empty($settings['pwaEnabled'])): ?>
     <div id="splash-screen">
         <div class="text-center animate-roll-right">
