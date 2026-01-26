@@ -42,6 +42,40 @@ function isKycRejected($user) {
     return ($user['kycStatus'] ?? 'none') === 'rejected';
 }
 
+function claimDailyRewardIfEligible($pdo, $userId) {
+    $today = date('Y-m-d');
+
+    // Check if already claimed today
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM transactions WHERE userId = ? AND type = 'Daily Reward' AND DATE(date) = ?");
+    $stmt->execute([$userId, $today]);
+    if ($stmt->fetchColumn() > 0) {
+        return; // Already claimed today
+    }
+
+    $stmt = $pdo->prepare("SELECT bonusPerDay FROM settings WHERE id = 1");
+    $stmt->execute();
+    $bonus = $stmt->fetchColumn();
+
+    if ($bonus > 0) {
+        $pdo->beginTransaction();
+        try {
+            $stmt = $pdo->prepare("UPDATE users SET bonusCoins = bonusCoins + ? WHERE id = ?");
+            $stmt->execute([$bonus, $userId]);
+            logTransaction($pdo, $userId, 'Daily Reward', $bonus, 'successful', "Daily check-in reward (Auto-claimed)", 'Wallet', 'System');
+            $pdo->commit();
+        } catch (Exception $e) {
+            $pdo->rollBack();
+        }
+    }
+}
+
+function checkMinDepositRestriction($settings, $currentUser) {
+    if (!isset($settings['isMinDepositForced']) || !$settings['isMinDepositForced']) {
+        return false;
+    }
+    return !($currentUser['hasCompletedInitialDeposit'] ?? false);
+}
+
 function redirect($path) {
     header("Location: $path");
     exit;
@@ -97,7 +131,11 @@ function fetchSettings($pdo) {
 function updateWallet($pdo, $userId, $amount, $type = 'credit') {
     $operator = ($type === 'credit') ? '+' : '-';
     $stmt = $pdo->prepare("UPDATE users SET walletBalance = walletBalance $operator ? WHERE id = ?");
-    return $stmt->execute([$amount, $userId]);
+    $res = $stmt->execute([$amount, $userId]);
+    if ($res && $type === 'credit') {
+        $pdo->prepare("UPDATE users SET hasCompletedInitialDeposit = 1 WHERE id = ?")->execute([$userId]);
+    }
+    return $res;
 }
 
 function checkDailyLimit($pdo, $userId, $recipient, $limit) {

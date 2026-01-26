@@ -22,9 +22,13 @@ require_once __DIR__ . '/includes/header.php';
     </div>
 
     <div class="p-6 space-y-8 flex-1" id="receiptContent">
+        <div class="text-center mb-4 hidden print:block">
+            <h1 class="text-2xl font-black uppercase tracking-tighter text-gray-900"><?php echo $settings['senderName'] ?? 'Billpay'; ?></h1>
+        </div>
         <!-- Modern Receipt Design -->
         <div class="bg-white rounded-[50px] shadow-2xl overflow-hidden border border-gray-100 relative">
             <div class="bg-billpay-green p-12 text-white text-center relative">
+                <div class="text-[10px] font-black uppercase tracking-[0.3em] mb-4 opacity-60 lg:block hidden"><?php echo $settings['senderName'] ?? 'Billpay'; ?></div>
                 <div class="w-20 h-20 bg-white/20 backdrop-blur-md rounded-[30px] flex items-center justify-center mx-auto mb-6 border border-white/30">
                     <i data-lucide="check-circle-2" class="w-10 h-10"></i>
                 </div>

@@ -70,6 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $receiptMsg .= "Network: $network<br>Amount: " . formatCurrency($totalCost) . "<br>Status: " . ($successCount > 0 ? 'Successful' : 'Failed');
             sendMail($pdo, $currentUser['email'], "Airtime Receipt", $receiptMsg);
 
+            claimDailyRewardIfEligible($pdo, $currentUser['id']);
             $pdo->commit();
             $success = true;
             $statusDetails = [

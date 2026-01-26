@@ -22,9 +22,24 @@ try {
     addColumnIfNotExists($pdo, 'settings', 'templateId', "INT DEFAULT 1");
     addColumnIfNotExists($pdo, 'settings', 'primaryColor', "VARCHAR(20) DEFAULT '#00c689'");
     addColumnIfNotExists($pdo, 'settings', 'isKycEnforced', "TINYINT(1) DEFAULT 1");
+    addColumnIfNotExists($pdo, 'settings', 'isMinDepositForced', "TINYINT(1) DEFAULT 0");
+    addColumnIfNotExists($pdo, 'settings', 'minDepositAmount', "DECIMAL(15, 2) DEFAULT 100.00");
     addColumnIfNotExists($pdo, 'transactions', 'token', "VARCHAR(255)");
     addColumnIfNotExists($pdo, 'transactions', 'provider', "VARCHAR(50)");
     addColumnIfNotExists($pdo, 'kyc_submissions', 'selfieImageUrl', "VARCHAR(255)");
+    addColumnIfNotExists($pdo, 'users', 'hasCompletedInitialDeposit', "TINYINT(1) DEFAULT 0");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS virtual_cards (
+        id VARCHAR(50) PRIMARY KEY,
+        userId VARCHAR(50) NOT NULL,
+        cardNumber VARCHAR(20) NOT NULL,
+        expiry VARCHAR(10) NOT NULL,
+        cvv VARCHAR(5) NOT NULL,
+        balance DECIMAL(15, 2) DEFAULT 0.00,
+        type ENUM('Visa', 'Mastercard') NOT NULL,
+        isFrozen BOOLEAN DEFAULT FALSE,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+    )");
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS offers (
         id INT AUTO_INCREMENT PRIMARY KEY,

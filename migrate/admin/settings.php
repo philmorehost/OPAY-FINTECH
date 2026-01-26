@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         maxDailyTxPerId = ?,
         bonusPerDay = ?, referralBonus = ?, welcomeBonus = ?, conversionRate = ?,
         templateId = ?, primaryColor = ?,
-        isMaintenanceMode = ?, isKycEnforced = ?,
+        isMaintenanceMode = ?, isKycEnforced = ?, isMinDepositForced = ?,
         smtpHost = ?, smtpPort = ?, smtpUser = ?,
         smtpPass = ?, senderName = ?, fromEmail = ?
         WHERE id = 1");
@@ -25,6 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         sanitize($_POST['templateId'] ?? 1), sanitize($_POST['primaryColor'] ?? '#00c689'),
         isset($_POST['isMaintenanceMode']) ? 1 : 0,
         isset($_POST['isKycEnforced']) ? 1 : 0,
+        isset($_POST['isMinDepositForced']) ? 1 : 0,
         sanitize($_POST['smtpHost']), sanitize($_POST['smtpPort']), sanitize($_POST['smtpUser']),
         sanitize($_POST['smtpPass']), sanitize($_POST['senderName']), sanitize($_POST['fromEmail'])
     ]);
@@ -114,7 +115,7 @@ require_once __DIR__ . '/header.php';
                 <div><label class="text-[10px] font-black text-gray-400 uppercase">Daily Check-in (Coins)</label><input type="number" name="bonusPerDay" value="<?php echo $settings['bonusPerDay']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
                 <div><label class="text-[10px] font-black text-gray-400 uppercase">Referral Reward (Coins)</label><input type="number" name="referralBonus" value="<?php echo $settings['referralBonus']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
                 <div><label class="text-[10px] font-black text-gray-400 uppercase">Welcome Bonus (Coins)</label><input type="number" name="welcomeBonus" value="<?php echo $settings['welcomeBonus']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
-                <div><label class="text-[10px] font-black text-gray-400 uppercase">Rate (₦1 = X Coins)</label><input type="number" name="conversionRate" value="<?php echo $settings['conversionRate']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
+                <div><label class="text-[10px] font-black text-gray-400 uppercase">Rate (X Coins = ₦1)</label><input type="number" name="conversionRate" value="<?php echo $settings['conversionRate']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
             </div>
         </div>
 
@@ -131,11 +132,22 @@ require_once __DIR__ . '/header.php';
                 <div class="flex items-center justify-between p-6 bg-amber-50 rounded-3xl border border-amber-100">
                     <div class="flex-1 mr-4">
                         <div class="text-sm font-black text-amber-800 uppercase">KYC Enforcement</div>
-                        <p class="text-[10px] text-amber-600 font-bold uppercase">Require users to be verified before accessing Crypto & Transfers.</p>
+                        <p class="text-[10px] text-amber-600 font-bold uppercase">Require users to be verified before accessing Virtual Cards, Crypto & Transfers.</p>
                     </div>
                     <label class="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" name="isKycEnforced" class="sr-only peer" <?php echo isset($settings['isKycEnforced']) && $settings['isKycEnforced'] ? 'checked' : ''; ?>>
                         <div class="w-14 h-8 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-amber-500"></div>
+                    </label>
+                </div>
+
+                <div class="flex items-center justify-between p-6 bg-blue-50 rounded-3xl border border-blue-100">
+                    <div class="flex-1 mr-4">
+                        <div class="text-sm font-black text-blue-800 uppercase">Force Min. Wallet Deposit</div>
+                        <p class="text-[10px] text-blue-600 font-bold uppercase">Require users to complete an initial deposit before accessing services.</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" name="isMinDepositForced" class="sr-only peer" <?php echo isset($settings['isMinDepositForced']) && $settings['isMinDepositForced'] ? 'checked' : ''; ?>>
+                        <div class="w-14 h-8 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-500"></div>
                     </label>
                 </div>
             </div>

@@ -33,6 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Your cable subscription was successful.<br><br>Provider: $providerId<br>IUC: $iucNumber<br>Amount: " . formatCurrency($amount);
             sendMail($pdo, $currentUser['email'], "Cable TV Receipt", $receiptMsg);
 
+            claimDailyRewardIfEligible($pdo, $currentUser['id']);
             $pdo->commit();
             $success = true;
             // Refresh balance
