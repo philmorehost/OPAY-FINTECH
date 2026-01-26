@@ -38,8 +38,8 @@ function checkKycRestriction($settings, $currentUser) {
     }
 }
 
-function isKycRejected($currentUser) {
-    return $currentUser['kycStatus'] === 'rejected';
+function isKycRejected($user) {
+    return ($user['kycStatus'] ?? 'none') === 'rejected';
 }
 
 function redirect($path) {
@@ -98,10 +98,6 @@ function updateWallet($pdo, $userId, $amount, $type = 'credit') {
     $operator = ($type === 'credit') ? '+' : '-';
     $stmt = $pdo->prepare("UPDATE users SET walletBalance = walletBalance $operator ? WHERE id = ?");
     return $stmt->execute([$amount, $userId]);
-}
-
-function isKycRejected($user) {
-    return ($user['kycStatus'] ?? 'none') === 'rejected';
 }
 
 function checkDailyLimit($pdo, $userId, $recipient, $limit) {
