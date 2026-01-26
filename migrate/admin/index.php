@@ -24,10 +24,17 @@ try {
     addColumnIfNotExists($pdo, 'settings', 'isKycEnforced', "TINYINT(1) DEFAULT 1");
     addColumnIfNotExists($pdo, 'settings', 'isMinDepositForced', "TINYINT(1) DEFAULT 0");
     addColumnIfNotExists($pdo, 'settings', 'minDepositAmount', "DECIMAL(15, 2) DEFAULT 100.00");
+    addColumnIfNotExists($pdo, 'settings', 'pwaEnabled', "TINYINT(1) DEFAULT 1");
+    addColumnIfNotExists($pdo, 'settings', 'pwaIcon', "VARCHAR(255)");
+    addColumnIfNotExists($pdo, 'settings', 'pwaSplash', "VARCHAR(255)");
+    addColumnIfNotExists($pdo, 'settings', 'isBiometricEnforced', "TINYINT(1) DEFAULT 0");
     addColumnIfNotExists($pdo, 'transactions', 'token', "VARCHAR(255)");
     addColumnIfNotExists($pdo, 'transactions', 'provider', "VARCHAR(50)");
     addColumnIfNotExists($pdo, 'kyc_submissions', 'selfieImageUrl', "VARCHAR(255)");
     addColumnIfNotExists($pdo, 'users', 'hasCompletedInitialDeposit', "TINYINT(1) DEFAULT 0");
+    addColumnIfNotExists($pdo, 'users', 'biometricEnabled', "TINYINT(1) DEFAULT 0");
+    addColumnIfNotExists($pdo, 'users', 'biometricCredentialId', "TEXT");
+    addColumnIfNotExists($pdo, 'users', 'biometricPublicKey', "TEXT");
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS virtual_cards (
         id VARCHAR(50) PRIMARY KEY,

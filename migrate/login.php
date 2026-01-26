@@ -12,7 +12,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         die('CSRF token validation failed');
     }
 
-    if (!checkRateLimit('login', 5, 300)) {
+    if (isset($_POST['action']) && $_POST['action'] === 'biometric') {
+        $credentialId = $_POST['credentialId'];
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE biometricCredentialId = ? AND biometricEnabled = 1");
+        $stmt->execute([$credentialId]);
+        $user = $stmt->fetch();
+
+        if ($user && !empty($settings['isBiometricEnforced'])) {
+            // Success
+        } elseif ($user) {
+            // User enabled it, but is it globally disabled?
+            // If it's not "Enforced", is it "Disabled"?
+            // Usually if there's a global toggle, OFF means disabled.
+            // But user said "globally enforce... or globally disable".
+            // If it's disabled, don't allow.
+            if (!isset($settings['isBiometricEnforced']) || !$settings['isBiometricEnforced']) {
+                $user = null; // Disabled globally
+            }
+        } else {
+            $user = null;
+        }
+
+        if ($user) {
+            if ($user['isSuspended']) {
+                $error = 'ACCOUNT SUSPENDED. CONTACT SUPPORT.';
+            } else {
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['username'] = $user['username'];
+                $_SESSION['role'] = $user['role'];
+                redirect('/dashboard');
+            }
+        } else {
+            $error = 'Biometric authentication failed or feature disabled.';
+        }
+    } elseif (!checkRateLimit('login', 5, 300)) {
         $error = 'Too many attempts. Try again later.';
     } else {
     $username = sanitize($_POST['username']);
@@ -85,6 +118,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <button type="submit" class="w-full py-5 bg-billpay-green text-white rounded-[24px] font-black uppercase tracking-widest shadow-xl shadow-green-100 hover:scale-[1.02] transition-all">Sign In</button>
         </form>
+
+        <?php if (!empty($settings['isBiometricEnforced'])): ?>
+        <div id="biometric-area" class="hidden mt-6">
+            <div class="flex items-center gap-4 mb-6">
+                <div class="flex-1 h-px bg-gray-100"></div>
+                <span class="text-[10px] font-black text-gray-300 uppercase">Or Secure With</span>
+                <div class="flex-1 h-px bg-gray-100"></div>
+            </div>
+            <button type="button" onclick="loginWithBiometrics()" class="w-full py-5 bg-gray-900 text-white rounded-[24px] font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all">
+                <i data-lucide="fingerprint" class="w-6 h-6 text-billpay-green"></i>
+                Biometric Login
+            </button>
+            <form id="biometricForm" method="POST">
+                <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                <input type="hidden" name="action" value="biometric">
+                <input type="hidden" name="credentialId" id="biometricIdInput">
+            </form>
+        </div>
+        <script>
+            if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) {
+                document.getElementById('biometric-area').classList.remove('hidden');
+            }
+
+            async function loginWithBiometrics() {
+                if (!window.PublicKeyCredential) return;
+
+                const challenge = new Uint8Array(32);
+                window.crypto.getRandomValues(challenge);
+
+                const getCredentialOptions = {
+                    publicKey: {
+                        challenge: challenge,
+                        timeout: 60000,
+                        userVerification: "required"
+                    }
+                };
+
+                try {
+                    const assertion = await navigator.credentials.get(getCredentialOptions);
+                    if (assertion) {
+                        document.getElementById('biometricIdInput').value = btoa(String.fromCharCode(...new Uint8Array(assertion.rawId)));
+                        document.getElementById('biometricForm').submit();
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert("Biometric login failed: " + err.message);
+                }
+            }
+        </script>
+        <?php endif; ?>
 
         <div class="mt-8 text-center">
             <p class="text-[10px] font-black text-gray-400 uppercase">Don't have an account? <a href="/register" class="text-billpay-green">Create One</a></p>

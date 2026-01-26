@@ -12,6 +12,8 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="<?php echo $settings['primaryColor'] ?? '#00c689'; ?>">
+    <link rel="manifest" href="/manifest.json.php">
+    <link rel="apple-touch-icon" href="<?php echo !empty($settings['pwaIcon']) ? '/'.$settings['pwaIcon'] : '/uploads/logo.png'; ?>">
     <title><?php echo $pageTitle; ?> - Billpay</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -38,9 +40,47 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
         .animate-slide-down {
           animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
+        @keyframes rollRight {
+          0% { transform: translateX(-150%) rotate(-360deg); opacity: 0; }
+          100% { transform: translateX(0) rotate(0deg); opacity: 1; }
+        }
+        .animate-roll-right {
+          animation: rollRight 1s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+        }
+        #splash-screen {
+            position: fixed;
+            inset: 0;
+            background: white;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.5s ease-out, visibility 0.5s;
+        }
     </style>
 </head>
 <body class="bg-gray-50 w-full">
+    <?php if (!empty($settings['pwaEnabled'])): ?>
+    <div id="splash-screen">
+        <div class="text-center animate-roll-right">
+            <img src="/<?php echo !empty($settings['pwaSplash']) ? $settings['pwaSplash'] : (!empty($settings['pwaIcon']) ? $settings['pwaIcon'] : 'uploads/logo.png'); ?>" class="w-32 h-32 object-contain mx-auto mb-4 rounded-3xl shadow-2xl">
+            <h1 class="text-2xl font-black uppercase tracking-tighter text-gray-900"><?php echo $settings['senderName'] ?? 'Billpay'; ?></h1>
+        </div>
+    </div>
+    <script>
+        window.addEventListener('load', () => {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/sw.js');
+            }
+            setTimeout(() => {
+                const splash = document.getElementById('splash-screen');
+                splash.style.opacity = '0';
+                splash.style.visibility = 'hidden';
+            }, 2000);
+        });
+    </script>
+    <?php endif; ?>
+
     <div class="flex min-h-screen w-full">
         <!-- Desktop Sidebar -->
         <aside class="w-72 bg-white border-r border-gray-100 hidden lg:flex flex-col fixed h-full z-40">

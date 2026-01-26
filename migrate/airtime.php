@@ -141,9 +141,16 @@ require_once __DIR__ . '/includes/header.php';
                         ['name' => 'Glo', 'code' => '02'],
                         ['name' => '9mobile', 'code' => '03']
                     ];
+                    $networkColors = [
+                        'MTN' => 'data-color="bg-yellow-400" data-text="text-black"',
+                        'Airtel' => 'data-color="bg-red-600" data-text="text-white"',
+                        'Glo' => 'data-color="bg-green-600" data-text="text-white"',
+                        '9mobile' => 'data-color="bg-emerald-800" data-text="text-white"'
+                    ];
                     foreach ($networks as $n):
+                        $colors = $networkColors[$n['name']] ?? 'data-color="bg-billpay-green" data-text="text-white"';
                     ?>
-                    <button type="button" onclick="setNetwork('<?php echo $n['name']; ?>')" id="net_<?php echo $n['name']; ?>" class="network-btn p-3 rounded-2xl border-2 font-black text-[10px] transition-all border-transparent bg-gray-50 text-gray-400">
+                    <button type="button" onclick="setNetwork('<?php echo $n['name']; ?>')" id="net_<?php echo $n['name']; ?>" <?php echo $colors; ?> class="network-btn p-3 rounded-2xl border-2 font-black text-[10px] transition-all border-transparent bg-gray-50 text-gray-400">
                         <?php echo $n['name']; ?>
                     </button>
                     <?php endforeach; ?>
@@ -199,11 +206,14 @@ require_once __DIR__ . '/includes/header.php';
     function setNetwork(name) {
         document.getElementById('networkInput').value = name;
         document.querySelectorAll('.network-btn').forEach(btn => {
-            btn.classList.remove('border-billpay-green', 'bg-white', 'shadow-md', 'text-gray-900');
+            btn.classList.remove('border-billpay-green', 'shadow-md', 'bg-yellow-400', 'bg-red-600', 'bg-green-600', 'bg-emerald-800', 'text-white', 'text-black', 'text-gray-900');
             btn.classList.add('border-transparent', 'bg-gray-50', 'text-gray-400');
         });
         const activeBtn = document.getElementById('net_' + name);
-        activeBtn.classList.add('border-billpay-green', 'bg-white', 'shadow-md', 'text-gray-900');
+        const bgColor = activeBtn.getAttribute('data-color');
+        const textColor = activeBtn.getAttribute('data-text');
+
+        activeBtn.classList.add('border-billpay-green', 'shadow-md', bgColor, textColor);
         activeBtn.classList.remove('border-transparent', 'bg-gray-50', 'text-gray-400');
     }
 </script>

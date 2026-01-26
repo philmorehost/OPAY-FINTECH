@@ -200,15 +200,28 @@ if (is_string($allPlans)) $allPlans = json_decode($allPlans, true) ?: [];
         document.getElementById('tabBulk').classList.toggle('text-gray-400', !isBulk);
     }
 
+    const networkConfigs = {
+        'mtn': { bg: 'bg-yellow-400', text: 'text-black' },
+        'airtel': { bg: 'bg-red-600', text: 'text-white' },
+        'glo': { bg: 'bg-green-600', text: 'text-white' },
+        'mobile9': { bg: 'bg-emerald-800', text: 'text-white' }
+    };
+
     function setNetwork(id) {
         document.getElementById('networkInput').value = id;
         document.querySelectorAll('.network-btn').forEach(btn => {
-            btn.classList.remove('border-billpay-green', 'bg-green-50', 'shadow-sm');
+            btn.classList.remove('border-billpay-green', 'shadow-sm', 'opacity-100', 'bg-yellow-400', 'bg-red-600', 'bg-green-600', 'bg-emerald-800', 'text-white', 'text-black');
             btn.classList.add('border-transparent', 'bg-gray-50', 'opacity-60');
+            const span = btn.querySelector('span');
+            if(span) { span.classList.remove('text-white', 'text-black'); span.classList.add('text-gray-800'); }
         });
         const activeBtn = document.getElementById('net_' + id);
-        activeBtn.classList.add('border-billpay-green', 'bg-green-50', 'shadow-sm');
+        const config = networkConfigs[id] || { bg: 'bg-billpay-green', text: 'text-white' };
+
+        activeBtn.classList.add('border-billpay-green', 'shadow-sm', 'opacity-100', config.bg);
         activeBtn.classList.remove('border-transparent', 'bg-gray-50', 'opacity-60');
+        const span = activeBtn.querySelector('span');
+        if(span) { span.classList.remove('text-gray-800'); span.classList.add(config.text); }
 
         renderPlans(id);
     }

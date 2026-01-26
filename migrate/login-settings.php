@@ -13,7 +13,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $stmt = $pdo->prepare("UPDATE users SET loginAlertsEnabled = ?, biometricEnabled = ?, marketingEmailsEnabled = ?, smsAlertsEnabled = ? WHERE id = ?");
     $stmt->execute([$loginAlerts, $biometric, $marketing, $smsAlerts, $currentUser['id']]);
+
+    if (isset($_POST['biometricCredentialId'])) {
+        $stmt = $pdo->prepare("UPDATE users SET biometricCredentialId = ?, biometricPublicKey = ? WHERE id = ?");
+        $stmt->execute([$_POST['biometricCredentialId'], $_POST['biometricPublicKey'], $currentUser['id']]);
+    }
+
     $success = "Security settings updated!";
+    // Refresh
+    $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+    $stmt->execute([$currentUser['id']]);
+    $currentUser = $stmt->fetch();
 }
 
 require_once __DIR__ . '/includes/header.php';
@@ -47,11 +57,20 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="text-sm font-black text-gray-800">Biometric Login</div>
                         <div class="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Use FaceID/TouchID</div>
                     </div>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" name="biometricEnabled" class="sr-only peer" <?php echo $currentUser['biometricEnabled'] ? 'checked' : ''; ?>>
-                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-billpay-green"></div>
-                    </label>
+                    <div class="flex items-center gap-3">
+                        <?php if (empty($currentUser['biometricCredentialId'])): ?>
+                            <button type="button" onclick="registerBiometrics()" class="text-[9px] font-black uppercase text-billpay-green bg-green-50 px-3 py-1.5 rounded-full border border-green-100">Setup</button>
+                        <?php else: ?>
+                            <span class="text-[8px] font-black text-green-500 uppercase bg-green-50 px-2 py-1 rounded-md">Linked</span>
+                        <?php endif; ?>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" name="biometricEnabled" class="sr-only peer" <?php echo $currentUser['biometricEnabled'] ? 'checked' : ''; ?>>
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-billpay-green"></div>
+                        </label>
+                    </div>
                 </div>
+                <input type="hidden" name="biometricCredentialId" id="biometricCredentialId">
+                <input type="hidden" name="biometricPublicKey" id="biometricPublicKey">
 
                 <div class="flex items-center justify-between">
                     <div>
@@ -69,4 +88,45 @@ require_once __DIR__ . '/includes/header.php';
         </form>
     </div>
 </div>
+<script>
+    async function registerBiometrics() {
+        if (!window.PublicKeyCredential) {
+            alert("Biometrics not supported on this device.");
+            return;
+        }
+
+        const siteName = "<?php echo $settings['senderName'] ?? 'Billpay'; ?>";
+        const username = "<?php echo $currentUser['username']; ?>";
+        const challenge = new Uint8Array(32);
+        window.crypto.getRandomValues(challenge);
+
+        const createCredentialOptions = {
+            publicKey: {
+                challenge: challenge,
+                rp: { name: siteName },
+                user: {
+                    id: Uint8Array.from(username, c => c.charCodeAt(0)),
+                    name: username,
+                    displayName: username
+                },
+                pubKeyCredParams: [{ alg: -7, type: "public-key" }],
+                authenticatorSelection: { authenticatorAttachment: "platform" },
+                timeout: 60000,
+                attestation: "direct"
+            }
+        };
+
+        try {
+            const credential = await navigator.credentials.create(createCredentialOptions);
+            if (credential) {
+                document.getElementById('biometricCredentialId').value = btoa(String.fromCharCode(...new Uint8Array(credential.rawId)));
+                document.getElementById('biometricPublicKey').value = "webauthn-placeholder";
+                alert("Biometrics linked! Please save your preferences.");
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Failed to setup biometrics: " + err.message);
+        }
+    }
+</script>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

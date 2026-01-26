@@ -7,6 +7,18 @@ $pageTitle = 'Global Settings';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrfToken($_POST['csrf_token'])) die('CSRF Failed');
 
+    $pwaIcon = $settings['pwaIcon'];
+    if (!empty($_FILES['pwaIcon']['name'])) {
+        $pwaIcon = 'uploads/pwa_icon_' . time() . '.png';
+        move_uploaded_file($_FILES['pwaIcon']['tmp_name'], __DIR__ . '/../' . $pwaIcon);
+    }
+
+    $pwaSplash = $settings['pwaSplash'];
+    if (!empty($_FILES['pwaSplash']['name'])) {
+        $pwaSplash = 'uploads/pwa_splash_' . time() . '.png';
+        move_uploaded_file($_FILES['pwaSplash']['tmp_name'], __DIR__ . '/../' . $pwaSplash);
+    }
+
     $stmt = $pdo->prepare("UPDATE settings SET
         bankAccount = ?, bankName = ?, accountName = ?,
         minDepositAmount = ?, minAirtimePurchase = ?,
@@ -14,6 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         bonusPerDay = ?, referralBonus = ?, welcomeBonus = ?, conversionRate = ?,
         templateId = ?, primaryColor = ?,
         isMaintenanceMode = ?, isKycEnforced = ?, isMinDepositForced = ?,
+        isBiometricEnforced = ?, pwaEnabled = ?, pwaIcon = ?, pwaSplash = ?,
         smtpHost = ?, smtpPort = ?, smtpUser = ?,
         smtpPass = ?, senderName = ?, fromEmail = ?
         WHERE id = 1");
@@ -26,6 +39,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         isset($_POST['isMaintenanceMode']) ? 1 : 0,
         isset($_POST['isKycEnforced']) ? 1 : 0,
         isset($_POST['isMinDepositForced']) ? 1 : 0,
+        isset($_POST['isBiometricEnforced']) ? 1 : 0,
+        isset($_POST['pwaEnabled']) ? 1 : 0,
+        $pwaIcon, $pwaSplash,
         sanitize($_POST['smtpHost']), sanitize($_POST['smtpPort']), sanitize($_POST['smtpUser']),
         sanitize($_POST['smtpPass']), sanitize($_POST['senderName']), sanitize($_POST['fromEmail'])
     ]);
@@ -42,7 +58,7 @@ require_once __DIR__ . '/header.php';
         <div class="p-4 bg-green-50 text-green-800 rounded-2xl text-xs font-black border border-green-100 uppercase text-center"><?php echo $success; ?></div>
     <?php endif; ?>
 
-    <form method="POST" class="space-y-10">
+    <form method="POST" class="space-y-10" enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
 
         <!-- Global System Control -->
@@ -128,7 +144,7 @@ require_once __DIR__ . '/header.php';
                 <div><label class="text-[10px] font-black text-gray-400 uppercase">Max Daily Tx Per ID (Phone/IUC/Meter)</label><input type="number" name="maxDailyTxPerId" value="<?php echo $settings['maxDailyTxPerId']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
             </div>
 
-            <div class="mt-8 pt-8 border-t border-gray-100">
+            <div class="mt-8 pt-8 border-t border-gray-100 space-y-6">
                 <div class="flex items-center justify-between p-6 bg-amber-50 rounded-3xl border border-amber-100">
                     <div class="flex-1 mr-4">
                         <div class="text-sm font-black text-amber-800 uppercase">KYC Enforcement</div>
@@ -149,6 +165,50 @@ require_once __DIR__ . '/header.php';
                         <input type="checkbox" name="isMinDepositForced" class="sr-only peer" <?php echo isset($settings['isMinDepositForced']) && $settings['isMinDepositForced'] ? 'checked' : ''; ?>>
                         <div class="w-14 h-8 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-500"></div>
                     </label>
+                </div>
+
+                <div class="flex items-center justify-between p-6 bg-indigo-50 rounded-3xl border border-indigo-100">
+                    <div class="flex-1 mr-4">
+                        <div class="text-sm font-black text-indigo-800 uppercase">Global Biometric Enforcement</div>
+                        <p class="text-[10px] text-indigo-600 font-bold uppercase">Enable Biometric Login site-wide (Respects individual user choice).</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" name="isBiometricEnforced" class="sr-only peer" <?php echo isset($settings['isBiometricEnforced']) && $settings['isBiometricEnforced'] ? 'checked' : ''; ?>>
+                        <div class="w-14 h-8 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-indigo-500"></div>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- PWA Configuration -->
+        <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
+            <h3 class="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><i data-lucide="smartphone" class="text-purple-500"></i> PWA Configuration</h3>
+
+            <div class="flex items-center justify-between p-6 bg-purple-50 rounded-3xl border border-purple-100 mb-8">
+                <div class="flex-1 mr-4">
+                    <div class="text-sm font-black text-purple-800 uppercase">Enable PWA & Splash Screen</div>
+                    <p class="text-[10px] text-purple-600 font-bold uppercase">Enables App installation and rolling splash screen.</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" name="pwaEnabled" class="sr-only peer" <?php echo isset($settings['pwaEnabled']) && $settings['pwaEnabled'] ? 'checked' : ''; ?>>
+                    <div class="w-14 h-8 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-purple-500"></div>
+                </label>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    <label class="text-[10px] font-black text-gray-400 uppercase ml-1">PWA App Icon (PNG)</label>
+                    <div class="mt-2 flex items-center gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                        <img src="/<?php echo !empty($settings['pwaIcon']) ? $settings['pwaIcon'] : 'uploads/logo.png'; ?>" class="w-12 h-12 rounded-xl object-contain bg-white shadow-sm">
+                        <input type="file" name="pwaIcon" accept="image/png" class="text-xs font-bold text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-black file:bg-gray-900 file:text-white hover:file:bg-black">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Splash Screen Image (PNG)</label>
+                    <div class="mt-2 flex items-center gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                        <img src="/<?php echo !empty($settings['pwaSplash']) ? $settings['pwaSplash'] : 'uploads/logo.png'; ?>" class="w-12 h-12 rounded-xl object-contain bg-white shadow-sm">
+                        <input type="file" name="pwaSplash" accept="image/png" class="text-xs font-bold text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-black file:bg-gray-900 file:text-white hover:file:bg-black">
+                    </div>
                 </div>
             </div>
         </div>
