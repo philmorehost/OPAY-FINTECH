@@ -27,7 +27,7 @@ if (!empty($settings['isMaintenanceMode'])) {
     // error_log("Current File: $currentFile");
 
     if (!$isAdminPath && $currentFile !== 'maintenance.php' && $currentFile !== 'login.php' && $currentFile !== 'logout.php' && $currentFile !== 'install.php') {
-        include (strpos($_SERVER['SCRIPT_NAME'], '/admin/') !== false ? '../' : '') . 'maintenance.php';
+        include __DIR__ . '/../maintenance.php';
         exit;
     }
 }

@@ -38,9 +38,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             move_uploaded_file($_FILES['addressImage']['tmp_name'], __DIR__ . '/' . $addressImageUrl);
         }
 
+        $selfieImageUrl = '';
+        if (!empty($_POST['selfieData'])) {
+            $data = $_POST['selfieData'];
+            if (preg_match('/^data:image\/(\w+);base64,/', $data, $type)) {
+                $data = substr($data, strpos($data, ',') + 1);
+                $type = strtolower($type[1]);
+                if (in_array($type, ['jpg', 'jpeg', 'png', 'webp'])) {
+                    $data = base64_decode($data);
+                    $selfieImageUrl = 'uploads/kyc/selfie_' . $currentUser['id'] . '_' . time() . '.' . $type;
+                    file_put_contents(__DIR__ . '/' . $selfieImageUrl, $data);
+                }
+            }
+        }
+
         $id = 'KYC-' . strtoupper(bin2hex(random_bytes(4)));
-        $stmt = $pdo->prepare("INSERT INTO kyc_submissions (id, userId, fullName, dob, address, idType, idNumber, idImageUrl, addressImageUrl, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')");
-        $stmt->execute([$id, $currentUser['id'], $fullName, $dob, $address, $idType, $idNumber, $idImageUrl, $addressImageUrl]);
+        $stmt = $pdo->prepare("INSERT INTO kyc_submissions (id, userId, fullName, dob, address, idType, idNumber, idImageUrl, addressImageUrl, selfieImageUrl, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')");
+        $stmt->execute([$id, $currentUser['id'], $fullName, $dob, $address, $idType, $idNumber, $idImageUrl, $addressImageUrl, $selfieImageUrl]);
 
         $pdo->prepare("UPDATE users SET kycStatus = 'pending' WHERE id = ?")->execute([$currentUser['id']]);
 
@@ -130,6 +144,35 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
 
                 <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100 space-y-6">
+                    <h3 class="text-sm font-black uppercase tracking-widest text-gray-900 border-l-4 border-billpay-green pl-4">Biometric Liveness Verification</h3>
+                    <div class="bg-gray-50 p-6 rounded-[32px] border-2 border-dashed border-gray-200 text-center relative overflow-hidden min-h-[300px] flex flex-col items-center justify-center">
+                        <video id="video" class="w-full h-full object-cover absolute inset-0 hidden" autoplay playsinline></video>
+                        <canvas id="canvas" class="w-full h-full object-cover absolute inset-0 hidden"></canvas>
+                        <img id="selfiePreview" class="w-full h-full object-cover absolute inset-0 hidden">
+
+                        <div id="cameraPlaceholder" class="relative z-10 flex flex-col items-center gap-4">
+                            <div class="w-20 h-20 bg-white rounded-full flex items-center justify-center text-gray-300 shadow-sm">
+                                <i data-lucide="camera" class="w-10 h-10"></i>
+                            </div>
+                            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Capture Live Selfie</p>
+                            <button type="button" onclick="startCamera()" class="px-6 py-3 bg-billpay-green text-white text-[10px] font-black uppercase rounded-xl">Enable Camera</button>
+                        </div>
+
+                        <div id="cameraControls" class="absolute bottom-6 left-0 right-0 z-20 hidden flex justify-center gap-4">
+                            <button type="button" onclick="capturePhoto()" class="w-14 h-14 bg-white rounded-full flex items-center justify-center text-billpay-green shadow-xl border-4 border-billpay-green/20">
+                                <i data-lucide="aperture" class="w-8 h-8"></i>
+                            </button>
+                        </div>
+
+                        <button type="button" id="retakeBtn" onclick="startCamera()" class="absolute top-6 right-6 z-30 hidden w-10 h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-gray-900 shadow-lg">
+                            <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    <input type="hidden" name="selfieData" id="selfieData" required>
+                    <p class="text-[9px] font-bold text-gray-400 uppercase text-center tracking-tighter italic">* Liveness check ensures you are physically present. Stolen photos will be rejected.</p>
+                </div>
+
+                <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100 space-y-6">
                     <h3 class="text-sm font-black uppercase tracking-widest text-gray-900 border-l-4 border-billpay-green pl-4">Document Details</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
@@ -164,4 +207,51 @@ require_once __DIR__ . '/includes/header.php';
         <?php endif; ?>
     <?php endif; ?>
 </div>
+<script>
+let stream = null;
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const preview = document.getElementById('selfiePreview');
+const selfieData = document.getElementById('selfieData');
+const placeholder = document.getElementById('cameraPlaceholder');
+const controls = document.getElementById('cameraControls');
+const retakeBtn = document.getElementById('retakeBtn');
+
+async function startCamera() {
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+        video.srcObject = stream;
+        video.classList.remove('hidden');
+        placeholder.classList.add('hidden');
+        controls.classList.remove('hidden');
+        preview.classList.add('hidden');
+        retakeBtn.classList.add('hidden');
+        canvas.classList.add('hidden');
+    } catch (err) {
+        alert("Could not access camera. Please ensure you have given permission.");
+        console.error(err);
+    }
+}
+
+function capturePhoto() {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext('2d');
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const data = canvas.toDataURL('image/jpeg');
+    selfieData.value = data;
+    preview.src = data;
+
+    // Stop stream
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+    }
+
+    video.classList.add('hidden');
+    preview.classList.remove('hidden');
+    controls.classList.add('hidden');
+    retakeBtn.classList.remove('hidden');
+}
+</script>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

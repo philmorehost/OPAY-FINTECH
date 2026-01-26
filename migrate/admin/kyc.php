@@ -66,6 +66,9 @@ require_once __DIR__ . '/header.php';
                         <div class="flex gap-2">
                             <a href="/<?php echo $sub['idImageUrl']; ?>" target="_blank" class="text-[8px] font-black uppercase bg-gray-100 px-2 py-1 rounded text-gray-500 hover:bg-gray-200">View ID</a>
                             <a href="/<?php echo $sub['addressImageUrl']; ?>" target="_blank" class="text-[8px] font-black uppercase bg-gray-100 px-2 py-1 rounded text-gray-500 hover:bg-gray-200">View Proof</a>
+                            <?php if (!empty($sub['selfieImageUrl'])): ?>
+                            <a href="/<?php echo $sub['selfieImageUrl']; ?>" target="_blank" class="text-[8px] font-black uppercase bg-billpay-green/10 px-2 py-1 rounded text-billpay-green hover:bg-billpay-green hover:text-white transition-all">View Selfie</a>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>

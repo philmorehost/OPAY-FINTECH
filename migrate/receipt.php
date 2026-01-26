@@ -72,13 +72,6 @@ require_once __DIR__ . '/includes/header.php';
                         <p class="text-[11px] font-bold text-indigo-900 leading-relaxed uppercase"><?php echo $tx['details']; ?></p>
                     </div>
                 </div>
-
-                <div class="text-center pt-8">
-                    <div class="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto text-gray-300 mb-4">
-                        <i data-lucide="shield-check" class="w-6 h-6"></i>
-                    </div>
-                    <p class="text-[9px] font-black text-gray-300 uppercase tracking-widest">Digitally Verified by Billpay</p>
-                </div>
             </div>
         </div>
 
@@ -95,12 +88,19 @@ require_once __DIR__ . '/includes/header.php';
 </div>
 
 <style>
+@page {
+    size: auto;
+    margin: 0mm;
+}
 @media print {
     .no-print { display: none !important; }
-    aside, header, nav, .lg\:hidden { display: none !important; }
-    main { margin-left: 0 !important; }
-    body { background: white !important; }
-    #receiptContent { padding: 0 !important; }
+    aside, header, nav, .lg\:hidden, footer { display: none !important; }
+    main { margin-left: 0 !important; padding: 0 !important; }
+    body { background: white !important; margin: 0 !important; padding: 0 !important; }
+    #receiptContent { padding: 20mm !important; max-width: 100% !important; }
+    .rounded-[50px] { border-radius: 20px !important; }
+    .shadow-2xl { shadow: none !important; box-shadow: none !important; }
+    .bg-gray-50 { background-color: white !important; }
 }
 </style>
 

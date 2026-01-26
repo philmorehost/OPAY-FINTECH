@@ -169,6 +169,7 @@ if ($stage === 2 && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 idNumber VARCHAR(50),
                 idImageUrl VARCHAR(255),
                 addressImageUrl VARCHAR(255),
+                selfieImageUrl VARCHAR(255),
                 status ENUM('none', 'pending', 'verified', 'rejected') DEFAULT 'pending',
                 date DATETIME DEFAULT CURRENT_TIMESTAMP,
                 rejectionReason TEXT,

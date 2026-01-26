@@ -24,6 +24,7 @@ try {
     addColumnIfNotExists($pdo, 'settings', 'isKycEnforced', "TINYINT(1) DEFAULT 1");
     addColumnIfNotExists($pdo, 'transactions', 'token', "VARCHAR(255)");
     addColumnIfNotExists($pdo, 'transactions', 'provider', "VARCHAR(50)");
+    addColumnIfNotExists($pdo, 'kyc_submissions', 'selfieImageUrl', "VARCHAR(255)");
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS offers (
         id INT AUTO_INCREMENT PRIMARY KEY,
