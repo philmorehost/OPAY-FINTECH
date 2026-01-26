@@ -133,7 +133,12 @@ function updateWallet($pdo, $userId, $amount, $type = 'credit') {
     $stmt = $pdo->prepare("UPDATE users SET walletBalance = walletBalance $operator ? WHERE id = ?");
     $res = $stmt->execute([$amount, $userId]);
     if ($res && $type === 'credit') {
-        $pdo->prepare("UPDATE users SET hasCompletedInitialDeposit = 1 WHERE id = ?")->execute([$userId]);
+        // Only mark as completed if the credit amount meets or exceeds the minimum required deposit
+        $sStmt = $pdo->query("SELECT minDepositAmount FROM settings WHERE id = 1");
+        $min = $sStmt->fetchColumn() ?: 0;
+        if ($amount >= $min) {
+            $pdo->prepare("UPDATE users SET hasCompletedInitialDeposit = 1 WHERE id = ?")->execute([$userId]);
+        }
     }
     return $res;
 }

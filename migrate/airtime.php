@@ -142,15 +142,18 @@ require_once __DIR__ . '/includes/header.php';
                         ['name' => '9mobile', 'code' => '03']
                     ];
                     $networkColors = [
-                        'MTN' => 'data-color="bg-yellow-400" data-text="text-black"',
-                        'Airtel' => 'data-color="bg-red-600" data-text="text-white"',
-                        'Glo' => 'data-color="bg-green-600" data-text="text-white"',
-                        '9mobile' => 'data-color="bg-emerald-800" data-text="text-white"'
+                        'MTN' => ['bg' => 'bg-yellow-400', 'text' => 'text-black', 'hex' => '#FFCC00'],
+                        'Airtel' => ['bg' => 'bg-red-600', 'text' => 'text-white', 'hex' => '#ED1C24'],
+                        'Glo' => ['bg' => 'bg-green-600', 'text' => 'text-white', 'hex' => '#339933'],
+                        '9mobile' => ['bg' => 'bg-emerald-800', 'text' => 'text-white', 'hex' => '#006600']
                     ];
                     foreach ($networks as $n):
-                        $colors = $networkColors[$n['name']] ?? 'data-color="bg-billpay-green" data-text="text-white"';
+                        $conf = $networkColors[$n['name']] ?? ['bg' => 'bg-billpay-green', 'text' => 'text-white', 'hex' => $settings['primaryColor']];
                     ?>
-                    <button type="button" onclick="setNetwork('<?php echo $n['name']; ?>')" id="net_<?php echo $n['name']; ?>" <?php echo $colors; ?> class="network-btn p-3 rounded-2xl border-2 font-black text-[10px] transition-all border-transparent bg-gray-50 text-gray-400">
+                    <button type="button" onclick="setNetwork('<?php echo $n['name']; ?>')" id="net_<?php echo $n['name']; ?>" data-color="<?php echo $conf['bg']; ?>" data-text="<?php echo $conf['text']; ?>" class="network-btn p-3 rounded-2xl border-2 font-black text-[10px] transition-all border-transparent bg-gray-50 text-gray-400 flex flex-col items-center gap-2">
+                        <div class="w-8 h-8 rounded-full shadow-sm flex items-center justify-center text-[10px] text-white font-black" style="background-color: <?php echo $conf['hex']; ?>;">
+                            <?php echo substr($n['name'], 0, 1); ?>
+                        </div>
                         <?php echo $n['name']; ?>
                     </button>
                     <?php endforeach; ?>

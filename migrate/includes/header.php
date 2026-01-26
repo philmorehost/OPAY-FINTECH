@@ -72,11 +72,18 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('/sw.js');
             }
-            setTimeout(() => {
-                const splash = document.getElementById('splash-screen');
-                splash.style.opacity = '0';
-                splash.style.visibility = 'hidden';
-            }, 2000);
+
+            const isPwa = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+            const splash = document.getElementById('splash-screen');
+
+            if (isPwa && splash) {
+                setTimeout(() => {
+                    splash.style.opacity = '0';
+                    splash.style.visibility = 'hidden';
+                }, 3000);
+            } else if (splash) {
+                splash.style.display = 'none';
+            }
         });
     </script>
     <?php endif; ?>

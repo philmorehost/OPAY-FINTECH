@@ -122,6 +122,7 @@ if ($stage === 2 && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 pwaEnabled BOOLEAN DEFAULT TRUE,
                 pwaIcon VARCHAR(255),
                 pwaSplash VARCHAR(255),
+                siteDescription TEXT,
                 isMaintenanceMode BOOLEAN DEFAULT FALSE,
                 adminTheme ENUM('light', 'dark') DEFAULT 'light',
                 smtpHost VARCHAR(255),

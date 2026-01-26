@@ -13,6 +13,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (isset($_POST['action']) && $_POST['action'] === 'biometric') {
+        // NOTE: This is a simplified biometric authentication check for demonstration.
+        // In a production environment, you MUST implement full WebAuthn signature verification.
         $credentialId = $_POST['credentialId'];
         $stmt = $pdo->prepare("SELECT * FROM users WHERE biometricCredentialId = ? AND biometricEnabled = 1");
         $stmt->execute([$credentialId]);

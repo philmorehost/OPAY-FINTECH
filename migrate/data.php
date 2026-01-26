@@ -155,9 +155,18 @@ if (is_string($allPlans)) $allPlans = json_decode($allPlans, true) ?: [];
             <div>
                 <label class="block text-[10px] font-black text-gray-400 mb-3 px-1 uppercase tracking-widest">Provider</label>
                 <div class="grid grid-cols-4 gap-3">
-                    <?php foreach ($dataNetworks as $n): ?>
+                    <?php
+                    $dataColors = [
+                        'mtn' => '#FFCC00',
+                        'airtel' => '#ED1C24',
+                        'glo' => '#339933',
+                        'mobile9' => '#006600'
+                    ];
+                    foreach ($dataNetworks as $n):
+                        $hex = $dataColors[$n['id']] ?? $settings['primaryColor'];
+                    ?>
                     <button type="button" onclick="setNetwork('<?php echo $n['id']; ?>')" id="net_<?php echo $n['id']; ?>" class="network-btn flex flex-col items-center gap-2 p-2 rounded-2xl border-2 transition-all border-transparent bg-gray-50 opacity-60">
-                        <div class="w-10 h-10 rounded-full bg-gray-900 flex items-center justify-center text-white text-[10px] font-black"><?php echo substr($n['name'], 0, 2); ?></div>
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-white text-[10px] font-black" style="background-color: <?php echo $hex; ?>;"><?php echo substr($n['name'], 0, 2); ?></div>
                         <span class="text-[8px] font-black uppercase text-gray-800"><?php echo $n['name']; ?></span>
                     </button>
                     <?php endforeach; ?>

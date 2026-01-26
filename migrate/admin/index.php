@@ -27,6 +27,7 @@ try {
     addColumnIfNotExists($pdo, 'settings', 'pwaEnabled', "TINYINT(1) DEFAULT 1");
     addColumnIfNotExists($pdo, 'settings', 'pwaIcon', "VARCHAR(255)");
     addColumnIfNotExists($pdo, 'settings', 'pwaSplash', "VARCHAR(255)");
+    addColumnIfNotExists($pdo, 'settings', 'siteDescription', "TEXT");
     addColumnIfNotExists($pdo, 'settings', 'isBiometricEnforced', "TINYINT(1) DEFAULT 0");
     addColumnIfNotExists($pdo, 'transactions', 'token', "VARCHAR(255)");
     addColumnIfNotExists($pdo, 'transactions', 'provider', "VARCHAR(50)");

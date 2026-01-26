@@ -3,7 +3,7 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/includes/config.php';
 
 $siteName = $settings['senderName'] ?? 'Billpay';
-$description = "Seamless bill payments and rewards platform."; // Should fetch from settings if available
+$description = $settings['siteDescription'] ?? "Seamless bill payments and rewards platform.";
 
 $icon = '/uploads/logo.png'; // Default
 if (!empty($settings['pwaIcon'])) {

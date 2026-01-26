@@ -27,6 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         templateId = ?, primaryColor = ?,
         isMaintenanceMode = ?, isKycEnforced = ?, isMinDepositForced = ?,
         isBiometricEnforced = ?, pwaEnabled = ?, pwaIcon = ?, pwaSplash = ?,
+        siteDescription = ?,
         smtpHost = ?, smtpPort = ?, smtpUser = ?,
         smtpPass = ?, senderName = ?, fromEmail = ?
         WHERE id = 1");
@@ -42,6 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         isset($_POST['isBiometricEnforced']) ? 1 : 0,
         isset($_POST['pwaEnabled']) ? 1 : 0,
         $pwaIcon, $pwaSplash,
+        sanitize($_POST['siteDescription']),
         sanitize($_POST['smtpHost']), sanitize($_POST['smtpPort']), sanitize($_POST['smtpUser']),
         sanitize($_POST['smtpPass']), sanitize($_POST['senderName']), sanitize($_POST['fromEmail'])
     ]);
@@ -101,6 +103,21 @@ require_once __DIR__ . '/header.php';
             </div>
         </div>
 
+        <!-- Branding & SEO -->
+        <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
+            <h3 class="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><i data-lucide="award" class="text-billpay-green"></i> Branding & Identity</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    <label class="text-[10px] font-black text-gray-400 uppercase">Site Name / Business Name</label>
+                    <input type="text" name="senderName" value="<?php echo $settings['senderName']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green">
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-gray-400 uppercase">Site Description (SEO/PWA)</label>
+                    <input type="text" name="siteDescription" value="<?php echo $settings['siteDescription']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green">
+                </div>
+            </div>
+        </div>
+
         <!-- Bank Details -->
         <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
             <h3 class="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><i data-lucide="landmark" class="text-indigo-500"></i> Settlement Account</h3>
@@ -119,7 +136,6 @@ require_once __DIR__ . '/header.php';
                 <div><label class="text-[10px] font-black text-gray-400 uppercase">Port</label><input type="text" name="smtpPort" value="<?php echo $settings['smtpPort']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
                 <div><label class="text-[10px] font-black text-gray-400 uppercase">User</label><input type="text" name="smtpUser" value="<?php echo $settings['smtpUser']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
                 <div><label class="text-[10px] font-black text-gray-400 uppercase">Password</label><input type="password" name="smtpPass" value="<?php echo $settings['smtpPass']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
-                <div><label class="text-[10px] font-black text-gray-400 uppercase">Sender Name</label><input type="text" name="senderName" value="<?php echo $settings['senderName']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
                 <div><label class="text-[10px] font-black text-gray-400 uppercase">Sender Email</label><input type="text" name="fromEmail" value="<?php echo $settings['fromEmail']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
             </div>
         </div>
