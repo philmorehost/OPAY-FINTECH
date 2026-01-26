@@ -234,6 +234,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 deferredPrompt = null;
                 document.getElementById('installModal').classList.add('hidden');
+            } else {
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+                if (isIOS) {
+                    alert("To install: Tap the 'Share' icon in your browser bottom bar, then select 'Add to Home Screen' from the menu.");
+                } else {
+                    alert("Please use the 'Install' or 'Add to Home Screen' option in your browser menu to install the app.");
+                }
             }
         });
     </script>

@@ -44,7 +44,11 @@
     <!-- Mobile Header -->
     <header class="lg:hidden h-16 bg-white border-b border-gray-100 flex items-center justify-between px-6 sticky top-0 z-30">
         <div class="flex items-center gap-3">
-            <div class="w-8 h-8 bg-billpay-green rounded-lg flex items-center justify-center text-white font-black text-lg shadow-md">B</div>
+            <?php if (!empty($settings['pwaIcon'])): ?>
+                <img src="/<?php echo $settings['pwaIcon']; ?>" class="w-8 h-8 rounded-lg object-contain shadow-md">
+            <?php else: ?>
+                <div class="w-8 h-8 bg-billpay-green rounded-lg flex items-center justify-center text-white font-black text-lg shadow-md">B</div>
+            <?php endif; ?>
             <span class="font-black text-sm uppercase tracking-tight">Admin Hub</span>
         </div>
         <button onclick="toggleSidebar()" id="mobileMenuBtn" class="p-2 text-gray-400 hover:text-gray-900">
@@ -59,7 +63,11 @@
         <aside id="sidebar" class="w-72 border-r flex flex-col fixed h-full z-40 bg-white border-gray-100 overflow-y-auto scrollbar-hide -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
             <div class="p-8 flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-billpay-green rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg">B</div>
+                    <?php if (!empty($settings['pwaIcon'])): ?>
+                        <img src="/<?php echo $settings['pwaIcon']; ?>" class="w-10 h-10 rounded-xl object-contain shadow-md">
+                    <?php else: ?>
+                        <div class="w-10 h-10 bg-billpay-green rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg">B</div>
+                    <?php endif; ?>
                     <span class="font-black text-lg">Admin Hub</span>
                 </div>
                 <button onclick="toggleSidebar()" class="lg:hidden p-2 text-gray-400 hover:text-gray-900">

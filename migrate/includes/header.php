@@ -119,8 +119,12 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
         <!-- Desktop Sidebar -->
         <aside class="w-72 bg-white border-r border-gray-100 hidden lg:flex flex-col fixed h-full z-40">
             <div class="p-8 flex items-center gap-3">
-                <div class="w-10 h-10 bg-billpay-green rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg">B</div>
-                <span class="font-black text-lg tracking-tight">Billpay</span>
+                <?php if (!empty($settings['pwaIcon'])): ?>
+                    <img src="/<?php echo $settings['pwaIcon']; ?>" class="w-10 h-10 rounded-xl object-contain shadow-md">
+                <?php else: ?>
+                    <div class="w-10 h-10 bg-billpay-green rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg">B</div>
+                <?php endif; ?>
+                <span class="font-black text-lg tracking-tight"><?php echo $settings['senderName'] ?? 'Billpay'; ?></span>
             </div>
 
             <nav class="flex-1 px-4 py-4 space-y-1 overflow-y-auto scrollbar-hide">
@@ -164,7 +168,11 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
             <!-- Header -->
             <header class="h-20 bg-white/80 backdrop-blur-md border-b border-gray-50 sticky top-0 z-30 px-6 lg:px-12 flex items-center justify-between">
                 <div class="flex items-center gap-4 lg:hidden">
-                    <div class="w-10 h-10 bg-billpay-green rounded-xl flex items-center justify-center text-white font-black text-xl">B</div>
+                    <?php if (!empty($settings['pwaIcon'])): ?>
+                        <img src="/<?php echo $settings['pwaIcon']; ?>" class="w-10 h-10 rounded-xl object-contain shadow-md">
+                    <?php else: ?>
+                        <div class="w-10 h-10 bg-billpay-green rounded-xl flex items-center justify-center text-white font-black text-xl">B</div>
+                    <?php endif; ?>
                 </div>
 
                 <h2 class="text-sm font-black uppercase tracking-widest text-gray-800 hidden lg:block"><?php echo $pageTitle; ?></h2>
