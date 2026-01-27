@@ -41,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $stmt = $pdo->prepare("INSERT INTO virtual_cards (id, userId, cardNumber, expiry, cvv, type, balance) VALUES (?, ?, ?, ?, ?, ?, 0)");
                     $stmt->execute([$cardId, $currentUser['id'], $cardNumber, $expiry, $cvv, $type]);
 
-                    logTransaction($pdo, $currentUser['id'], 'Virtual Card', $cost, 'successful', "New Virtual $type Card issued: $cardNumber", 'System', 'JuicyWay');
+                    logTransaction($pdo, $currentUser['id'], 'Virtual Card', $cost, 'successful', "New Virtual $type Card issued: $cardNumber", 'System', 'CardIssuer');
                     $success = "Virtual Card issued successfully!";
                 } else {
                     throw new Exception($jwRes['message'] ?? 'Failed to issue card from provider');
@@ -72,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $stmt = $pdo->prepare("UPDATE virtual_cards SET balance = balance + ? WHERE id = ? AND userId = ?");
                     $stmt->execute([$amount, $cardId, $currentUser['id']]);
 
-                    logTransaction($pdo, $currentUser['id'], 'Card Funding', $amount, 'successful', "Funded Virtual Card ($cardId)", $cardId, 'JuicyWay');
+                    logTransaction($pdo, $currentUser['id'], 'Card Funding', $amount, 'successful', "Funded Virtual Card ($cardId)", $cardId, 'System');
                     $success = "Card funded successfully!";
                 } else {
                     throw new Exception($jwRes['message'] ?? 'Failed to fund card');

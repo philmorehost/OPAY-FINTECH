@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $res = purchaseReloadlyGiftCard($settings, $productId, $amount, $currentUser['email']);
 
             if (isset($res['status']) && ($res['status'] === 'SUCCESS' || $res['status'] === 'PENDING')) {
-                logTransaction($pdo, $currentUser['id'], 'Gift Card', $amount, 'successful', "Purchased $productName Gift Card", $currentUser['email'], 'Reloadly');
+                logTransaction($pdo, $currentUser['id'], 'Gift Card', $amount, 'successful', "Purchased $productName Gift Card", $currentUser['email'], 'System');
                 $success = "Gift card purchased! Details will be sent to {$currentUser['email']} shortly.";
             } else {
                 throw new Exception($res['message'] ?? "Provider error.");

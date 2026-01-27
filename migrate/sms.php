@@ -46,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $smsRes = sendKudiSms($settings, $senderId, $message, implode(',', $recipients));
                 $isSuccess = (isset($smsRes['status']) && ($smsRes['status'] === 'success' || $smsRes['status'] === 'OK')) || (isset($smsRes['code']) && $smsRes['code'] == 200);
 
-                logTransaction($pdo, $currentUser['id'], 'Bulk SMS', $totalCost, $isSuccess ? 'successful' : 'failed', "Bulk SMS to " . count($recipients) . " recipients. Sender: $senderId", count($recipients) . " recipients", 'KudiSMS');
+                logTransaction($pdo, $currentUser['id'], 'Bulk SMS', $totalCost, $isSuccess ? 'successful' : 'failed', "Bulk SMS to " . count($recipients) . " recipients. Sender: $senderId", count($recipients) . " recipients", 'System');
 
                 if (!$isSuccess) {
                     throw new Exception($smsRes['message'] ?? 'SMS Gateway Error');
@@ -116,7 +116,7 @@ $user = $stmt->fetch();
                    </div>
                    <div class="grid grid-cols-2 gap-4">
                      <div class="bg-white/10 p-3 rounded-2xl border border-white/10 backdrop-blur-sm"><div class="text-[8px] font-black uppercase opacity-60">Char Limit</div><div class="text-xs font-black">160 Characters</div></div>
-                     <div class="bg-white/10 p-3 rounded-2xl border border-white/10 backdrop-blur-sm"><div class="text-[8px] font-black uppercase opacity-60">Gateway</div><div class="text-xs font-black">KudiSms v2</div></div>
+                     <div class="bg-white/10 p-3 rounded-2xl border border-white/10 backdrop-blur-sm"><div class="text-[8px] font-black uppercase opacity-60">Gateway</div><div class="text-xs font-black">Premium v2</div></div>
                    </div>
                 </div>
 
