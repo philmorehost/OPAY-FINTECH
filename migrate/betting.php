@@ -26,7 +26,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $pdo->beginTransaction();
         try {
             updateWallet($pdo, $currentUser['id'], $amount, 'debit');
-            logTransaction($pdo, $currentUser['id'], 'Betting', $amount, 'successful', "Betting Wallet Fund ($providerId) for ID: $customerId", $customerId, $providerId);
+
+            $vtRes = callVtpass($settings, $providerId, [
+                'billersCode' => $customerId,
+                'amount' => $amount,
+                'phone' => $currentUser['phone']
+            ]);
+
+            $isSuccess = isset($vtRes['code']) && $vtRes['code'] === '000';
+
+            logTransaction($pdo, $currentUser['id'], 'Betting', $amount, $isSuccess ? 'successful' : 'failed', "Betting Wallet Fund ($providerId) for ID: $customerId", $customerId, $providerId);
+
+            if (!$isSuccess) {
+                throw new Exception($vtRes['response_description'] ?? 'API Error');
+            }
 
             // Receipt Email
             $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Your betting account funding was successful.<br><br>Provider: $providerId<br>Customer ID: $customerId<br>Amount: " . formatCurrency($amount);

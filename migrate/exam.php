@@ -30,7 +30,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $pdo->beginTransaction();
             try {
                 updateWallet($pdo, $currentUser['id'], $totalCost, 'debit');
-                logTransaction($pdo, $currentUser['id'], 'Exam PIN', $totalCost, 'successful', "Purchase of $qty " . $selectedProv['name'] . " PIN(s)", 'Self', $selectedProv['name']);
+
+                $vtRes = callVtpass($settings, $providerId, [
+                    'quantity' => $qty,
+                    'amount' => $totalCost,
+                    'phone' => $currentUser['phone']
+                ]);
+
+                $isSuccess = isset($vtRes['code']) && $vtRes['code'] === '000';
+                $tokens = [];
+                if ($isSuccess && isset($vtRes['cards'])) {
+                    foreach ($vtRes['cards'] as $card) {
+                        $tokens[] = $card['pin'];
+                    }
+                }
+                $tokenStr = implode(', ', $tokens);
+
+                logTransaction($pdo, $currentUser['id'], 'Exam PIN', $totalCost, $isSuccess ? 'successful' : 'failed', "Purchase of $qty " . $selectedProv['name'] . " PIN(s)", 'Self', $selectedProv['name'], $tokenStr);
+
+                if (!$isSuccess) {
+                    throw new Exception($vtRes['response_description'] ?? 'API Error');
+                }
 
                 // Receipt Email
                 $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Your purchase of $qty " . $selectedProv['name'] . " Exam PIN(s) was successful.<br><br>Total: " . formatCurrency($totalCost) . "<br><br>PINs will be sent to this email address shortly.";

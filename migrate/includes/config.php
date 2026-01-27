@@ -14,6 +14,7 @@ if (!file_exists($dbPath)) {
 
 require_once $dbPath;
 require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/api.php';
 
 startSecureSession();
 

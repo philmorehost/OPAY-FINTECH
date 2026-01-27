@@ -30,6 +30,14 @@ try {
     addColumnIfNotExists($pdo, 'settings', 'siteDescription', "TEXT");
     addColumnIfNotExists($pdo, 'settings', 'isBiometricEnforced', "TINYINT(1) DEFAULT 0");
     addColumnIfNotExists($pdo, 'settings', 'siteVersion', "VARCHAR(50) DEFAULT '1.0.0'");
+    addColumnIfNotExists($pdo, 'settings', 'apiSimulationMode', "TINYINT(1) DEFAULT 1");
+    addColumnIfNotExists($pdo, 'settings', 'dataGiftingApiKey', "VARCHAR(255)");
+    addColumnIfNotExists($pdo, 'settings', 'examApiKey', "VARCHAR(255)");
+    addColumnIfNotExists($pdo, 'settings', 'vtPassEmail', "VARCHAR(255)");
+    addColumnIfNotExists($pdo, 'settings', 'vtPassPassword', "VARCHAR(255)");
+    addColumnIfNotExists($pdo, 'settings', 'tremendousApiKey', "VARCHAR(255)");
+    addColumnIfNotExists($pdo, 'settings', 'juicywayApiKey', "VARCHAR(255)");
+    addColumnIfNotExists($pdo, 'virtual_cards', 'isFrozen', "TINYINT(1) DEFAULT 0");
     addColumnIfNotExists($pdo, 'transactions', 'token', "VARCHAR(255)");
     addColumnIfNotExists($pdo, 'transactions', 'provider', "VARCHAR(50)");
     addColumnIfNotExists($pdo, 'kyc_submissions', 'selfieImageUrl', "VARCHAR(255)");

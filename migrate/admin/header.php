@@ -48,6 +48,9 @@
         .billpay-green { color: var(--primary-color); }
         .bg-billpay-green { background-color: var(--primary-color); }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+        input:checked ~ .dot { transform: translateX(100%); background-color: var(--primary-color); }
+        input:checked ~ .block { background-color: rgba(0, 198, 137, 0.2); }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-900 overflow-x-hidden w-full">

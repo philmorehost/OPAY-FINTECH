@@ -42,7 +42,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->beginTransaction();
             try {
                 updateWallet($pdo, $currentUser['id'], $totalCost, 'debit');
-                logTransaction($pdo, $currentUser['id'], 'Bulk SMS', $totalCost, 'successful', "Bulk SMS to " . count($recipients) . " recipients. Sender: $senderId", count($recipients) . " recipients", 'KudiSMS');
+
+                $smsRes = sendKudiSms($settings, $senderId, $message, implode(',', $recipients));
+                $isSuccess = (isset($smsRes['status']) && ($smsRes['status'] === 'success' || $smsRes['status'] === 'OK')) || (isset($smsRes['code']) && $smsRes['code'] == 200);
+
+                logTransaction($pdo, $currentUser['id'], 'Bulk SMS', $totalCost, $isSuccess ? 'successful' : 'failed', "Bulk SMS to " . count($recipients) . " recipients. Sender: $senderId", count($recipients) . " recipients", 'KudiSMS');
+
+                if (!$isSuccess) {
+                    throw new Exception($smsRes['message'] ?? 'SMS Gateway Error');
+                }
+
                 claimDailyRewardIfEligible($pdo, $currentUser['id']);
                 $pdo->commit();
                 $success = 'SMS sent successfully!';

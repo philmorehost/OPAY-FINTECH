@@ -58,8 +58,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
             $successCount = 0;
             foreach ($recipients as $num) {
-                // Simulation: 98% success
-                $isSuccess = (mt_rand(1, 100) > 2);
+                $response = purchaseAirtimeNellobyte($settings, $network, $amount, $num);
+                // Handle different possible success indicators from Nellobyte or Simulation
+                $isSuccess = (isset($response['status']) && $response['status'] === 'success') ||
+                             (isset($response['code']) && ($response['code'] === '000' || $response['code'] === 200));
+
                 if ($isSuccess) $successCount++;
 
                 logTransaction($pdo, $currentUser['id'], 'Airtime', $amount, $isSuccess ? 'successful' : 'failed', "$network Airtime recharge for $num", $num, $network);

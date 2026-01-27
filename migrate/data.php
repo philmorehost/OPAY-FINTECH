@@ -81,7 +81,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 }
 
                 foreach ($recipients as $num) {
-                    $isSuccess = (mt_rand(1, 100) > 5);
+                    $response = purchaseDataNellobyte($settings, $selectedPlan['networkId'], $selectedPlan['id'], $num);
+                    $isSuccess = (isset($response['status']) && $response['status'] === 'success') ||
+                                 (isset($response['code']) && ($response['code'] === '000' || $response['code'] === 200));
+
                     if ($isSuccess) $successCount++;
                     logTransaction($pdo, $currentUser['id'], 'Data', $selectedPlan['userPrice'], $isSuccess ? 'successful' : 'failed', "{$selectedPlan['size']} Plan for $num", $num, $currentNetworkName);
                 }

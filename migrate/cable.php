@@ -27,7 +27,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $pdo->beginTransaction();
         try {
             updateWallet($pdo, $currentUser['id'], $amount, 'debit');
-            logTransaction($pdo, $currentUser['id'], 'Cable TV', $amount, 'successful', "Cable Subscription ($providerId) for $iucNumber", $iucNumber, $providerId);
+
+            $vtRes = callVtpass($settings, $providerId, [
+                'billersCode' => $iucNumber,
+                'variation_code' => $variationCode,
+                'amount' => $amount,
+                'phone' => $currentUser['phone']
+            ]);
+
+            $isSuccess = isset($vtRes['code']) && $vtRes['code'] === '000';
+
+            logTransaction($pdo, $currentUser['id'], 'Cable TV', $amount, $isSuccess ? 'successful' : 'failed', "Cable Subscription ($providerId) for $iucNumber", $iucNumber, $providerId);
+
+            if (!$isSuccess) {
+                throw new Exception($vtRes['response_description'] ?? 'API Error');
+            }
 
             // Receipt Email
             $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Your cable subscription was successful.<br><br>Provider: $providerId<br>IUC: $iucNumber<br>Amount: " . formatCurrency($amount);
