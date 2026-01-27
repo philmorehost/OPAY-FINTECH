@@ -13,6 +13,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $success = "JuicyWay Connection Successful: " . ($testRes['message'] ?? 'Connected');
         } else {
             $error = "JuicyWay Connection Failed: " . ($testRes['message'] ?? 'Unknown Error');
+            if (!empty($testRes['debug'])) {
+                $error .= "<br><div class='mt-2 p-2 bg-black/10 rounded text-[8px] lowercase text-left overflow-auto max-h-40 font-mono'>" . print_r($testRes['debug'], true) . "</div>";
+            }
         }
     } else {
         $finSettings = [
@@ -25,6 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'apiKey' => $_POST['jw_apiKey'],
                 'businessId' => $_POST['jw_businessId'],
                 'webhookUrl' => $_POST['jw_webhookUrl'],
+                'liveMode' => isset($_POST['jw_liveMode']) ? 1 : 0,
                 'cryptoCharges' => [
                     'buy' => (float)$_POST['jw_crypto_buy_charge'],
                     'sell' => (float)$_POST['jw_crypto_sell_charge'],
@@ -47,7 +51,7 @@ if (is_string($fs)) $fs = json_decode($fs, true) ?: [];
 if (empty($fs)) {
     $fs = [
         'paystack' => ['secretKey' => '', 'publicKey' => '', 'webhookUrl' => (isset($_SERVER['HTTPS']) ? 'https' : 'http') . "://$_SERVER[HTTP_HOST]/webhook-paystack.php"],
-        'juicyway' => ['apiKey' => '', 'businessId' => '', 'webhookUrl' => (isset($_SERVER['HTTPS']) ? 'https' : 'http') . "://$_SERVER[HTTP_HOST]/webhook-juicyway.php"],
+        'juicyway' => ['apiKey' => '', 'businessId' => '', 'webhookUrl' => (isset($_SERVER['HTTPS']) ? 'https' : 'http') . "://$_SERVER[HTTP_HOST]/webhook-juicyway.php", 'liveMode' => 0],
         'virtual_card_fee' => 1000
     ];
 }
@@ -94,7 +98,14 @@ require_once __DIR__ . '/header.php';
                     <h3 class="text-sm font-black uppercase tracking-widest flex items-center gap-3 text-purple-600">
                         <i data-lucide="layout-grid" class="w-5 h-5"></i> JuicyWay (Crypto & Cards)
                     </h3>
-                    <button type="submit" name="action" value="test_jw" class="text-[10px] font-black uppercase text-billpay-green hover:underline">Test API</button>
+                    <div class="flex items-center gap-4">
+                        <label class="flex items-center cursor-pointer gap-2">
+                            <input type="checkbox" name="jw_liveMode" value="1" <?php echo !empty($fs['juicyway']['liveMode']) ? 'checked' : ''; ?> class="sr-only peer">
+                            <div class="w-8 h-4 bg-gray-200 rounded-full peer peer-checked:bg-billpay-green relative transition-all after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:after:translate-x-4"></div>
+                            <span class="text-[10px] font-black uppercase peer-checked:text-billpay-green text-gray-400">Live</span>
+                        </label>
+                        <button type="submit" name="action" value="test_jw" class="text-[10px] font-black uppercase text-billpay-green hover:underline">Test API</button>
+                    </div>
                 </div>
                 <div class="space-y-4">
                     <div>

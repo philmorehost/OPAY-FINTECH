@@ -14,20 +14,23 @@ function callApi($url, $method = 'GET', $data = [], $headers = []) {
         CURLOPT_MAXREDIRS => 10,
         CURLOPT_TIMEOUT => 60,
         CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_AUTOREFERER => true,
         CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
         CURLOPT_CUSTOMREQUEST => $method,
-        CURLOPT_SSL_VERIFYPEER => false, // Some shared hosts have outdated CA bundles
+        CURLOPT_SSL_VERIFYPEER => false,
         CURLOPT_SSL_VERIFYHOST => 0,
         CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
-        CURLOPT_USERAGENT => 'Mozilla/5.0 (BillPay Fintech; JuicyWay Integration)'
+        CURLOPT_USERAGENT => 'Mozilla/5.0 (BillPay Fintech; JuicyWay Integration)',
+        CURLOPT_SSL_CIPHER_LIST => 'DEFAULT@SECLEVEL=1' // High compatibility cipher list
     ];
     if ($method === 'POST') $opts[CURLOPT_POSTFIELDS] = is_array($data) ? json_encode($data) : $data;
     if (!empty($headers)) $opts[CURLOPT_HTTPHEADER] = $headers;
     curl_setopt_array($curl, $opts);
     $response = curl_exec($curl);
     $err = curl_error($curl);
+    $info = curl_getinfo($curl);
     curl_close($curl);
-    if ($err) return ['status' => 'error', 'message' => $err];
+    if ($err) return ['status' => 'error', 'message' => $err, 'debug' => $info];
     return json_decode($response, true) ?: $response;
 }
 }
@@ -153,11 +156,9 @@ function callJuicyWay($pdo, $endpoint, $method = 'POST', $data = []) {
     $creds = $settings['financialSettings']['juicyway'] ?? [];
     $apiKey = $creds['apiKey'] ?? '';
 
-    // Switch between Sandbox and Production based on key prefix
-    $baseUrl = "https://api.juicyway.com/v1";
-    if (strpos($apiKey, 'test_') === 0 || strpos($apiKey, 'pk_test_') === 0) {
-        $baseUrl = "https://api-sandbox.spendjuice.com";
-    }
+    // Explicit environment toggle from settings
+    $isLive = !empty($creds['liveMode']);
+    $baseUrl = $isLive ? "https://api.juicyway.com/v1" : "https://api-sandbox.spendjuice.com";
 
     return callApi("$baseUrl/$endpoint", $method, $data, [
         "Authorization: " . $apiKey,
