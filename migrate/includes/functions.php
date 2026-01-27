@@ -48,6 +48,13 @@ function isKycRejected($user) {
 }
 }
 
+if (!function_exists('checkMinDepositRestriction')) {
+function checkMinDepositRestriction($settings, $currentUser) {
+    if (!isset($settings['isMinDepositForced']) || !$settings['isMinDepositForced']) return false;
+    return !($currentUser['hasCompletedInitialDeposit'] ?? false);
+}
+}
+
 if (!function_exists('claimDailyRewardIfEligible')) {
 function claimDailyRewardIfEligible($pdo, $userId) {
     $today = date('Y-m-d');
@@ -98,6 +105,15 @@ function startSecureSession() {
 }
 }
 
+if (!function_exists('fetchActiveOffers')) {
+function fetchActiveOffers($pdo) {
+    try {
+        $stmt = $pdo->query("SELECT * FROM offers WHERE expiryDate > NOW() ORDER BY createdAt DESC");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) { return []; }
+}
+}
+
 if (!function_exists('fetchSettings')) {
 function fetchSettings($pdo) {
     $stmt = $pdo->query("SELECT * FROM settings WHERE id = 1");
@@ -141,6 +157,23 @@ function checkDailyLimit($pdo, $userId, $recipient, $limit) {
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM transactions WHERE userId = ? AND recipient = ? AND DATE(date) = CURDATE() AND status = 'successful'");
     $stmt->execute([$userId, $recipient]);
     return $stmt->fetchColumn() < $limit;
+}
+}
+
+if (!function_exists('checkRateLimit')) {
+function checkRateLimit($key, $limit = 5, $period = 60) {
+    if (!isset($_SESSION['rate_limit'][$key])) {
+        $_SESSION['rate_limit'][$key] = ['count' => 1, 'start' => time()];
+        return true;
+    }
+    $data = &$_SESSION['rate_limit'][$key];
+    if (time() - $data['start'] > $period) {
+        $data = ['count' => 1, 'start' => time()];
+        return true;
+    }
+    if ($data['count'] >= $limit) return false;
+    $data['count']++;
+    return true;
 }
 }
 
