@@ -6,31 +6,65 @@
 
 if (!function_exists('callApi')) {
 function callApi($url, $method = 'GET', $data = [], $headers = []) {
+    $method = strtoupper($method);
+    $payload = is_array($data) ? json_encode($data) : $data;
+
+    // Method 1: cURL (Primary)
     $curl = curl_init();
     $opts = [
         CURLOPT_URL => $url,
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_ENCODING => '',
-        CURLOPT_MAXREDIRS => 10,
-        CURLOPT_TIMEOUT => 60,
+        CURLOPT_MAXREDIRS => 5,
+        CURLOPT_TIMEOUT => 30,
         CURLOPT_FOLLOWLOCATION => true,
         CURLOPT_AUTOREFERER => true,
-        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
         CURLOPT_CUSTOMREQUEST => $method,
         CURLOPT_SSL_VERIFYPEER => false,
         CURLOPT_SSL_VERIFYHOST => 0,
         CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
-        CURLOPT_USERAGENT => 'Mozilla/5.0 (BillPay Fintech; JuicyWay Integration)',
-        CURLOPT_SSL_CIPHER_LIST => 'DEFAULT@SECLEVEL=1' // High compatibility cipher list
+        CURLOPT_USERAGENT => 'Mozilla/5.0 (BillPay Fintech; Resilient API Hub)',
+        CURLOPT_SSL_CIPHER_LIST => 'DEFAULT@SECLEVEL=1',
+        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_NONE // Auto-negotiate
     ];
-    if ($method === 'POST') $opts[CURLOPT_POSTFIELDS] = is_array($data) ? json_encode($data) : $data;
+
+    // Some hosts fail with ALPN/NPN
+    if (defined('CURLOPT_SSL_ENABLE_ALPN')) $opts[CURLOPT_SSL_ENABLE_ALPN] = false;
+    if (defined('CURLOPT_SSL_ENABLE_NPN')) $opts[CURLOPT_SSL_ENABLE_NPN] = false;
+
+    if ($method === 'POST' || $method === 'PATCH' || $method === 'PUT') $opts[CURLOPT_POSTFIELDS] = $payload;
     if (!empty($headers)) $opts[CURLOPT_HTTPHEADER] = $headers;
+
     curl_setopt_array($curl, $opts);
     $response = curl_exec($curl);
     $err = curl_error($curl);
     $info = curl_getinfo($curl);
     curl_close($curl);
-    if ($err) return ['status' => 'error', 'message' => $err, 'debug' => $info];
+
+    // If cURL fails with TLS/SSL error or generic 0, try Method 2: stream-based fallback
+    if ($err && (stripos($err, 'tls') !== false || stripos($err, 'ssl') !== false || $info['http_code'] == 0)) {
+        $contextOpts = [
+            'http' => [
+                'method' => $method,
+                'header' => implode("\r\n", $headers) . "\r\nContent-Length: " . strlen($payload),
+                'content' => $payload,
+                'timeout' => 30,
+                'ignore_errors' => true,
+                'user_agent' => 'Mozilla/5.0 (BillPay Fintech; Fallback Hub)'
+            ],
+            'ssl' => [
+                'verify_peer' => false,
+                'verify_peer_name' => false,
+                'allow_self_signed' => true
+            ]
+        ];
+        $context = @stream_context_create($contextOpts);
+        $res = @file_get_contents($url, false, $context);
+        if ($res !== false) {
+            return json_decode($res, true) ?: $res;
+        }
+    }
+
+    if ($err) return ['status' => 'error', 'message' => $err, 'debug' => $info, 'method' => 'curl'];
     return json_decode($response, true) ?: $response;
 }
 }
@@ -169,11 +203,26 @@ function callJuicyWay($pdo, $endpoint, $method = 'POST', $data = []) {
 
 if (!function_exists('testJuicywayConnection')) {
 function testJuicywayConnection($pdo) {
+    $settings = fetchSettings($pdo);
+    $creds = $settings['financialSettings']['juicyway'] ?? [];
+    $isLive = !empty($creds['liveMode']);
+    $baseUrl = $isLive ? "https://api.juicyway.com/v1" : "https://api-sandbox.spendjuice.com";
+
     $res = callJuicyWay($pdo, 'merchants/profile', 'GET');
     if (isset($res['status']) && ($res['status'] === 'success' || $res['status'] === true)) {
-        return ['status' => 'success', 'message' => 'Connected to JuicyWay'];
+        return ['status' => 'success', 'message' => 'Connected to JuicyWay (' . ($isLive ? 'Live' : 'Sandbox') . ')'];
     }
-    return ['status' => 'error', 'message' => $res['message'] ?? 'Connection failed'];
+
+    if (isset($res['debug'])) {
+        $res['debug']['url_tried'] = $baseUrl . '/merchants/profile';
+        $res['debug']['env'] = $isLive ? 'Live' : 'Sandbox';
+    }
+
+    return [
+        'status' => 'error',
+        'message' => $res['message'] ?? 'Connection failed',
+        'debug' => $res['debug'] ?? null
+    ];
 }
 }
 
