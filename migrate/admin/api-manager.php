@@ -16,6 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         kudiSmsToken = ?, stripeSecretKey = ?,
         tremendousApiKey = ?, juicywayApiKey = ?,
         reloadlyClientId = ?, reloadlyClientSecret = ?,
+        paystackPublicKey = ?, paystackSecretKey = ?,
         apiSimulationMode = ?
         WHERE id = 1");
     $stmt->execute([
@@ -26,6 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_POST['kudiSmsToken'], $_POST['stripeSecretKey'],
         $_POST['tremendousApiKey'], $_POST['juicywayApiKey'],
         $_POST['reloadlyClientId'], $_POST['reloadlyClientSecret'],
+        $_POST['paystackPublicKey'], $_POST['paystackSecretKey'],
         $simulationMode
     ]);
     $success = "Gateways updated!";
@@ -77,6 +79,8 @@ require_once __DIR__ . '/header.php';
         <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
             <h3 class="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><i data-lucide="credit-card" class="text-emerald-500"></i> Financial Services</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div><label class="text-[10px] font-black text-gray-400 uppercase">Paystack Public Key</label><input type="text" name="paystackPublicKey" value="<?php echo $settings['paystackPublicKey']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none"></div>
+                <div><label class="text-[10px] font-black text-gray-400 uppercase">Paystack Secret Key</label><input type="password" name="paystackSecretKey" value="<?php echo $settings['paystackSecretKey']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none"></div>
                 <div><label class="text-[10px] font-black text-gray-400 uppercase">JuicyWay API Key (Virtual Cards)</label><input type="password" name="juicywayApiKey" value="<?php echo $settings['juicywayApiKey']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none"></div>
                 <div><label class="text-[10px] font-black text-gray-400 uppercase">Stripe Secret Key</label><input type="password" name="stripeSecretKey" value="<?php echo $settings['stripeSecretKey']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none"></div>
                 <div><label class="text-[10px] font-black text-gray-400 uppercase">Reloadly Client ID (Gift Cards)</label><input type="text" name="reloadlyClientId" value="<?php echo $settings['reloadlyClientId']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none"></div>

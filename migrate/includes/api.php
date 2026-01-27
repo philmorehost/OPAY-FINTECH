@@ -178,6 +178,40 @@ function purchaseReloadlyGiftCard($settings, $productId, $amount, $recipientEmai
 }
 
 /**
+ * Paystack (Dedicated Virtual Accounts)
+ */
+function createPaystackCustomer($settings, $user) {
+    if (!empty($settings['apiSimulationMode'])) return ['status' => true, 'data' => ['customer_code' => 'CUS_sim' . uniqid()]];
+
+    $url = "https://api.paystack.co/customer";
+    $data = [
+        'email' => $user['email'],
+        'first_name' => explode(' ', $user['fullName'])[0],
+        'last_name' => explode(' ', $user['fullName'])[1] ?? 'User',
+        'phone' => $user['phone']
+    ];
+    return callApi($url, 'POST', $data, ["Authorization: Bearer " . $settings['paystackSecretKey'], "Content-Type: application/json"]);
+}
+
+function createPaystackDedicatedAccount($settings, $customerCode) {
+    if (!empty($settings['apiSimulationMode'])) {
+        return [
+            'status' => true,
+            'data' => [
+                'bank' => ['name' => 'Simulation Bank'],
+                'account_number' => mt_rand(1000000000, 9999999999),
+                'account_name' => 'SIMULATED ACCOUNT',
+                'assignment' => ['integration' => 1]
+            ]
+        ];
+    }
+
+    $url = "https://api.paystack.co/dedicated_account";
+    $data = ['customer' => $customerCode, 'preferred_bank' => 'wema-bank'];
+    return callApi($url, 'POST', $data, ["Authorization: Bearer " . $settings['paystackSecretKey'], "Content-Type: application/json"]);
+}
+
+/**
  * Crypto Prices (CoinGecko)
  */
 function getCryptoPrices() {

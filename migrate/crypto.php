@@ -29,10 +29,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             logTransaction($pdo, $currentUser['id'], 'Crypto Buy', $amount, 'successful', "Purchased $coin worth " . formatCurrency($amount), 'Crypto Wallet', $coin);
             $success = "Successfully purchased $coin!";
         } elseif ($action === 'sell') {
-            // In a real app, check crypto balance. Here we just credit NGN wallet.
-            updateWallet($pdo, $currentUser['id'], $amount, 'credit');
-            logTransaction($pdo, $currentUser['id'], 'Crypto Sell', $amount, 'successful', "Sold $coin for " . formatCurrency($amount), 'Wallet', $coin);
-            $success = "Successfully sold $coin!";
+            // Simulation: Mark as pending for manual review to prevent abuse
+            logTransaction($pdo, $currentUser['id'], 'Crypto Sell', $amount, 'pending', "Sale request for $coin (Expected: " . formatCurrency($amount) . ")", 'System', $coin);
+            $success = "Your sale request for $coin has been submitted for review!";
         } elseif ($action === 'swap' || $action === 'convert') {
             // Simulation: 1% fee for swap/convert
             $fee = $amount * 0.01;

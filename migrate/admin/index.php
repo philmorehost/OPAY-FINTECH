@@ -61,6 +61,16 @@ try {
         FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
     )");
 
+    $pdo->exec("CREATE TABLE IF NOT EXISTS virtual_accounts (
+        userId VARCHAR(50) PRIMARY KEY,
+        bankName VARCHAR(100),
+        accountNumber VARCHAR(20),
+        accountName VARCHAR(100),
+        bankCode VARCHAR(20),
+        customerCode VARCHAR(50),
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+    )");
+
     $pdo->exec("CREATE TABLE IF NOT EXISTS offers (
         id INT AUTO_INCREMENT PRIMARY KEY,
         title VARCHAR(255) NOT NULL,
