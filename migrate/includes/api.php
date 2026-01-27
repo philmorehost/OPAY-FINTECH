@@ -35,7 +35,7 @@ if (!function_exists('getNetworkCode')) {
 function getNetworkCode($provider, $network) {
     $network = strtoupper($network);
     $map = [
-        'nellobyte' => ['MTN' => '01', 'AIRTEL' => '02', 'GLO' => '03', '9MOBILE' => '04'],
+        'nellobyte' => ['MTN' => '01', 'GLO' => '02', '9MOBILE' => '03', 'AIRTEL' => '04'],
         'datagifting' => ['MTN' => '1', 'AIRTEL' => '2', 'GLO' => '3', '9MOBILE' => '4'],
         'hdkdata' => ['MTN' => '1', 'AIRTEL' => '2', 'GLO' => '3', '9MOBILE' => '4']
     ];
@@ -60,7 +60,7 @@ function purchaseAirtime($pdo, $network, $amount, $phone) {
             if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
             return ['status' => 'failed', 'message' => $res['msg'] ?? 'Provider Error'];
         case 'nellobyte':
-            $res = callApi("https://nellobyte.com/api/airtime?userid=" . ($creds['userId'] ?? '') . "&apikey=" . ($creds['apiKey'] ?? '') . "&network=$netCode&amount=$amount&phone=$phone");
+            $res = callApi("https://nellobytesystems.com/api/airtime?userid=" . ($creds['userId'] ?? '') . "&apikey=" . ($creds['apiKey'] ?? '') . "&network=$netCode&amount=$amount&phone=$phone");
             if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
             return ['status' => 'failed', 'message' => $res['msg'] ?? 'Provider Error'];
         case 'hdkdata':
@@ -86,7 +86,7 @@ function purchaseData($pdo, $network, $planId, $phone) {
             if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
             return ['status' => 'failed', 'message' => $res['msg'] ?? 'Provider Error'];
         case 'nellobyte':
-            $res = callApi("https://nellobyte.com/api/data?userid=" . ($creds['userId'] ?? '') . "&apikey=" . ($creds['apiKey'] ?? '') . "&network=$netCode&plan=$planId&phone=$phone");
+            $res = callApi("https://nellobytesystems.com/api/data?userid=" . ($creds['userId'] ?? '') . "&apikey=" . ($creds['apiKey'] ?? '') . "&network=$netCode&plan=$planId&phone=$phone");
             if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
             return ['status' => 'failed', 'message' => $res['msg'] ?? 'Provider Error'];
         case 'hdkdata':
@@ -149,9 +149,8 @@ function callJuicyWay($pdo, $endpoint, $method = 'POST', $data = []) {
     $creds = $settings['financialSettings']['juicyway'] ?? [];
     $baseUrl = "https://api.juicyway.com/v1"; // Or production URL from docs
     return callApi("$baseUrl/$endpoint", $method, $data, [
-        "Authorization: Bearer " . ($creds['apiKey'] ?? ''),
-        "Content-Type: application/json",
-        "X-Merchant-Id: " . ($creds['merchantId'] ?? '')
+        "Authorization: " . ($creds['apiKey'] ?? ''),
+        "Content-Type: application/json"
     ]);
 }
 }

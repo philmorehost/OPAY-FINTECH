@@ -23,7 +23,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ],
             'juicyway' => [
                 'apiKey' => $_POST['jw_apiKey'],
-                'merchantId' => $_POST['jw_merchantId'],
                 'cryptoCharges' => [
                     'buy' => (float)$_POST['jw_crypto_buy_charge'],
                     'sell' => (float)$_POST['jw_crypto_sell_charge'],
@@ -99,10 +98,6 @@ require_once __DIR__ . '/header.php';
                     <div>
                         <label class="text-[10px] font-black text-gray-400 uppercase ml-1">API Key</label>
                         <input type="password" name="jw_apiKey" value="<?php echo $fs['juicyway']['apiKey'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
-                    </div>
-                    <div>
-                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Merchant ID</label>
-                        <input type="text" name="jw_merchantId" value="<?php echo $fs['juicyway']['merchantId'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
                     </div>
 
                     <div class="pt-4 border-t border-gray-50">
