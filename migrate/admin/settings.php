@@ -27,6 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['action'])) {
         templateId = ?, primaryColor = ?,
         isMaintenanceMode = ?, isKycEnforced = ?, isMinDepositForced = ?,
         isBiometricEnforced = ?, pwaEnabled = ?, pwaIcon = ?, pwaSplash = ?,
+        vcardIssuanceFee = ?,
         siteDescription = ?,
         smtpHost = ?, smtpPort = ?, smtpUser = ?,
         smtpPass = ?, senderName = ?, fromEmail = ?
@@ -43,6 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['action'])) {
         isset($_POST['isBiometricEnforced']) ? 1 : 0,
         isset($_POST['pwaEnabled']) ? 1 : 0,
         $pwaIcon, $pwaSplash,
+        sanitize($_POST['vcardIssuanceFee'] ?? 1500),
         sanitize($_POST['siteDescription']),
         sanitize($_POST['smtpHost']), sanitize($_POST['smtpPort']), sanitize($_POST['smtpUser']),
         sanitize($_POST['smtpPass']), sanitize($_POST['senderName']), sanitize($_POST['fromEmail'])
@@ -165,10 +167,11 @@ require_once __DIR__ . '/header.php';
         <!-- Security & System Guard -->
         <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
             <h3 class="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><i data-lucide="shield-half" class="text-billpay-green"></i> Security & System Guard</h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div><label class="text-[10px] font-black text-gray-400 uppercase">Min. Wallet Deposit (₦)</label><input type="number" name="minDepositAmount" value="<?php echo $settings['minDepositAmount']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
                 <div><label class="text-[10px] font-black text-gray-400 uppercase">Min. Airtime Purchase (₦)</label><input type="number" name="minAirtimePurchase" value="<?php echo $settings['minAirtimePurchase']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
-                <div><label class="text-[10px] font-black text-gray-400 uppercase">Max Daily Tx Per ID (Phone/IUC/Meter)</label><input type="number" name="maxDailyTxPerId" value="<?php echo $settings['maxDailyTxPerId']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
+                <div><label class="text-[10px] font-black text-gray-400 uppercase">Max Daily Tx Per ID</label><input type="number" name="maxDailyTxPerId" value="<?php echo $settings['maxDailyTxPerId']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
+                <div><label class="text-[10px] font-black text-gray-400 uppercase">V-Card Issue Fee (₦)</label><input type="number" name="vcardIssuanceFee" value="<?php echo $settings['vcardIssuanceFee'] ?? 1500; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
             </div>
 
             <div class="mt-8 pt-8 border-t border-gray-100 space-y-6">

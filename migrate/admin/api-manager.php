@@ -15,6 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         vtPassEmail = ?, vtPassPassword = ?,
         kudiSmsToken = ?, stripeSecretKey = ?,
         tremendousApiKey = ?, juicywayApiKey = ?,
+        reloadlyClientId = ?, reloadlyClientSecret = ?,
         apiSimulationMode = ?
         WHERE id = 1");
     $stmt->execute([
@@ -24,6 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_POST['vtPassEmail'], $_POST['vtPassPassword'],
         $_POST['kudiSmsToken'], $_POST['stripeSecretKey'],
         $_POST['tremendousApiKey'], $_POST['juicywayApiKey'],
+        $_POST['reloadlyClientId'], $_POST['reloadlyClientSecret'],
         $simulationMode
     ]);
     $success = "Gateways updated!";
@@ -77,7 +79,9 @@ require_once __DIR__ . '/header.php';
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div><label class="text-[10px] font-black text-gray-400 uppercase">JuicyWay API Key (Virtual Cards)</label><input type="password" name="juicywayApiKey" value="<?php echo $settings['juicywayApiKey']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none"></div>
                 <div><label class="text-[10px] font-black text-gray-400 uppercase">Stripe Secret Key</label><input type="password" name="stripeSecretKey" value="<?php echo $settings['stripeSecretKey']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none"></div>
-                <div><label class="text-[10px] font-black text-gray-400 uppercase">Tremendous API Key (Gift Cards)</label><input type="password" name="tremendousApiKey" value="<?php echo $settings['tremendousApiKey']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none"></div>
+                <div><label class="text-[10px] font-black text-gray-400 uppercase">Reloadly Client ID (Gift Cards)</label><input type="text" name="reloadlyClientId" value="<?php echo $settings['reloadlyClientId']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none"></div>
+                <div><label class="text-[10px] font-black text-gray-400 uppercase">Reloadly Client Secret</label><input type="password" name="reloadlyClientSecret" value="<?php echo $settings['reloadlyClientSecret']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none"></div>
+                <div><label class="text-[10px] font-black text-gray-400 uppercase">Tremendous API Key (Legacy Gift Cards)</label><input type="password" name="tremendousApiKey" value="<?php echo $settings['tremendousApiKey']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none"></div>
                 <div><label class="text-[10px] font-black text-gray-400 uppercase">Exam PIN API Key</label><input type="password" name="examApiKey" value="<?php echo $settings['examApiKey']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none"></div>
             </div>
         </div>

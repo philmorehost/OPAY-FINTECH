@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
     if ($action === 'request_card') {
         $type = $_POST['type'] ?? 'Visa';
-        $cost = 1500; // Issuance fee
+        $cost = (float)($settings['vcardIssuanceFee'] ?? 1500);
 
         if ($currentUser['walletBalance'] < $cost) {
             $error = "Insufficient balance. Card request costs " . formatCurrency($cost);
@@ -142,7 +142,7 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
                 <h2 class="text-2xl font-black text-gray-800 uppercase tracking-tight">No Active Cards</h2>
                 <p class="text-sm text-gray-400 font-bold uppercase max-w-xs mx-auto">Instant virtual Visa or Mastercard for all your global subscriptions and payments.</p>
-                <button onclick="document.getElementById('requestModal').classList.remove('hidden')" class="w-full bg-gray-900 text-white py-5 rounded-[24px] font-black uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all">Request New Card (₦1,500)</button>
+                <button onclick="document.getElementById('requestModal').classList.remove('hidden')" class="w-full bg-gray-900 text-white py-5 rounded-[24px] font-black uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all">Request New Card (<?php echo formatCurrency($settings['vcardIssuanceFee'] ?? 1500); ?>)</button>
             </div>
         <?php else: ?>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -247,7 +247,7 @@ require_once __DIR__ . '/includes/header.php';
 
             <div class="bg-gray-50 p-6 rounded-3xl flex justify-between items-center">
                 <span class="text-[10px] font-black uppercase text-gray-400">Issuance Fee</span>
-                <span class="text-lg font-black">₦1,500.00</span>
+                <span class="text-lg font-black"><?php echo formatCurrency($settings['vcardIssuanceFee'] ?? 1500); ?></span>
             </div>
 
             <button type="submit" class="w-full bg-gray-900 text-white font-black py-5 rounded-[24px] shadow-xl hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-widest">Confirm & Pay</button>

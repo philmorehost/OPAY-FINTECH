@@ -119,6 +119,65 @@ function callJuicyWay($settings, $endpoint, $method = 'POST', $data = []) {
 }
 
 /**
+ * Reloadly (Gift Cards)
+ */
+function getReloadlyToken($settings) {
+    if (!empty($settings['apiSimulationMode'])) return 'SIM-TOKEN';
+
+    $url = "https://auth.reloadly.com/oauth/token";
+    $data = [
+        'client_id' => $settings['reloadlyClientId'],
+        'client_secret' => $settings['reloadlyClientSecret'],
+        'grant_type' => 'client_credentials',
+        'audience' => 'https://giftcards.reloadly.com'
+    ];
+    $res = callApi($url, 'POST', $data, ["Content-Type: application/json"]);
+    return $res['access_token'] ?? null;
+}
+
+function getReloadlyGiftCards($settings) {
+    if (!empty($settings['apiSimulationMode'])) {
+        return [
+            'content' => [
+                ['productId' => 1, 'productName' => 'Amazon US', 'global' => false, 'senderFee' => 0, 'discountPercentage' => 2, 'denominationType' => 'FIXED', 'fixedDenominations' => [10, 25, 50, 100]],
+                ['productId' => 2, 'productName' => 'iTunes US', 'global' => false, 'senderFee' => 0, 'discountPercentage' => 3, 'denominationType' => 'FIXED', 'fixedDenominations' => [5, 10, 15]],
+                ['productId' => 3, 'productName' => 'Google Play US', 'global' => false, 'senderFee' => 0, 'discountPercentage' => 1, 'denominationType' => 'RANGE', 'minDenomination' => 10, 'maxDenomination' => 500],
+                ['productId' => 4, 'productName' => 'Netflix US', 'global' => false, 'senderFee' => 0, 'discountPercentage' => 1.5, 'denominationType' => 'FIXED', 'fixedDenominations' => [25, 50, 100]],
+                ['productId' => 5, 'productName' => 'Steam Wallet', 'global' => true, 'senderFee' => 0, 'discountPercentage' => 2, 'denominationType' => 'FIXED', 'fixedDenominations' => [20, 50, 100]],
+                ['productId' => 6, 'productName' => 'PlayStation Store', 'global' => true, 'senderFee' => 0, 'discountPercentage' => 2, 'denominationType' => 'FIXED', 'fixedDenominations' => [10, 20, 50]],
+                ['productId' => 7, 'productName' => 'Xbox Live', 'global' => true, 'senderFee' => 0, 'discountPercentage' => 2, 'denominationType' => 'FIXED', 'fixedDenominations' => [10, 25, 50]],
+                ['productId' => 8, 'productName' => 'Roblox', 'global' => true, 'senderFee' => 0, 'discountPercentage' => 5, 'denominationType' => 'FIXED', 'fixedDenominations' => [10, 25, 50]]
+            ]
+        ];
+    }
+
+    $token = getReloadlyToken($settings);
+    if (!$token) return ['content' => []];
+
+    $url = "https://giftcards.reloadly.com/products";
+    return callApi($url, 'GET', [], ["Authorization: Bearer $token", "Accept: application/com.reloadly.giftcards-v1+json"]);
+}
+
+function purchaseReloadlyGiftCard($settings, $productId, $amount, $recipientEmail) {
+    if (!empty($settings['apiSimulationMode'])) {
+        return ['status' => 'SUCCESS', 'transactionId' => 'SIM-GC-' . uniqid()];
+    }
+
+    $token = getReloadlyToken($settings);
+    if (!$token) return ['status' => 'FAILED', 'message' => 'Token failed'];
+
+    $url = "https://giftcards.reloadly.com/orders";
+    $data = [
+        'productId' => $productId,
+        'quantity' => 1,
+        'unitPrice' => $amount,
+        'recipientEmail' => $recipientEmail,
+        'customIdentifier' => 'BILL-' . uniqid()
+    ];
+    return callApi($url, 'POST', $data, ["Authorization: Bearer $token", "Accept: application/com.reloadly.giftcards-v1+json", "Content-Type: application/json"]);
+}
+
+/**
  * Crypto Prices (CoinGecko)
  */
 function getCryptoPrices() {

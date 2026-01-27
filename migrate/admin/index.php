@@ -37,6 +37,9 @@ try {
     addColumnIfNotExists($pdo, 'settings', 'vtPassPassword', "VARCHAR(255)");
     addColumnIfNotExists($pdo, 'settings', 'tremendousApiKey', "VARCHAR(255)");
     addColumnIfNotExists($pdo, 'settings', 'juicywayApiKey', "VARCHAR(255)");
+    addColumnIfNotExists($pdo, 'settings', 'reloadlyClientId', "VARCHAR(255)");
+    addColumnIfNotExists($pdo, 'settings', 'reloadlyClientSecret', "VARCHAR(255)");
+    addColumnIfNotExists($pdo, 'settings', 'vcardIssuanceFee', "DECIMAL(15, 2) DEFAULT 1500.00");
     addColumnIfNotExists($pdo, 'virtual_cards', 'isFrozen', "TINYINT(1) DEFAULT 0");
     addColumnIfNotExists($pdo, 'transactions', 'token', "VARCHAR(255)");
     addColumnIfNotExists($pdo, 'transactions', 'provider', "VARCHAR(50)");
