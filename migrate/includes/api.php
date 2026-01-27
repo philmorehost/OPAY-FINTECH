@@ -16,9 +16,10 @@ function callApi($url, $method = 'GET', $data = [], $headers = []) {
         CURLOPT_FOLLOWLOCATION => true,
         CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
         CURLOPT_CUSTOMREQUEST => $method,
-        CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2,
         CURLOPT_SSL_VERIFYPEER => false, // Some shared hosts have outdated CA bundles
-        CURLOPT_SSL_VERIFYHOST => 0
+        CURLOPT_SSL_VERIFYHOST => 0,
+        CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
+        CURLOPT_USERAGENT => 'Mozilla/5.0 (BillPay Fintech; JuicyWay Integration)'
     ];
     if ($method === 'POST') $opts[CURLOPT_POSTFIELDS] = is_array($data) ? json_encode($data) : $data;
     if (!empty($headers)) $opts[CURLOPT_HTTPHEADER] = $headers;
