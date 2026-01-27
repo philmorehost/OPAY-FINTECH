@@ -24,6 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'juicyway' => [
                 'apiKey' => $_POST['jw_apiKey'],
                 'businessId' => $_POST['jw_businessId'],
+                'webhookUrl' => $_POST['jw_webhookUrl'],
                 'cryptoCharges' => [
                     'buy' => (float)$_POST['jw_crypto_buy_charge'],
                     'sell' => (float)$_POST['jw_crypto_sell_charge'],
@@ -46,7 +47,7 @@ if (is_string($fs)) $fs = json_decode($fs, true) ?: [];
 if (empty($fs)) {
     $fs = [
         'paystack' => ['secretKey' => '', 'publicKey' => '', 'webhookUrl' => (isset($_SERVER['HTTPS']) ? 'https' : 'http') . "://$_SERVER[HTTP_HOST]/webhook-paystack.php"],
-        'juicyway' => ['apiKey' => '', 'merchantId' => ''],
+        'juicyway' => ['apiKey' => '', 'businessId' => '', 'webhookUrl' => (isset($_SERVER['HTTPS']) ? 'https' : 'http') . "://$_SERVER[HTTP_HOST]/webhook-juicyway.php"],
         'virtual_card_fee' => 1000
     ];
 }
@@ -105,8 +106,8 @@ require_once __DIR__ . '/header.php';
                         <input type="text" name="jw_businessId" value="<?php echo $fs['juicyway']['businessId'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
                     </div>
                     <div>
-                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1 text-purple-500">Webhook URL (Set in JuicyWay Dashboard)</label>
-                        <input type="text" readonly value="<?php echo (isset($_SERVER['HTTPS']) ? 'https' : 'http') . "://$_SERVER[HTTP_HOST]/webhook-juicyway.php"; ?>" class="w-full p-4 bg-gray-100 rounded-2xl font-mono text-[10px] mt-1 outline-none border border-transparent">
+                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1 text-red-500">Webhook URL (Set in JuicyWay Dashboard)</label>
+                        <input type="text" readonly name="jw_webhookUrl" value="<?php echo $fs['juicyway']['webhookUrl'] ?? ((isset($_SERVER['HTTPS']) ? 'https' : 'http') . "://$_SERVER[HTTP_HOST]/webhook-juicyway.php"); ?>" class="w-full p-4 bg-gray-100 rounded-2xl font-mono text-[10px] mt-1 outline-none border border-transparent">
                     </div>
 
                     <div class="pt-4 border-t border-gray-50">
