@@ -1,27 +1,38 @@
 <?php
 // Core Functions
 
+if (!function_exists('sanitize')) {
 function sanitize($data) {
     if (is_array($data)) return array_map('sanitize', $data);
     return htmlspecialchars(strip_tags(trim($data)));
 }
+}
 
+if (!function_exists('formatCurrency')) {
 function formatCurrency($amount) {
     return '₦' . number_format((float)$amount, 2);
 }
+}
 
+if (!function_exists('generateId')) {
 function generateId($prefix = '') {
     return $prefix . bin2hex(random_bytes(4));
 }
+}
 
+if (!function_exists('isLoggedIn')) {
 function isLoggedIn() {
     return isset($_SESSION['user_id']);
 }
+}
 
+if (!function_exists('isAdmin')) {
 function isAdmin() {
     return (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') || isset($_SESSION['original_admin_id']);
 }
+}
 
+if (!function_exists('checkKycRestriction')) {
 function checkKycRestriction($settings, $currentUser) {
     if (!isset($settings['isKycEnforced']) || !$settings['isKycEnforced']) {
         return; // KYC not enforced
@@ -37,11 +48,15 @@ function checkKycRestriction($settings, $currentUser) {
         exit;
     }
 }
+}
 
+if (!function_exists('isKycRejected')) {
 function isKycRejected($user) {
     return ($user['kycStatus'] ?? 'none') === 'rejected';
 }
+}
 
+if (!function_exists('claimDailyRewardIfEligible')) {
 function claimDailyRewardIfEligible($pdo, $userId) {
     $today = date('Y-m-d');
 
@@ -72,32 +87,42 @@ function claimDailyRewardIfEligible($pdo, $userId) {
         }
     }
 }
+}
 
+if (!function_exists('checkMinDepositRestriction')) {
 function checkMinDepositRestriction($settings, $currentUser) {
     if (!isset($settings['isMinDepositForced']) || !$settings['isMinDepositForced']) {
         return false;
     }
     return !($currentUser['hasCompletedInitialDeposit'] ?? false);
 }
+}
 
+if (!function_exists('redirect')) {
 function redirect($path) {
     header("Location: $path");
     exit;
 }
+}
 
 // CSRF Protection
+if (!function_exists('generateCsrfToken')) {
 function generateCsrfToken() {
     if (empty($_SESSION['csrf_token'])) {
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     }
     return $_SESSION['csrf_token'];
 }
+}
 
+if (!function_exists('verifyCsrfToken')) {
 function verifyCsrfToken($token) {
     return isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token);
 }
+}
 
 // Session security
+if (!function_exists('startSecureSession')) {
 function startSecureSession() {
     if (session_status() === PHP_SESSION_NONE) {
         // Set lifetime to 1 year (31536000 seconds) for persistent login
@@ -112,13 +137,17 @@ function startSecureSession() {
         session_start();
     }
 }
+}
 
 // Database helper
+if (!function_exists('fetchActiveOffers')) {
 function fetchActiveOffers($pdo) {
     $stmt = $pdo->query("SELECT * FROM offers WHERE expiryDate > NOW() ORDER BY createdAt DESC");
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
+}
 
+if (!function_exists('fetchSettings')) {
 function fetchSettings($pdo) {
     $stmt = $pdo->query("SELECT * FROM settings WHERE id = 1");
     $settings = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -132,7 +161,9 @@ function fetchSettings($pdo) {
     }
     return $settings;
 }
+}
 
+if (!function_exists('updateWallet')) {
 function updateWallet($pdo, $userId, $amount, $type = 'credit') {
     $operator = ($type === 'credit') ? '+' : '-';
     $stmt = $pdo->prepare("UPDATE users SET walletBalance = walletBalance $operator ? WHERE id = ?");
@@ -153,19 +184,25 @@ function updateWallet($pdo, $userId, $amount, $type = 'credit') {
     }
     return $res;
 }
+}
 
+if (!function_exists('checkDailyLimit')) {
 function checkDailyLimit($pdo, $userId, $recipient, $limit) {
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM transactions WHERE userId = ? AND recipient = ? AND DATE(date) = CURDATE() AND status = 'successful'");
     $stmt->execute([$userId, $recipient]);
     return $stmt->fetchColumn() < $limit;
 }
+}
 
+if (!function_exists('logTransaction')) {
 function logTransaction($pdo, $userId, $type, $amount, $status, $details, $recipient, $provider = null, $token = null) {
     $id = 'TX-' . strtoupper(bin2hex(random_bytes(4)));
     $stmt = $pdo->prepare("INSERT INTO transactions (id, userId, type, amount, status, details, recipient, provider, token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
     return $stmt->execute([$id, $userId, $type, $amount, $status, $details, $recipient, $provider, $token]);
 }
+}
 
+if (!function_exists('checkRateLimit')) {
 function checkRateLimit($key, $limit = 5, $period = 60) {
     if (!isset($_SESSION['rate_limit'][$key])) {
         $_SESSION['rate_limit'][$key] = ['count' => 1, 'start' => time()];
@@ -185,7 +222,9 @@ function checkRateLimit($key, $limit = 5, $period = 60) {
     $data['count']++;
     return true;
 }
+}
 
+if (!function_exists('sendMail')) {
 function sendMail($pdo, $to, $subject, $message) {
     $stmt = $pdo->query("SELECT senderName, fromEmail FROM settings WHERE id = 1");
     $settings = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -253,4 +292,5 @@ function sendMail($pdo, $to, $subject, $message) {
     </html>";
 
     return @mail($to, $subject, $htmlBody, $headers);
+}
 }

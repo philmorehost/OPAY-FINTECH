@@ -4,6 +4,7 @@
  * Handles communication with external service providers
  */
 
+if (!function_exists('callApi')) {
 function callApi($url, $method = 'GET', $data = [], $headers = []) {
     $curl = curl_init();
     $opts = [
@@ -33,10 +34,12 @@ function callApi($url, $method = 'GET', $data = [], $headers = []) {
     if ($err) return ['status' => 'error', 'message' => $err];
     return json_decode($response, true) ?: $response;
 }
+}
 
 /**
  * Nellobyte (Airtime & Data)
  */
+if (!function_exists('purchaseAirtimeNellobyte')) {
 function purchaseAirtimeNellobyte($settings, $network, $amount, $phone) {
     if (!empty($settings['apiSimulationMode'])) {
         return ['status' => 'success', 'msg' => 'Simulation: Airtime successful', 'ref' => 'SIM-' . uniqid()];
@@ -47,7 +50,9 @@ function purchaseAirtimeNellobyte($settings, $network, $amount, $phone) {
     $url = "https://nellobyte.com/api/airtime?userid=" . $settings['nellobyteUserId'] . "&apikey=" . $settings['nellobyteApiKey'] . "&network=$network&amount=$amount&phone=$phone";
     return callApi($url);
 }
+}
 
+if (!function_exists('purchaseDataNellobyte')) {
 function purchaseDataNellobyte($settings, $network, $plan, $phone) {
     if (!empty($settings['apiSimulationMode'])) {
         return ['status' => 'success', 'msg' => 'Simulation: Data successful', 'ref' => 'SIM-' . uniqid()];
@@ -56,10 +61,12 @@ function purchaseDataNellobyte($settings, $network, $plan, $phone) {
     $url = "https://nellobyte.com/api/data?userid=" . $settings['nellobyteUserId'] . "&apikey=" . $settings['nellobyteApiKey'] . "&network=$network&plan=$plan&phone=$phone";
     return callApi($url);
 }
+}
 
 /**
  * VTpass (Cable, Electric, Betting, Exam)
  */
+if (!function_exists('callVtpass')) {
 function callVtpass($settings, $serviceId, $data) {
     if (!empty($settings['apiSimulationMode'])) {
         return ['code' => '000', 'content' => ['transactions' => ['status' => 'delivered']], 'response_description' => 'Simulation Success'];
@@ -80,10 +87,12 @@ function callVtpass($settings, $serviceId, $data) {
 
     return callApi($url, 'POST', $data, $headers);
 }
+}
 
 /**
  * KudiSMS
  */
+if (!function_exists('sendKudiSms')) {
 function sendKudiSms($settings, $sender, $message, $recipients) {
     if (!empty($settings['apiSimulationMode'])) {
         return ['status' => 'success', 'message' => 'Simulation: SMS Sent'];
@@ -101,10 +110,12 @@ function sendKudiSms($settings, $sender, $message, $recipients) {
     $query = http_build_query($data);
     return callApi($url . "?" . $query);
 }
+}
 
 /**
  * JuicyWay (Virtual Cards)
  */
+if (!function_exists('callJuicyWay')) {
 function callJuicyWay($settings, $endpoint, $method = 'POST', $data = []) {
     if (!empty($settings['apiSimulationMode'])) {
         return ['status' => 'success', 'data' => ['id' => 'VC-' . uniqid(), 'card_number' => '4111222233334444', 'cvv' => '123', 'expiry' => '12/26']];
@@ -117,10 +128,12 @@ function callJuicyWay($settings, $endpoint, $method = 'POST', $data = []) {
     ];
     return callApi($url, $method, $data, $headers);
 }
+}
 
 /**
  * Reloadly (Gift Cards)
  */
+if (!function_exists('getReloadlyToken')) {
 function getReloadlyToken($settings) {
     if (!empty($settings['apiSimulationMode'])) return 'SIM-TOKEN';
 
@@ -134,7 +147,9 @@ function getReloadlyToken($settings) {
     $res = callApi($url, 'POST', $data, ["Content-Type: application/json"]);
     return $res['access_token'] ?? null;
 }
+}
 
+if (!function_exists('getReloadlyGiftCards')) {
 function getReloadlyGiftCards($settings) {
     if (!empty($settings['apiSimulationMode'])) {
         return [
@@ -157,7 +172,9 @@ function getReloadlyGiftCards($settings) {
     $url = "https://giftcards.reloadly.com/products";
     return callApi($url, 'GET', [], ["Authorization: Bearer $token", "Accept: application/com.reloadly.giftcards-v1+json"]);
 }
+}
 
+if (!function_exists('purchaseReloadlyGiftCard')) {
 function purchaseReloadlyGiftCard($settings, $productId, $amount, $recipientEmail) {
     if (!empty($settings['apiSimulationMode'])) {
         return ['status' => 'SUCCESS', 'transactionId' => 'SIM-GC-' . uniqid()];
@@ -176,10 +193,12 @@ function purchaseReloadlyGiftCard($settings, $productId, $amount, $recipientEmai
     ];
     return callApi($url, 'POST', $data, ["Authorization: Bearer $token", "Accept: application/com.reloadly.giftcards-v1+json", "Content-Type: application/json"]);
 }
+}
 
 /**
  * Paystack (Dedicated Virtual Accounts)
  */
+if (!function_exists('createPaystackCustomer')) {
 function createPaystackCustomer($settings, $user) {
     if (!empty($settings['apiSimulationMode'])) return ['status' => true, 'data' => ['customer_code' => 'CUS_sim' . uniqid()]];
 
@@ -192,7 +211,9 @@ function createPaystackCustomer($settings, $user) {
     ];
     return callApi($url, 'POST', $data, ["Authorization: Bearer " . $settings['paystackSecretKey'], "Content-Type: application/json"]);
 }
+}
 
+if (!function_exists('createPaystackDedicatedAccount')) {
 function createPaystackDedicatedAccount($settings, $customerCode) {
     if (!empty($settings['apiSimulationMode'])) {
         return [
@@ -210,11 +231,14 @@ function createPaystackDedicatedAccount($settings, $customerCode) {
     $data = ['customer' => $customerCode, 'preferred_bank' => 'wema-bank'];
     return callApi($url, 'POST', $data, ["Authorization: Bearer " . $settings['paystackSecretKey'], "Content-Type: application/json"]);
 }
+}
 
 /**
  * Crypto Prices (CoinGecko)
  */
+if (!function_exists('getCryptoPrices')) {
 function getCryptoPrices() {
     $url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,binancecoin,solana,tether&vs_currencies=ngn,usd&include_24hr_change=true";
     return callApi($url);
+}
 }
