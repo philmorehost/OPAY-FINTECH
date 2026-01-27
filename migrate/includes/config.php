@@ -14,8 +14,6 @@ if (!file_exists($dbPath)) {
 
 require_once $dbPath;
 require_once __DIR__ . '/functions.php';
-require_once __DIR__ . '/api.php';
-require_once __DIR__ . '/migrations.php';
 
 startSecureSession();
 
@@ -26,13 +24,11 @@ $csrf_token = generateCsrfToken();
 if (!empty($settings['isMaintenanceMode'])) {
     $currentFile = basename($_SERVER['PHP_SELF']);
     $isAdminPath = strpos($_SERVER['SCRIPT_NAME'], '/admin/') !== false;
+    // error_log("Current File: $currentFile");
 
     if (!$isAdminPath && $currentFile !== 'maintenance.php' && $currentFile !== 'login.php' && $currentFile !== 'logout.php' && $currentFile !== 'install.php') {
-        $mPath = __DIR__ . '/../maintenance.php';
-        if (file_exists($mPath)) {
-            include $mPath;
-            exit;
-        }
+        include __DIR__ . '/../maintenance.php';
+        exit;
     }
 }
 
@@ -42,8 +38,7 @@ if (isLoggedIn()) {
     $stmt->execute([$_SESSION['user_id']]);
     $currentUser = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    // Allow login for impersonation (original_admin_id bypasses suspension)
-    if (!$currentUser || ($currentUser['isSuspended'] && !isset($_SESSION['original_admin_id']))) {
+    if (!$currentUser || $currentUser['isSuspended']) {
         session_destroy();
         $loginPath = (strpos($_SERVER['SCRIPT_NAME'], '/admin/') !== false) ? '../login' : 'login';
         header("Location: $loginPath");

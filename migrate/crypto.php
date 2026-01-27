@@ -16,28 +16,69 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $coin = sanitize($_POST['coin']);
     $amount = (float)$_POST['amount'];
 
+    $jwCharges = $settings['financialSettings']['juicyway']['cryptoCharges'] ?? ['buy' => 0, 'sell' => 0, 'swap' => 0, 'withdraw' => 0];
+
     $pdo->beginTransaction();
     try {
         if ($action === 'buy') {
-            if ($currentUser['walletBalance'] < $amount) throw new Exception("Insufficient wallet balance.");
-            updateWallet($pdo, $currentUser['id'], $amount, 'debit');
-            logTransaction($pdo, $currentUser['id'], 'Crypto Buy', $amount, 'successful', "Purchased $coin worth " . formatCurrency($amount), 'Crypto Wallet', $coin);
+            $charge = $amount * (($jwCharges['buy'] ?? 0) / 100);
+            $total = $amount + $charge;
+            if ($currentUser['walletBalance'] < $total) throw new Exception("Insufficient balance. Total cost: " . formatCurrency($total));
+
+            // App Swaps NGN for the coin in its JuicyWay wallet
+            $jwRes = juicywaySwap($pdo, $amount, 'NGN', $coin);
+            if (!isset($jwRes['status']) || ($jwRes['status'] !== 'success' && $jwRes['status'] !== true)) {
+                throw new Exception("Provider Error: " . ($jwRes['message'] ?? 'Failed to process purchase'));
+            }
+
+            updateWallet($pdo, $currentUser['id'], $total, 'debit');
+            logTransaction($pdo, $currentUser['id'], 'Crypto Buy', $total, 'successful', "Purchased $coin worth " . formatCurrency($amount) . " (Fee: " . formatCurrency($charge) . ")", 'Crypto Wallet', $coin, null, $amount, $charge);
             $success = "Successfully purchased $coin!";
         } elseif ($action === 'sell') {
-            logTransaction($pdo, $currentUser['id'], 'Crypto Sell', $amount, 'pending', "Sale request for $coin (Expected: " . formatCurrency($amount) . ")", 'System', $coin);
-            $success = "Your sale request for $coin has been submitted for review!";
+            $charge = $amount * (($jwCharges['sell'] ?? 0) / 100);
+            $net = $amount - $charge;
+
+            // App swaps coin for NGN in JuicyWay wallet
+            $jwRes = juicywaySwap($pdo, $amount, $coin, 'NGN');
+            if (!isset($jwRes['status']) || ($jwRes['status'] !== 'success' && $jwRes['status'] !== true)) {
+                throw new Exception("Provider Error: " . ($jwRes['message'] ?? 'Failed to process sale'));
+            }
+
+            updateWallet($pdo, $currentUser['id'], $net, 'credit');
+            logTransaction($pdo, $currentUser['id'], 'Crypto Sell', $amount, 'successful', "Sold $coin worth " . formatCurrency($amount) . " (Net: " . formatCurrency($net) . ")", 'Wallet', $coin, null, $net, $charge);
+            $success = "Successfully sold $coin! " . formatCurrency($net) . " added to wallet.";
         } elseif ($action === 'swap' || $action === 'convert') {
-            $fee = $amount * 0.01;
-            if ($currentUser['walletBalance'] < $fee) throw new Exception("Insufficient balance to cover swap fee.");
-            updateWallet($pdo, $currentUser['id'], $fee, 'debit');
             $targetCoin = sanitize($_POST['targetCoin'] ?? 'tether');
-            logTransaction($pdo, $currentUser['id'], 'Crypto Swap', $amount, 'successful', "Swapped $coin for $targetCoin (Amount: " . formatCurrency($amount) . ")", $targetCoin, $coin);
+            $charge = $amount * (($jwCharges['swap'] ?? 0) / 100);
+            $total = $amount + $charge;
+
+            // This assumes user is swapping from their crypto balance, but app uses NGN wallet for fees?
+            // Simplified: User pays fee in NGN, app executes swap in JuicyWay.
+            if ($currentUser['walletBalance'] < $charge) throw new Exception("Insufficient balance to cover swap fee: " . formatCurrency($charge));
+
+            $jwRes = juicywaySwap($pdo, $amount, $coin, $targetCoin);
+            if (!isset($jwRes['status']) || ($jwRes['status'] !== 'success' && $jwRes['status'] !== true)) {
+                throw new Exception("Provider Error: " . ($jwRes['message'] ?? 'Failed to process swap'));
+            }
+
+            updateWallet($pdo, $currentUser['id'], $charge, 'debit');
+            logTransaction($pdo, $currentUser['id'], 'Crypto Swap', $amount, 'successful', "Swapped $coin for $targetCoin (Fee: " . formatCurrency($charge) . ")", $targetCoin, $coin, null, $amount, $charge);
             $success = "Successfully swapped $coin to $targetCoin!";
         } elseif ($action === 'withdraw') {
-            if ($currentUser['walletBalance'] < $amount) throw new Exception("Insufficient balance to withdraw.");
-            updateWallet($pdo, $currentUser['id'], $amount, 'debit');
-            logTransaction($pdo, $currentUser['id'], 'Crypto Withdrawal', $amount, 'successful', "Withdrew " . formatCurrency($amount) . " to external $coin wallet", $_POST['address'], $coin);
-            $success = "Withdrawal request submitted!";
+            $charge = $amount * (($jwCharges['withdraw'] ?? 0) / 100);
+            $total = $amount + $charge;
+
+            // Simplified: User withdraws from their crypto value, pays fee in NGN
+            if ($currentUser['walletBalance'] < $charge) throw new Exception("Insufficient balance to cover withdrawal fee: " . formatCurrency($charge));
+
+            $jwRes = juicywayPayout($pdo, $amount, $coin, $_POST['address']);
+            if (!isset($jwRes['status']) || ($jwRes['status'] !== 'success' && $jwRes['status'] !== true)) {
+                throw new Exception("Provider Error: " . ($jwRes['message'] ?? 'Failed to process withdrawal'));
+            }
+
+            updateWallet($pdo, $currentUser['id'], $charge, 'debit');
+            logTransaction($pdo, $currentUser['id'], 'Crypto Withdrawal', $amount, 'successful', "Withdrew " . formatCurrency($amount) . " to external $coin wallet (Fee: " . formatCurrency($charge) . ")", $_POST['address'], $coin, null, $amount, $charge);
+            $success = "Withdrawal request processed!";
         }
         claimDailyRewardIfEligible($pdo, $currentUser['id']);
         $pdo->commit();

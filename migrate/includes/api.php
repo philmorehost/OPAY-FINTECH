@@ -136,14 +136,67 @@ function sendKudiSms($pdo, $sender, $message, $recipients) {
 }
 
 /**
- * VIRTUAL CARDS
+ * VIRTUAL CARDS & CRYPTO (JuicyWay)
  */
 if (!function_exists('callJuicyWay')) {
 function callJuicyWay($pdo, $endpoint, $method = 'POST', $data = []) {
     $settings = fetchSettings($pdo);
-    if (!empty($settings['otherApiSettings']['simulationMode'])) return ['status' => 'success', 'data' => ['id' => 'VC-' . uniqid(), 'card_number' => '4111222233334444', 'cvv' => '123', 'expiry' => '12/26']];
+    if (!empty($settings['otherApiSettings']['simulationMode'])) {
+        if (strpos($endpoint, 'rates') !== false) return ['status' => 'success', 'data' => ['rate' => 1500, 'pair' => 'USD-NGN']];
+        if (strpos($endpoint, 'swap') !== false) return ['status' => 'success', 'data' => ['id' => 'SWAP-' . uniqid(), 'status' => 'success']];
+        return ['status' => 'success', 'data' => ['id' => 'JW-' . uniqid(), 'status' => 'success']];
+    }
     $creds = $settings['financialSettings']['juicyway'] ?? [];
-    return callApi("https://api.juicyway.com/v1/$endpoint", $method, $data, ["Authorization: Bearer " . ($creds['apiKey'] ?? ''), "Content-Type: application/json"]);
+    $baseUrl = "https://api.juicyway.com/v1"; // Or production URL from docs
+    return callApi("$baseUrl/$endpoint", $method, $data, [
+        "Authorization: Bearer " . ($creds['apiKey'] ?? ''),
+        "Content-Type: application/json",
+        "X-Merchant-Id: " . ($creds['merchantId'] ?? '')
+    ]);
+}
+}
+
+if (!function_exists('testJuicywayConnection')) {
+function testJuicywayConnection($pdo) {
+    $res = callJuicyWay($pdo, 'merchants/profile', 'GET');
+    if (isset($res['status']) && ($res['status'] === 'success' || $res['status'] === true)) {
+        return ['status' => 'success', 'message' => 'Connected to JuicyWay'];
+    }
+    return ['status' => 'error', 'message' => $res['message'] ?? 'Connection failed'];
+}
+}
+
+if (!function_exists('juicywayGetQuote')) {
+function juicywayGetQuote($pdo, $amount, $from, $to) {
+    return callJuicyWay($pdo, "exchange/quotes", 'POST', [
+        'amount' => $amount,
+        'source_currency' => strtoupper($from),
+        'target_currency' => strtoupper($to)
+    ]);
+}
+}
+
+if (!function_exists('juicywaySwap')) {
+function juicywaySwap($pdo, $amount, $from, $to, $quoteId = null) {
+    $data = [
+        'amount' => $amount,
+        'source_currency' => strtoupper($from),
+        'target_currency' => strtoupper($to)
+    ];
+    if ($quoteId) $data['quote_id'] = $quoteId;
+    return callJuicyWay($pdo, "exchange/swap", 'POST', $data);
+}
+}
+
+if (!function_exists('juicywayPayout')) {
+function juicywayPayout($pdo, $amount, $currency, $address, $network = 'mainnet') {
+    return callJuicyWay($pdo, "payouts", 'POST', [
+        'amount' => $amount,
+        'currency' => strtoupper($currency),
+        'address' => $address,
+        'network' => $network,
+        'payment_method' => 'crypto'
+    ]);
 }
 }
 
