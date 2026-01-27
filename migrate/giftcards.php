@@ -8,7 +8,7 @@ $error = '';
 $success = '';
 
 // Fetch all available gift cards from Reloadly
-$gcRes = getReloadlyGiftCards($settings);
+$gcRes = getReloadlyGiftCards($pdo);
 $allCards = $gcRes['content'] ?? [];
 
 // Color presets for cards
@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         try {
             updateWallet($pdo, $currentUser['id'], $amount, 'debit');
 
-            $res = purchaseReloadlyGiftCard($settings, $productId, $amount, $currentUser['email']);
+            $res = purchaseReloadlyGiftCard($pdo, $productId, $amount, $currentUser['email']);
 
             if (isset($res['status']) && ($res['status'] === 'SUCCESS' || $res['status'] === 'PENDING')) {
                 logTransaction($pdo, $currentUser['id'], 'Gift Card', $amount, 'successful', "Purchased $productName Gift Card", $currentUser['email'], 'System');

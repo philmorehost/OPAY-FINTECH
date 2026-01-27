@@ -30,22 +30,19 @@ try {
     addColumnIfNotExists($pdo, 'settings', 'siteDescription', "TEXT");
     addColumnIfNotExists($pdo, 'settings', 'isBiometricEnforced', "TINYINT(1) DEFAULT 0");
     addColumnIfNotExists($pdo, 'settings', 'siteVersion', "VARCHAR(50) DEFAULT '1.0.0'");
-    addColumnIfNotExists($pdo, 'settings', 'apiSimulationMode', "TINYINT(1) DEFAULT 1");
-    addColumnIfNotExists($pdo, 'settings', 'dataGiftingApiKey', "VARCHAR(255)");
-    addColumnIfNotExists($pdo, 'settings', 'examApiKey', "VARCHAR(255)");
-    addColumnIfNotExists($pdo, 'settings', 'vtPassEmail', "VARCHAR(255)");
-    addColumnIfNotExists($pdo, 'settings', 'vtPassPassword', "VARCHAR(255)");
-    addColumnIfNotExists($pdo, 'settings', 'tremendousApiKey', "VARCHAR(255)");
-    addColumnIfNotExists($pdo, 'settings', 'juicywayApiKey', "VARCHAR(255)");
-    addColumnIfNotExists($pdo, 'settings', 'reloadlyClientId', "VARCHAR(255)");
-    addColumnIfNotExists($pdo, 'settings', 'reloadlyClientSecret', "VARCHAR(255)");
-    addColumnIfNotExists($pdo, 'settings', 'vcardIssuanceFee', "DECIMAL(15, 2) DEFAULT 1500.00");
-    addColumnIfNotExists($pdo, 'settings', 'paystackPublicKey', "VARCHAR(255)");
-    addColumnIfNotExists($pdo, 'settings', 'paystackSecretKey', "VARCHAR(255)");
+
+    // API Hub Restructured Settings
+    addColumnIfNotExists($pdo, 'settings', 'airtimeSettings', "TEXT");
+    addColumnIfNotExists($pdo, 'settings', 'dataSettings', "TEXT");
+    addColumnIfNotExists($pdo, 'settings', 'utilitySettings', "TEXT");
+    addColumnIfNotExists($pdo, 'settings', 'financialSettings', "TEXT");
+    addColumnIfNotExists($pdo, 'settings', 'otherApiSettings', "TEXT");
 
     // Transactions Table Updates
     addColumnIfNotExists($pdo, 'transactions', 'token', "VARCHAR(255)");
     addColumnIfNotExists($pdo, 'transactions', 'provider', "VARCHAR(50)");
+    addColumnIfNotExists($pdo, 'transactions', 'apiAmount', "DECIMAL(15, 2) DEFAULT 0.00");
+    addColumnIfNotExists($pdo, 'transactions', 'profit', "DECIMAL(15, 2) DEFAULT 0.00");
 
     // KYC Submissions Table Updates
     addColumnIfNotExists($pdo, 'kyc_submissions', 'selfieImageUrl', "VARCHAR(255)");
@@ -68,7 +65,6 @@ try {
         isFrozen BOOLEAN DEFAULT FALSE,
         FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
     )");
-    addColumnIfNotExists($pdo, 'virtual_cards', 'isFrozen', "TINYINT(1) DEFAULT 0");
 
     // Virtual Accounts Table (Paystack Static Accounts)
     $pdo->exec("CREATE TABLE IF NOT EXISTS virtual_accounts (
@@ -94,7 +90,6 @@ try {
         expiryDate DATETIME NOT NULL,
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
     )");
-    addColumnIfNotExists($pdo, 'offers', 'useGradient', "TINYINT(1) DEFAULT 1");
 
 } catch (PDOException $e) {
     // Silent fail

@@ -13,12 +13,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $pdo->beginTransaction();
     try {
         // 1. Create/Get Customer
-        $cusRes = createPaystackCustomer($settings, $currentUser);
+        $cusRes = createPaystackCustomer($pdo, $currentUser);
         if (!$cusRes['status']) throw new Exception($cusRes['message'] ?? 'Failed to create customer');
         $customerCode = $cusRes['data']['customer_code'];
 
         // 2. Create Dedicated Account
-        $accRes = createPaystackDedicatedAccount($settings, $customerCode);
+        $accRes = createPaystackDedicatedAccount($pdo, $customerCode);
         if (!$accRes['status']) throw new Exception($accRes['message'] ?? 'Failed to create account');
         $accData = $accRes['data'];
 

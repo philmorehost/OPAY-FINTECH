@@ -15,17 +15,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
     if ($action === 'request_card') {
         $type = $_POST['type'] ?? 'Visa';
-        $cost = (float)($settings['vcardIssuanceFee'] ?? 1500);
+        $issuanceFee = (float)($settings['vcardIssuanceFee'] ?? 1500);
 
-        if ($currentUser['walletBalance'] < $cost) {
-            $error = "Insufficient balance. Card request costs " . formatCurrency($cost);
+        if ($currentUser['walletBalance'] < $issuanceFee) {
+            $error = "Insufficient balance. Card request costs " . formatCurrency($issuanceFee);
         } else {
             $pdo->beginTransaction();
             try {
-                updateWallet($pdo, $currentUser['id'], $cost, 'debit');
+                updateWallet($pdo, $currentUser['id'], $issuanceFee, 'debit');
 
                 // Call JuicyWay API
-                $jwRes = callJuicyWay($settings, 'cards', 'POST', [
+                $jwRes = callJuicyWay($pdo, 'cards', 'POST', [
                     'userId' => $currentUser['id'],
                     'type' => $type,
                     'amount' => 0
@@ -41,16 +41,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $stmt = $pdo->prepare("INSERT INTO virtual_cards (id, userId, cardNumber, expiry, cvv, type, balance) VALUES (?, ?, ?, ?, ?, ?, 0)");
                     $stmt->execute([$cardId, $currentUser['id'], $cardNumber, $expiry, $cvv, $type]);
 
-                    logTransaction($pdo, $currentUser['id'], 'Virtual Card', $cost, 'successful', "New Virtual $type Card issued: $cardNumber", 'System', 'CardIssuer');
+                    logTransaction($pdo, $currentUser['id'], 'Virtual Card', $issuanceFee, 'successful', "New Virtual $type Card issued: $cardNumber", 'System', 'CardIssuer');
                     $success = "Virtual Card issued successfully!";
                 } else {
-                    throw new Exception($jwRes['message'] ?? 'Failed to issue card from provider');
+                    updateWallet($pdo, $currentUser['id'], $issuanceFee, 'credit');
+                    throw new Exception($jwRes['message'] ?? 'Failed to issue card from provider. Balance refunded.');
                 }
 
                 claimDailyRewardIfEligible($pdo, $currentUser['id']);
                 $pdo->commit();
             } catch (Exception $e) {
-                $pdo->rollBack();
+                if ($pdo->inTransaction()) $pdo->rollBack();
                 $error = $e->getMessage();
             }
         }
@@ -66,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 updateWallet($pdo, $currentUser['id'], $amount, 'debit');
 
                 // Call JuicyWay API
-                $jwRes = callJuicyWay($settings, "cards/$cardId/fund", 'POST', ['amount' => $amount]);
+                $jwRes = callJuicyWay($pdo, "cards/$cardId/fund", 'POST', ['amount' => $amount]);
 
                 if (isset($jwRes['status']) && $jwRes['status'] === 'success') {
                     $stmt = $pdo->prepare("UPDATE virtual_cards SET balance = balance + ? WHERE id = ? AND userId = ?");
@@ -75,11 +76,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     logTransaction($pdo, $currentUser['id'], 'Card Funding', $amount, 'successful', "Funded Virtual Card ($cardId)", $cardId, 'System');
                     $success = "Card funded successfully!";
                 } else {
-                    throw new Exception($jwRes['message'] ?? 'Failed to fund card');
+                    updateWallet($pdo, $currentUser['id'], $amount, 'credit');
+                    throw new Exception($jwRes['message'] ?? 'Failed to fund card. Balance refunded.');
                 }
                 $pdo->commit();
             } catch (Exception $e) {
-                $pdo->rollBack();
+                if ($pdo->inTransaction()) $pdo->rollBack();
                 $error = $e->getMessage();
             }
         }
@@ -91,18 +93,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         try {
             // Call JuicyWay API
             $endpoint = $isFrozen ? "cards/$cardId/freeze" : "cards/$cardId/unfreeze";
-            $jwRes = callJuicyWay($settings, $endpoint, 'POST');
+            $jwRes = callJuicyWay($pdo, $endpoint, 'POST');
 
             if (isset($jwRes['status']) && $jwRes['status'] === 'success') {
                 $stmt = $pdo->prepare("UPDATE virtual_cards SET isFrozen = ? WHERE id = ? AND userId = ?");
                 $stmt->execute([$isFrozen, $cardId, $currentUser['id']]);
                 $success = "Card " . ($isFrozen ? 'frozen' : 'unfrozen') . " successfully!";
+                logTransaction($pdo, $currentUser['id'], 'Card Security', 0, 'successful', "Card " . ($isFrozen ? 'frozen' : 'unfrozen'), $cardId, 'System');
             } else {
                 throw new Exception($jwRes['message'] ?? 'Failed to update card status');
             }
             $pdo->commit();
         } catch (Exception $e) {
-            $pdo->rollBack();
+            if ($pdo->inTransaction()) $pdo->rollBack();
             $error = $e->getMessage();
         }
     }
@@ -120,7 +123,7 @@ $cards = $stmt->fetchAll();
 require_once __DIR__ . '/includes/header.php';
 ?>
 
-<div class="mx-auto min-h-screen bg-gray-50 flex flex-col pb-24">
+<div class="mx-auto min-h-screen bg-gray-50 flex flex-col pb-24 text-gray-900">
     <div class="bg-white p-4 flex items-center justify-between sticky top-0 z-40 border-b">
         <div class="flex items-center gap-4">
             <a href="/dashboard"><i data-lucide="arrow-left" class="w-6 h-6 text-gray-900"></i></a>
@@ -215,7 +218,7 @@ require_once __DIR__ . '/includes/header.php';
 </div>
 
 <!-- Request Modal -->
-<div id="requestModal" class="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] hidden flex items-center justify-center p-6">
+<div id="requestModal" class="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] hidden flex items-center justify-center p-6 text-gray-900">
     <div class="bg-white w-full max-w-md rounded-[40px] overflow-hidden animate-slide-up shadow-2xl">
         <div class="p-8 border-b border-gray-50 flex justify-between items-center">
             <h3 class="text-xl font-black uppercase tracking-tight">New Virtual Card</h3>
@@ -256,7 +259,7 @@ require_once __DIR__ . '/includes/header.php';
 </div>
 
 <!-- Fund Modal -->
-<div id="fundModal" class="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] hidden flex items-center justify-center p-6">
+<div id="fundModal" class="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] hidden flex items-center justify-center p-6 text-gray-900">
     <div class="bg-white w-full max-w-sm rounded-[40px] overflow-hidden animate-slide-up shadow-2xl">
         <div class="p-8 border-b border-gray-50 flex justify-between items-center">
             <h3 class="text-xl font-black uppercase tracking-tight text-gray-800">Top Up Card</h3>

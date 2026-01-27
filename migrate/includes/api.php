@@ -12,233 +12,170 @@ function callApi($url, $method = 'GET', $data = [], $headers = []) {
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_ENCODING => '',
         CURLOPT_MAXREDIRS => 10,
-        CURLOPT_TIMEOUT => 30,
+        CURLOPT_TIMEOUT => 60,
         CURLOPT_FOLLOWLOCATION => true,
         CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
         CURLOPT_CUSTOMREQUEST => $method,
     ];
-
-    if ($method === 'POST') {
-        $opts[CURLOPT_POSTFIELDS] = is_array($data) ? json_encode($data) : $data;
-    }
-
-    if (!empty($headers)) {
-        $opts[CURLOPT_HTTPHEADER] = $headers;
-    }
-
+    if ($method === 'POST') $opts[CURLOPT_POSTFIELDS] = is_array($data) ? json_encode($data) : $data;
+    if (!empty($headers)) $opts[CURLOPT_HTTPHEADER] = $headers;
     curl_setopt_array($curl, $opts);
     $response = curl_exec($curl);
     $err = curl_error($curl);
     curl_close($curl);
-
     if ($err) return ['status' => 'error', 'message' => $err];
     return json_decode($response, true) ?: $response;
 }
 }
 
 /**
- * Nellobyte (Airtime & Data)
+ * AIRTIME & DATA
  */
-if (!function_exists('purchaseAirtimeNellobyte')) {
-function purchaseAirtimeNellobyte($settings, $network, $amount, $phone) {
-    if (!empty($settings['apiSimulationMode'])) {
-        return ['status' => 'success', 'msg' => 'Simulation: Airtime successful', 'ref' => 'SIM-' . uniqid()];
+if (!function_exists('purchaseAirtime')) {
+function purchaseAirtime($pdo, $network, $amount, $phone) {
+    $settings = fetchSettings($pdo);
+    $as = $settings['airtimeSettings'] ?? [];
+    if (!empty($settings['otherApiSettings']['simulationMode'])) return ['status' => 'success', 'message' => 'Sim Success', 'ref' => 'SIM-' . uniqid()];
+    $provider = $as['routing'][$network] ?? 'datagifting';
+    $creds = $as['providers'][$provider] ?? [];
+    switch ($provider) {
+        case 'datagifting':
+            $res = callApi("https://datagifting.com.ng/api/airtime?apiKey=" . ($creds['apiKey'] ?? '') . "&network=$network&amount=$amount&phone=$phone");
+            if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
+            return ['status' => 'failed', 'message' => $res['msg'] ?? 'Provider Error'];
+        case 'nellobyte':
+            $res = callApi("https://nellobyte.com/api/airtime?userid=" . ($creds['userId'] ?? '') . "&apikey=" . ($creds['apiKey'] ?? '') . "&network=$network&amount=$amount&phone=$phone");
+            if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
+            return ['status' => 'failed', 'message' => $res['msg'] ?? 'Provider Error'];
+        case 'hdkdata':
+            $res = callApi("https://hdkdata.com/api/airtime/", 'POST', ["network" => $network, "amount" => $amount, "mobile_number" => $phone, "Ported_number" => true, "airtime_type" => "VTU"], ["Authorization: Token " . ($creds['token'] ?? ''), "Content-Type: application/json"]);
+            if (isset($res['Status']) && strtolower($res['Status']) === 'successful') return ['status' => 'success', 'message' => 'Successful', 'ref' => $res['id'] ?? uniqid()];
+            return ['status' => 'failed', 'message' => $res['error'][0] ?? 'Provider Error'];
     }
-
-    // Logic for Nellobyte API (Real)
-    // Example: https://nellobyte.com/api/airtime?userid=xxx&apikey=xxx&network=xxx&amount=xxx&phone=xxx
-    $url = "https://nellobyte.com/api/airtime?userid=" . $settings['nellobyteUserId'] . "&apikey=" . $settings['nellobyteApiKey'] . "&network=$network&amount=$amount&phone=$phone";
-    return callApi($url);
+    return ['status' => 'failed', 'message' => 'No provider'];
 }
 }
 
-if (!function_exists('purchaseDataNellobyte')) {
-function purchaseDataNellobyte($settings, $network, $plan, $phone) {
-    if (!empty($settings['apiSimulationMode'])) {
-        return ['status' => 'success', 'msg' => 'Simulation: Data successful', 'ref' => 'SIM-' . uniqid()];
+if (!function_exists('purchaseData')) {
+function purchaseData($pdo, $network, $planId, $phone) {
+    $settings = fetchSettings($pdo);
+    $ds = $settings['dataSettings'] ?? [];
+    if (!empty($settings['otherApiSettings']['simulationMode'])) return ['status' => 'success', 'message' => 'Sim Success', 'ref' => 'SIM-' . uniqid()];
+    $provider = $ds['routing'][$network] ?? 'datagifting';
+    $creds = $ds['providers'][$provider] ?? [];
+    switch ($provider) {
+        case 'datagifting':
+            $res = callApi("https://datagifting.com.ng/api/data?apiKey=" . ($creds['apiKey'] ?? '') . "&network=$network&plan=$planId&phone=$phone");
+            if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
+            return ['status' => 'failed', 'message' => $res['msg'] ?? 'Provider Error'];
+        case 'nellobyte':
+            $res = callApi("https://nellobyte.com/api/data?userid=" . ($creds['userId'] ?? '') . "&apikey=" . ($creds['apiKey'] ?? '') . "&network=$network&plan=$planId&phone=$phone");
+            if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
+            return ['status' => 'failed', 'message' => $res['msg'] ?? 'Provider Error'];
+        case 'hdkdata':
+            $res = callApi("https://hdkdata.com/api/data/", 'POST', ["network" => $network, "plan" => $planId, "mobile_number" => $phone, "Ported_number" => true], ["Authorization: Token " . ($creds['token'] ?? ''), "Content-Type: application/json"]);
+            if (isset($res['Status']) && strtolower($res['Status']) === 'successful') return ['status' => 'success', 'message' => 'Successful', 'ref' => $res['id'] ?? uniqid()];
+            return ['status' => 'failed', 'message' => $res['error'][0] ?? 'Provider Error'];
     }
-
-    $url = "https://nellobyte.com/api/data?userid=" . $settings['nellobyteUserId'] . "&apikey=" . $settings['nellobyteApiKey'] . "&network=$network&plan=$plan&phone=$phone";
-    return callApi($url);
+    return ['status' => 'failed', 'message' => 'No provider'];
 }
 }
 
 /**
- * VTpass (Cable, Electric, Betting, Exam)
+ * UTILITIES
  */
 if (!function_exists('callVtpass')) {
-function callVtpass($settings, $serviceId, $data) {
-    if (!empty($settings['apiSimulationMode'])) {
-        return ['code' => '000', 'content' => ['transactions' => ['status' => 'delivered']], 'response_description' => 'Simulation Success'];
-    }
-
-    $url = "https://vtpass.com/api/pay";
-    $headers = [
-        "api-key: " . $settings['vtPassApiKey'],
-        "public-key: " . $settings['vtPassPublicKey'],
-        "Content-Type: application/json"
-    ];
-
-    // VTpass usually requires request_id (YYYYMMDDHHII + random)
-    if (!isset($data['request_id'])) {
-        $data['request_id'] = date('YmdHi') . bin2hex(random_bytes(3));
-    }
+function callVtpass($pdo, $serviceId, $data) {
+    $settings = fetchSettings($pdo);
+    if (!empty($settings['otherApiSettings']['simulationMode'])) return ['code' => '000', 'content' => ['transactions' => ['status' => 'delivered']], 'response_description' => 'Sim Success'];
+    $creds = $settings['utilitySettings']['vtpass'] ?? [];
+    if (!isset($data['request_id'])) $data['request_id'] = date('YmdHi') . bin2hex(random_bytes(3));
     $data['serviceID'] = $serviceId;
-
-    return callApi($url, 'POST', $data, $headers);
+    return callApi("https://vtpass.com/api/pay", 'POST', $data, ["api-key: " . ($creds['apiKey'] ?? ''), "secret-key: " . ($creds['secretKey'] ?? ''), "public-key: " . ($creds['publicKey'] ?? ''), "Content-Type: application/json"]);
 }
 }
 
 /**
- * KudiSMS
+ * SMS
  */
 if (!function_exists('sendKudiSms')) {
-function sendKudiSms($settings, $sender, $message, $recipients) {
-    if (!empty($settings['apiSimulationMode'])) {
-        return ['status' => 'success', 'message' => 'Simulation: SMS Sent'];
-    }
-
-    $url = "https://my.kudisms.net/api/sms";
-    $data = [
-        'token' => $settings['kudiSmsToken'],
-        'sender' => $sender,
-        'message' => $message,
-        'recipients' => $recipients
-    ];
-
-    // KudiSMS often uses GET or POST with query params/form-data
-    $query = http_build_query($data);
-    return callApi($url . "?" . $query);
+function sendKudiSms($pdo, $sender, $message, $recipients) {
+    $settings = fetchSettings($pdo);
+    if (!empty($settings['otherApiSettings']['simulationMode'])) return ['status' => 'success'];
+    $creds = $settings['otherApiSettings']['kudisms'] ?? [];
+    $query = http_build_query(['token' => $creds['token'] ?? '', 'sender' => $sender ?: ($creds['sender'] ?? 'BillPay'), 'message' => $message, 'recipients' => $recipients]);
+    return callApi("https://my.kudisms.net/api/sms?" . $query);
 }
 }
 
 /**
- * JuicyWay (Virtual Cards)
+ * VIRTUAL CARDS
  */
 if (!function_exists('callJuicyWay')) {
-function callJuicyWay($settings, $endpoint, $method = 'POST', $data = []) {
-    if (!empty($settings['apiSimulationMode'])) {
-        return ['status' => 'success', 'data' => ['id' => 'VC-' . uniqid(), 'card_number' => '4111222233334444', 'cvv' => '123', 'expiry' => '12/26']];
-    }
-
-    $url = "https://api.juicyway.com/v1/$endpoint";
-    $headers = [
-        "Authorization: Bearer " . $settings['juicywayApiKey'],
-        "Content-Type: application/json"
-    ];
-    return callApi($url, $method, $data, $headers);
+function callJuicyWay($pdo, $endpoint, $method = 'POST', $data = []) {
+    $settings = fetchSettings($pdo);
+    if (!empty($settings['otherApiSettings']['simulationMode'])) return ['status' => 'success', 'data' => ['id' => 'VC-' . uniqid(), 'card_number' => '4111222233334444', 'cvv' => '123', 'expiry' => '12/26']];
+    $creds = $settings['financialSettings']['juicyway'] ?? [];
+    return callApi("https://api.juicyway.com/v1/$endpoint", $method, $data, ["Authorization: Bearer " . ($creds['apiKey'] ?? ''), "Content-Type: application/json"]);
 }
 }
 
 /**
- * Reloadly (Gift Cards)
+ * GIFT CARDS
  */
 if (!function_exists('getReloadlyToken')) {
-function getReloadlyToken($settings) {
-    if (!empty($settings['apiSimulationMode'])) return 'SIM-TOKEN';
-
-    $url = "https://auth.reloadly.com/oauth/token";
-    $data = [
-        'client_id' => $settings['reloadlyClientId'],
-        'client_secret' => $settings['reloadlyClientSecret'],
-        'grant_type' => 'client_credentials',
-        'audience' => 'https://giftcards.reloadly.com'
-    ];
-    $res = callApi($url, 'POST', $data, ["Content-Type: application/json"]);
+function getReloadlyToken($pdo) {
+    $settings = fetchSettings($pdo);
+    if (!empty($settings['otherApiSettings']['simulationMode'])) return 'SIM-TOKEN';
+    $creds = $settings['otherApiSettings']['reloadly'] ?? [];
+    $res = callApi("https://auth.reloadly.com/oauth/token", 'POST', ['client_id' => $creds['clientId'] ?? '', 'client_secret' => $creds['clientSecret'] ?? '', 'grant_type' => 'client_credentials', 'audience' => 'https://giftcards.reloadly.com'], ["Content-Type: application/json"]);
     return $res['access_token'] ?? null;
 }
 }
 
 if (!function_exists('getReloadlyGiftCards')) {
-function getReloadlyGiftCards($settings) {
-    if (!empty($settings['apiSimulationMode'])) {
-        return [
-            'content' => [
-                ['productId' => 1, 'productName' => 'Amazon US', 'global' => false, 'senderFee' => 0, 'discountPercentage' => 2, 'denominationType' => 'FIXED', 'fixedDenominations' => [10, 25, 50, 100]],
-                ['productId' => 2, 'productName' => 'iTunes US', 'global' => false, 'senderFee' => 0, 'discountPercentage' => 3, 'denominationType' => 'FIXED', 'fixedDenominations' => [5, 10, 15]],
-                ['productId' => 3, 'productName' => 'Google Play US', 'global' => false, 'senderFee' => 0, 'discountPercentage' => 1, 'denominationType' => 'RANGE', 'minDenomination' => 10, 'maxDenomination' => 500],
-                ['productId' => 4, 'productName' => 'Netflix US', 'global' => false, 'senderFee' => 0, 'discountPercentage' => 1.5, 'denominationType' => 'FIXED', 'fixedDenominations' => [25, 50, 100]],
-                ['productId' => 5, 'productName' => 'Steam Wallet', 'global' => true, 'senderFee' => 0, 'discountPercentage' => 2, 'denominationType' => 'FIXED', 'fixedDenominations' => [20, 50, 100]],
-                ['productId' => 6, 'productName' => 'PlayStation Store', 'global' => true, 'senderFee' => 0, 'discountPercentage' => 2, 'denominationType' => 'FIXED', 'fixedDenominations' => [10, 20, 50]],
-                ['productId' => 7, 'productName' => 'Xbox Live', 'global' => true, 'senderFee' => 0, 'discountPercentage' => 2, 'denominationType' => 'FIXED', 'fixedDenominations' => [10, 25, 50]],
-                ['productId' => 8, 'productName' => 'Roblox', 'global' => true, 'senderFee' => 0, 'discountPercentage' => 5, 'denominationType' => 'FIXED', 'fixedDenominations' => [10, 25, 50]]
-            ]
-        ];
-    }
-
-    $token = getReloadlyToken($settings);
+function getReloadlyGiftCards($pdo) {
+    $settings = fetchSettings($pdo);
+    if (!empty($settings['otherApiSettings']['simulationMode'])) return ['content' => [['productId' => 1, 'productName' => 'Amazon US', 'denominationType' => 'FIXED', 'fixedDenominations' => [10, 25, 50]]]];
+    $token = getReloadlyToken($pdo);
     if (!$token) return ['content' => []];
-
-    $url = "https://giftcards.reloadly.com/products";
-    return callApi($url, 'GET', [], ["Authorization: Bearer $token", "Accept: application/com.reloadly.giftcards-v1+json"]);
+    return callApi("https://giftcards.reloadly.com/products", 'GET', [], ["Authorization: Bearer $token", "Accept: application/com.reloadly.giftcards-v1+json"]);
 }
 }
 
 if (!function_exists('purchaseReloadlyGiftCard')) {
-function purchaseReloadlyGiftCard($settings, $productId, $amount, $recipientEmail) {
-    if (!empty($settings['apiSimulationMode'])) {
-        return ['status' => 'SUCCESS', 'transactionId' => 'SIM-GC-' . uniqid()];
-    }
-
-    $token = getReloadlyToken($settings);
+function purchaseReloadlyGiftCard($pdo, $productId, $amount, $recipientEmail) {
+    $settings = fetchSettings($pdo);
+    if (!empty($settings['otherApiSettings']['simulationMode'])) return ['status' => 'SUCCESS', 'transactionId' => 'SIM-' . uniqid()];
+    $token = getReloadlyToken($pdo);
     if (!$token) return ['status' => 'FAILED', 'message' => 'Token failed'];
-
-    $url = "https://giftcards.reloadly.com/orders";
-    $data = [
-        'productId' => $productId,
-        'quantity' => 1,
-        'unitPrice' => $amount,
-        'recipientEmail' => $recipientEmail,
-        'customIdentifier' => 'BILL-' . uniqid()
-    ];
-    return callApi($url, 'POST', $data, ["Authorization: Bearer $token", "Accept: application/com.reloadly.giftcards-v1+json", "Content-Type: application/json"]);
+    return callApi("https://giftcards.reloadly.com/orders", 'POST', ['productId' => $productId, 'quantity' => 1, 'unitPrice' => $amount, 'recipientEmail' => $recipientEmail, 'customIdentifier' => 'BILL-' . uniqid()], ["Authorization: Bearer $token", "Accept: application/com.reloadly.giftcards-v1+json", "Content-Type: application/json"]);
 }
 }
 
 /**
- * Paystack (Dedicated Virtual Accounts)
+ * PAYSTACK
  */
 if (!function_exists('createPaystackCustomer')) {
-function createPaystackCustomer($settings, $user) {
-    if (!empty($settings['apiSimulationMode'])) return ['status' => true, 'data' => ['customer_code' => 'CUS_sim' . uniqid()]];
-
-    $url = "https://api.paystack.co/customer";
-    $data = [
-        'email' => $user['email'],
-        'first_name' => explode(' ', $user['fullName'])[0],
-        'last_name' => explode(' ', $user['fullName'])[1] ?? 'User',
-        'phone' => $user['phone']
-    ];
-    return callApi($url, 'POST', $data, ["Authorization: Bearer " . $settings['paystackSecretKey'], "Content-Type: application/json"]);
+function createPaystackCustomer($pdo, $user) {
+    $settings = fetchSettings($pdo);
+    if (!empty($settings['otherApiSettings']['simulationMode'])) return ['status' => true, 'data' => ['customer_code' => 'CUS_sim' . uniqid()]];
+    $creds = $settings['financialSettings']['paystack'] ?? [];
+    return callApi("https://api.paystack.co/customer", 'POST', ['email' => $user['email'], 'first_name' => explode(' ', $user['fullName'])[0], 'last_name' => explode(' ', $user['fullName'])[1] ?? 'User', 'phone' => $user['phone']], ["Authorization: Bearer " . ($creds['secretKey'] ?? ''), "Content-Type: application/json"]);
 }
 }
 
 if (!function_exists('createPaystackDedicatedAccount')) {
-function createPaystackDedicatedAccount($settings, $customerCode) {
-    if (!empty($settings['apiSimulationMode'])) {
-        return [
-            'status' => true,
-            'data' => [
-                'bank' => ['name' => 'Simulation Bank'],
-                'account_number' => mt_rand(1000000000, 9999999999),
-                'account_name' => 'SIMULATED ACCOUNT',
-                'assignment' => ['integration' => 1]
-            ]
-        ];
-    }
-
-    $url = "https://api.paystack.co/dedicated_account";
-    $data = ['customer' => $customerCode, 'preferred_bank' => 'wema-bank'];
-    return callApi($url, 'POST', $data, ["Authorization: Bearer " . $settings['paystackSecretKey'], "Content-Type: application/json"]);
+function createPaystackDedicatedAccount($pdo, $customerCode) {
+    $settings = fetchSettings($pdo);
+    if (!empty($settings['otherApiSettings']['simulationMode'])) return ['status' => true, 'data' => ['bank' => ['name' => 'Sim Bank'], 'account_number' => mt_rand(1000000000, 9999999999), 'account_name' => 'SIM ACCOUNT']];
+    $creds = $settings['financialSettings']['paystack'] ?? [];
+    return callApi("https://api.paystack.co/dedicated_account", 'POST', ['customer' => $customerCode, 'preferred_bank' => 'wema-bank'], ["Authorization: Bearer " . ($creds['secretKey'] ?? ''), "Content-Type: application/json"]);
 }
 }
 
-/**
- * Crypto Prices (CoinGecko)
- */
 if (!function_exists('getCryptoPrices')) {
 function getCryptoPrices() {
-    $url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,binancecoin,solana,tether&vs_currencies=ngn,usd&include_24hr_change=true";
-    return callApi($url);
+    return callApi("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,binancecoin,solana,tether&vs_currencies=ngn,usd&include_24hr_change=true");
 }
 }

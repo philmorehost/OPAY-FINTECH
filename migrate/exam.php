@@ -23,7 +23,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     if (!$selectedProv) {
         $error = "Invalid provider";
     } else {
-        $totalCost = $selectedProv['userPrice'] * $qty;
+        $userPrice = (float)$selectedProv['userPrice'];
+        $totalCost = $userPrice * $qty;
         if ($currentUser['walletBalance'] < $totalCost) {
             $error = 'Insufficient balance';
         } else {
@@ -31,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             try {
                 updateWallet($pdo, $currentUser['id'], $totalCost, 'debit');
 
-                $vtRes = callVtpass($settings, $providerId, [
+                $vtRes = callVtpass($pdo, $providerId, [
                     'quantity' => $qty,
                     'amount' => $totalCost,
                     'phone' => $currentUser['phone']
@@ -40,31 +41,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $isSuccess = isset($vtRes['code']) && $vtRes['code'] === '000';
                 $tokens = [];
                 if ($isSuccess && isset($vtRes['cards'])) {
-                    foreach ($vtRes['cards'] as $card) {
-                        $tokens[] = $card['pin'];
-                    }
+                    foreach ($vtRes['cards'] as $card) { $tokens[] = $card['pin']; }
                 }
                 $tokenStr = implode(', ', $tokens);
 
-                logTransaction($pdo, $currentUser['id'], 'Exam PIN', $totalCost, $isSuccess ? 'successful' : 'failed', "Purchase of $qty " . $selectedProv['name'] . " PIN(s)", 'Self', $selectedProv['name'], $tokenStr);
-
-                if (!$isSuccess) {
-                    throw new Exception($vtRes['response_description'] ?? 'API Error');
+                if ($isSuccess) {
+                    logTransaction($pdo, $currentUser['id'], 'Exam PIN', $totalCost, 'successful', "Purchase of $qty " . $selectedProv['name'] . " PIN(s)", 'Self', $selectedProv['name'], $tokenStr);
+                    sendMail($pdo, $currentUser['email'], "Exam PIN Receipt", "Successful purchase of $qty PIN(s). PIN: $tokenStr");
+                    claimDailyRewardIfEligible($pdo, $currentUser['id']);
+                    $success = true;
+                } else {
+                    updateWallet($pdo, $currentUser['id'], $totalCost, 'credit');
+                    logTransaction($pdo, $currentUser['id'], 'Exam PIN', $totalCost, 'failed', "Exam PIN failed: " . ($vtRes['response_description'] ?? 'API Error'), 'Self', $selectedProv['name']);
+                    $error = 'Transaction failed: ' . ($vtRes['response_description'] ?? 'Provider Error');
                 }
 
-                // Receipt Email
-                $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Your purchase of $qty " . $selectedProv['name'] . " Exam PIN(s) was successful.<br><br>Total: " . formatCurrency($totalCost) . "<br><br>PINs will be sent to this email address shortly.";
-                sendMail($pdo, $currentUser['email'], "Exam PIN Receipt", $receiptMsg);
-
-                claimDailyRewardIfEligible($pdo, $currentUser['id']);
                 $pdo->commit();
-                $success = true;
                 $stmt = $pdo->prepare("SELECT walletBalance FROM users WHERE id = ?");
                 $stmt->execute([$currentUser['id']]);
                 $currentUser['walletBalance'] = $stmt->fetchColumn();
             } catch (Exception $e) {
                 $pdo->rollBack();
-                $error = 'Transaction failed: ' . $e->getMessage();
+                $error = 'Internal Error: ' . $e->getMessage();
             }
         }
     }
@@ -72,8 +70,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
 require_once __DIR__ . '/includes/header.php';
 ?>
-<div class="mx-auto min-h-screen bg-gray-50 flex flex-col pb-24">
-    <div class="bg-white p-4 flex items-center gap-4 sticky top-0 z-10 border-b">
+<div class="mx-auto min-h-screen bg-gray-50 flex flex-col pb-24 text-gray-900">
+    <div class="bg-white p-4 flex items-center gap-4 sticky top-0 z-10 border-b shadow-sm">
         <a href="/dashboard"><i data-lucide="arrow-left" class="w-6 h-6 text-gray-900"></i></a>
         <h1 class="text-lg font-black text-gray-900 uppercase tracking-tight">Exam Result PINs</h1>
     </div>
@@ -89,7 +87,7 @@ require_once __DIR__ . '/includes/header.php';
                 <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Select Exam</label>
                 <div class="grid grid-cols-2 gap-4">
                     <?php foreach ($examProviders as $p): ?>
-                    <button type="button" onclick="setProv('<?php echo $p['id']; ?>', '<?php echo $p['userPrice']; ?>')" id="prov_<?php echo $p['id']; ?>" class="prov-btn p-5 rounded-[24px] border-2 transition-all border-transparent bg-gray-50 flex flex-col items-center gap-2">
+                    <button type="button" onclick="setProv('<?php echo $p['id']; ?>')" id="prov_<?php echo $p['id']; ?>" class="prov-btn p-5 rounded-[24px] border-2 transition-all border-transparent bg-gray-50 flex flex-col items-center gap-2">
                         <span class="text-xs font-black text-gray-800"><?php echo $p['name']; ?></span>
                         <span class="text-[9px] font-bold text-billpay-green uppercase"><?php echo formatCurrency($p['userPrice']); ?></span>
                     </button>
@@ -108,14 +106,14 @@ require_once __DIR__ . '/includes/header.php';
     </div>
 </div>
 <script>
-    function setProv(id, price) {
+    function setProv(id) {
         document.getElementById('providerInput').value = id;
         document.querySelectorAll('.prov-btn').forEach(btn => {
-            btn.classList.remove('border-billpay-green', 'bg-white', 'shadow-md');
+            btn.classList.remove('border-billpay-green', 'bg-green-50', 'shadow-sm');
             btn.classList.add('border-transparent', 'bg-gray-50');
         });
         const active = document.getElementById('prov_' + id);
-        active.classList.add('border-billpay-green', 'bg-white', 'shadow-md');
+        active.classList.add('border-billpay-green', 'bg-green-50', 'shadow-sm');
         active.classList.remove('border-transparent', 'bg-gray-50');
     }
 </script>

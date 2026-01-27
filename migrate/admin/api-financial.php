@@ -1,0 +1,101 @@
+<?php
+require_once __DIR__ . '/../includes/config.php';
+if (!isAdmin()) redirect('/login');
+
+$pageTitle = 'Financial API Settings';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!verifyCsrfToken($_POST['csrf_token'])) die('CSRF Failed');
+
+    $finSettings = [
+        'paystack' => [
+            'secretKey' => $_POST['ps_secretKey'],
+            'publicKey' => $_POST['ps_publicKey'],
+            'webhookUrl' => $_POST['ps_webhookUrl']
+        ],
+        'juicyway' => [
+            'apiKey' => $_POST['jw_apiKey'],
+            'merchantId' => $_POST['jw_merchantId']
+        ],
+        'virtual_card_fee' => $_POST['vc_fee']
+    ];
+
+    $stmt = $pdo->prepare("UPDATE settings SET financialSettings = ? WHERE id = 1");
+    $stmt->execute([json_encode($finSettings)]);
+    $success = "Financial settings updated!";
+    $settings = fetchSettings($pdo);
+}
+
+$fs = $settings['financialSettings'] ?? [];
+if (is_string($fs)) $fs = json_decode($fs, true) ?: [];
+
+if (empty($fs)) {
+    $fs = [
+        'paystack' => ['secretKey' => '', 'publicKey' => '', 'webhookUrl' => (isset($_SERVER['HTTPS']) ? 'https' : 'http') . "://$_SERVER[HTTP_HOST]/webhook-paystack.php"],
+        'juicyway' => ['apiKey' => '', 'merchantId' => ''],
+        'virtual_card_fee' => 1000
+    ];
+}
+
+require_once __DIR__ . '/header.php';
+?>
+
+<div class="space-y-10 animate-fade-in pb-20 text-gray-900">
+    <div class="flex items-center justify-between">
+        <h2 class="text-2xl font-black uppercase tracking-tight">Financial & Banking API</h2>
+    </div>
+
+    <?php if (isset($success)): ?><div class="p-4 bg-green-50 text-green-800 rounded-2xl text-xs font-black border border-green-100 uppercase text-center"><?php echo $success; ?></div><?php endif; ?>
+
+    <form method="POST" class="space-y-10">
+        <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- Paystack -->
+            <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
+                <h3 class="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-3 text-billpay-green">
+                    <i data-lucide="credit-card" class="w-5 h-5"></i> Paystack (Funding)
+                </h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Secret Key</label>
+                        <input type="password" name="ps_secretKey" value="<?php echo $fs['paystack']['secretKey'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Public Key</label>
+                        <input type="text" name="ps_publicKey" value="<?php echo $fs['paystack']['publicKey'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1 text-red-500">Webhook URL (Set in Paystack Dashboard)</label>
+                        <input type="text" readonly name="ps_webhookUrl" value="<?php echo $fs['paystack']['webhookUrl'] ?? ''; ?>" class="w-full p-4 bg-gray-100 rounded-2xl font-mono text-[10px] mt-1 outline-none border border-transparent">
+                    </div>
+                </div>
+            </div>
+
+            <!-- JuicyWay -->
+            <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
+                <h3 class="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-3 text-purple-600">
+                    <i data-lucide="layout-grid" class="w-5 h-5"></i> JuicyWay (Virtual Cards)
+                </h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1">API Key</label>
+                        <input type="password" name="jw_apiKey" value="<?php echo $fs['juicyway']['apiKey'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Merchant ID</label>
+                        <input type="text" name="jw_merchantId" value="<?php echo $fs['juicyway']['merchantId'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Card Issuance Fee (NGN)</label>
+                        <input type="number" name="vc_fee" value="<?php echo $fs['virtual_card_fee'] ?? 1000; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="w-full bg-gray-900 text-white py-5 rounded-[32px] font-black uppercase shadow-xl hover:bg-black transition-all">Save Financial Configuration</button>
+    </form>
+</div>
+
+<?php require_once __DIR__ . '/footer.php'; ?>

@@ -34,17 +34,9 @@ function isAdmin() {
 
 if (!function_exists('checkKycRestriction')) {
 function checkKycRestriction($settings, $currentUser) {
-    if (!isset($settings['isKycEnforced']) || !$settings['isKycEnforced']) {
-        return; // KYC not enforced
-    }
-
-    if ($currentUser['kycStatus'] !== 'verified') {
-        if ($currentUser['kycStatus'] === 'rejected') {
-            // Redirect to KYC with error or just let KYC page show the rejection
-            header('Location: /kyc?error=restricted');
-        } else {
-            header('Location: /kyc');
-        }
+    if (!isset($settings['isKycEnforced']) || !$settings['isKycEnforced']) return;
+    if (($currentUser['kycStatus'] ?? 'none') !== 'verified') {
+        header('Location: /kyc' . ($currentUser['kycStatus'] === 'rejected' ? '?error=restricted' : ''));
         exit;
     }
 }
@@ -59,42 +51,21 @@ function isKycRejected($user) {
 if (!function_exists('claimDailyRewardIfEligible')) {
 function claimDailyRewardIfEligible($pdo, $userId) {
     $today = date('Y-m-d');
-
-    // Check if already claimed today
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM transactions WHERE userId = ? AND type = 'Daily Reward' AND DATE(date) = ?");
     $stmt->execute([$userId, $today]);
-    if ($stmt->fetchColumn() > 0) {
-        return; // Already claimed today
-    }
+    if ($stmt->fetchColumn() > 0) return;
 
-    $stmt = $pdo->prepare("SELECT bonusPerDay FROM settings WHERE id = 1");
-    $stmt->execute();
+    $stmt = $pdo->query("SELECT bonusPerDay FROM settings WHERE id = 1");
     $bonus = $stmt->fetchColumn();
 
     if ($bonus > 0) {
-        $startedTransaction = false;
-        if (!$pdo->inTransaction()) {
-            $pdo->beginTransaction();
-            $startedTransaction = true;
-        }
+        $started = false; if (!$pdo->inTransaction()) { $pdo->beginTransaction(); $started = true; }
         try {
-            $stmt = $pdo->prepare("UPDATE users SET bonusCoins = bonusCoins + ? WHERE id = ?");
-            $stmt->execute([$bonus, $userId]);
-            logTransaction($pdo, $userId, 'Daily Reward', $bonus, 'successful', "Daily check-in reward (Auto-claimed)", 'Wallet', 'System');
-            if ($startedTransaction) $pdo->commit();
-        } catch (Exception $e) {
-            if ($startedTransaction) $pdo->rollBack();
-        }
+            $pdo->prepare("UPDATE users SET bonusCoins = bonusCoins + ? WHERE id = ?")->execute([$bonus, $userId]);
+            logTransaction($pdo, $userId, 'Daily Reward', $bonus, 'successful', "Daily check-in reward", 'Wallet', 'System');
+            if ($started) $pdo->commit();
+        } catch (Exception $e) { if ($started) $pdo->rollBack(); }
     }
-}
-}
-
-if (!function_exists('checkMinDepositRestriction')) {
-function checkMinDepositRestriction($settings, $currentUser) {
-    if (!isset($settings['isMinDepositForced']) || !$settings['isMinDepositForced']) {
-        return false;
-    }
-    return !($currentUser['hasCompletedInitialDeposit'] ?? false);
 }
 }
 
@@ -105,12 +76,9 @@ function redirect($path) {
 }
 }
 
-// CSRF Protection
 if (!function_exists('generateCsrfToken')) {
 function generateCsrfToken() {
-    if (empty($_SESSION['csrf_token'])) {
-        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-    }
+    if (empty($_SESSION['csrf_token'])) $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     return $_SESSION['csrf_token'];
 }
 }
@@ -121,29 +89,12 @@ function verifyCsrfToken($token) {
 }
 }
 
-// Session security
 if (!function_exists('startSecureSession')) {
 function startSecureSession() {
     if (session_status() === PHP_SESSION_NONE) {
-        // Set lifetime to 1 year (31536000 seconds) for persistent login
-        session_set_cookie_params([
-            'lifetime' => 31536000,
-            'path' => '/',
-            'domain' => '',
-            'secure' => true,
-            'httponly' => true,
-            'samesite' => 'Lax'
-        ]);
+        session_set_cookie_params(['lifetime' => 31536000, 'path' => '/', 'secure' => true, 'httponly' => true, 'samesite' => 'Lax']);
         session_start();
     }
-}
-}
-
-// Database helper
-if (!function_exists('fetchActiveOffers')) {
-function fetchActiveOffers($pdo) {
-    $stmt = $pdo->query("SELECT * FROM offers WHERE expiryDate > NOW() ORDER BY createdAt DESC");
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 }
 
@@ -152,12 +103,8 @@ function fetchSettings($pdo) {
     $stmt = $pdo->query("SELECT * FROM settings WHERE id = 1");
     $settings = $stmt->fetch(PDO::FETCH_ASSOC);
     if ($settings) {
-        $settings['dataNetworks'] = json_decode($settings['dataNetworks'], true) ?: [];
-        $settings['cableProviders'] = json_decode($settings['cableProviders'], true) ?: [];
-        $settings['electricProviders'] = json_decode($settings['electricProviders'], true) ?: [];
-        $settings['bettingProviders'] = json_decode($settings['bettingProviders'], true) ?: [];
-        $settings['airtimeDiscounts'] = json_decode($settings['airtimeDiscounts'], true) ?: [];
-        $settings['dataProducts'] = json_decode($settings['dataProducts'] ?? '[]', true) ?: [];
+        $json_fields = ['dataNetworks', 'cableProviders', 'electricProviders', 'bettingProviders', 'airtimeDiscounts', 'dataProducts', 'airtimeSettings', 'dataSettings', 'utilitySettings', 'financialSettings', 'otherApiSettings'];
+        foreach($json_fields as $f) if(isset($settings[$f])) $settings[$f] = json_decode($settings[$f], true) ?: [];
     }
     return $settings;
 }
@@ -165,22 +112,13 @@ function fetchSettings($pdo) {
 
 if (!function_exists('updateWallet')) {
 function updateWallet($pdo, $userId, $amount, $type = 'credit') {
-    $operator = ($type === 'credit') ? '+' : '-';
-    $stmt = $pdo->prepare("UPDATE users SET walletBalance = walletBalance $operator ? WHERE id = ?");
-    $res = $stmt->execute([$amount, $userId]);
+    $op = ($type === 'credit') ? '+' : '-';
+    $res = $pdo->prepare("UPDATE users SET walletBalance = walletBalance $op ? WHERE id = ?")->execute([$amount, $userId]);
     if ($res && $type === 'credit') {
-        // Fetch current balance after credit
-        $uStmt = $pdo->prepare("SELECT walletBalance FROM users WHERE id = ?");
-        $uStmt->execute([$userId]);
-        $currentBalance = (float)$uStmt->fetchColumn();
-
-        $sStmt = $pdo->query("SELECT minDepositAmount FROM settings WHERE id = 1");
-        $min = (float)$sStmt->fetchColumn() ?: 0;
-
-        // Lift restriction if balance reaches the threshold
-        if ($currentBalance >= $min) {
-            $pdo->prepare("UPDATE users SET hasCompletedInitialDeposit = 1 WHERE id = ?")->execute([$userId]);
-        }
+        $stmt = $pdo->prepare("SELECT walletBalance FROM users WHERE id = ?"); $stmt->execute([$userId]);
+        $bal = (float)$stmt->fetchColumn();
+        $min = (float)$pdo->query("SELECT minDepositAmount FROM settings WHERE id = 1")->fetchColumn();
+        if ($bal >= $min) $pdo->prepare("UPDATE users SET hasCompletedInitialDeposit = 1 WHERE id = ?")->execute([$userId]);
     }
     return $res;
 }
@@ -195,102 +133,20 @@ function checkDailyLimit($pdo, $userId, $recipient, $limit) {
 }
 
 if (!function_exists('logTransaction')) {
-function logTransaction($pdo, $userId, $type, $amount, $status, $details, $recipient, $provider = null, $token = null) {
+function logTransaction($pdo, $userId, $type, $amount, $status, $details, $recipient, $provider = null, $token = null, $apiAmount = 0, $profit = 0) {
     $id = 'TX-' . strtoupper(bin2hex(random_bytes(4)));
-    $stmt = $pdo->prepare("INSERT INTO transactions (id, userId, type, amount, status, details, recipient, provider, token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    return $stmt->execute([$id, $userId, $type, $amount, $status, $details, $recipient, $provider, $token]);
-}
-}
-
-if (!function_exists('checkRateLimit')) {
-function checkRateLimit($key, $limit = 5, $period = 60) {
-    if (!isset($_SESSION['rate_limit'][$key])) {
-        $_SESSION['rate_limit'][$key] = ['count' => 1, 'start' => time()];
-        return true;
-    }
-
-    $data = &$_SESSION['rate_limit'][$key];
-    if (time() - $data['start'] > $period) {
-        $data = ['count' => 1, 'start' => time()];
-        return true;
-    }
-
-    if ($data['count'] >= $limit) {
-        return false;
-    }
-
-    $data['count']++;
-    return true;
+    $stmt = $pdo->prepare("INSERT INTO transactions (id, userId, type, amount, status, details, recipient, provider, token, apiAmount, profit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    return $stmt->execute([$id, $userId, $type, $amount, $status, $details, $recipient, $provider, $token, $apiAmount, $profit]);
 }
 }
 
 if (!function_exists('sendMail')) {
 function sendMail($pdo, $to, $subject, $message) {
-    $stmt = $pdo->query("SELECT senderName, fromEmail FROM settings WHERE id = 1");
-    $settings = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    $senderName = $settings['senderName'] ?? 'Billpay Support';
-    $fromEmail = $settings['fromEmail'] ?? 'no-reply@' . $_SERVER['HTTP_HOST'];
-
-    $headers = "MIME-Version: 1.0" . "\r\n";
-    $headers .= "Content-type:text/html;charset=UTF-8" . "\r\n";
-    $headers .= "From: $senderName <$fromEmail>" . "\r\n";
-
-    $htmlBody = "
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset='UTF-8'>
-        <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-    </head>
-    <body style='margin: 0; padding: 0; background-color: #f6f9fc; font-family: \"Inter\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif;'>
-        <table width='100%' border='0' cellspacing='0' cellpadding='0' style='background-color: #f6f9fc; padding: 40px 20px;'>
-            <tr>
-                <td align='center'>
-                    <table width='600' border='0' cellspacing='0' cellpadding='0' style='background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.05);'>
-                        <!-- Header -->
-                        <tr>
-                            <td style='background: linear-gradient(135deg, #00c689 0%, #00a672 100%); padding: 60px 40px; text-align: center;'>
-                                <div style='width: 60px; height: 60px; background-color: rgba(255,255,255,0.2); border-radius: 16px; margin: 0 auto 20px; display: inline-block; line-height: 60px; color: #ffffff; font-size: 32px; font-weight: 900; border: 1px solid rgba(255,255,255,0.3);'>B</div>
-                                <h1 style='margin: 0; color: #ffffff; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;'>$senderName</h1>
-                                <p style='margin: 10px 0 0; color: rgba(255,255,255,0.8); font-size: 14px; font-weight: 500; text-transform: uppercase; letter-spacing: 2px;'>$subject</p>
-                            </td>
-                        </tr>
-                        <!-- Content -->
-                        <tr>
-                            <td style='padding: 50px 40px; line-height: 1.8; color: #4a5568;'>
-                                <div style='font-size: 16px; font-weight: 500;'>
-                                    $message
-                                </div>
-                                <div style='margin-top: 40px; padding-top: 30px; border-top: 1px solid #edf2f7;'>
-                                    <p style='margin: 0; font-size: 14px; font-weight: 700; color: #1a202c;'>Need help?</p>
-                                    <p style='margin: 5px 0 0; font-size: 13px; color: #718096;'>Contact our 24/7 support team if you have any questions.</p>
-                                </div>
-                            </td>
-                        </tr>
-                        <!-- Footer -->
-                        <tr>
-                            <td style='background-color: #fcfdfe; padding: 40px; text-align: center; border-top: 1px solid #f1f5f9;'>
-                                <div style='margin-bottom: 20px;'>
-                                    <a href='#' style='display: inline-block; margin: 0 10px; color: #a0aec0; text-decoration: none;'><span style='font-size: 18px;'>●</span></a>
-                                    <a href='#' style='display: inline-block; margin: 0 10px; color: #a0aec0; text-decoration: none;'><span style='font-size: 18px;'>●</span></a>
-                                    <a href='#' style='display: inline-block; margin: 0 10px; color: #a0aec0; text-decoration: none;'><span style='font-size: 18px;'>●</span></a>
-                                </div>
-                                <p style='margin: 0; font-size: 12px; font-weight: 600; color: #a0aec0; text-transform: uppercase; letter-spacing: 1px;'>
-                                    &copy; " . date('Y') . " $senderName. All rights reserved.
-                                </p>
-                                <p style='margin: 10px 0 0; font-size: 11px; color: #cbd5e0;'>
-                                    This is an automated notification from our system.
-                                </p>
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-        </table>
-    </body>
-    </html>";
-
-    return @mail($to, $subject, $htmlBody, $headers);
+    $settings = $pdo->query("SELECT senderName, fromEmail FROM settings WHERE id = 1")->fetch(PDO::FETCH_ASSOC);
+    $name = $settings['senderName'] ?? 'Billpay Support';
+    $from = $settings['fromEmail'] ?? 'no-reply@' . $_SERVER['HTTP_HOST'];
+    $headers = "MIME-Version: 1.0\r\nContent-type:text/html;charset=UTF-8\r\nFrom: $name <$from>";
+    $body = "<html><body style='font-family:sans-serif;background:#f6f9fc;padding:40px;'><div style='background:#fff;border-radius:20px;padding:40px;box-shadow:0 10px 30px rgba(0,0,0,0.05);'><h2 style='color:#00c689;margin-top:0;'>$subject</h2><p>$message</p><hr style='border:none;border-top:1px solid #eee;margin:30px 0;'><p style='font-size:12px;color:#a0aec0;'>&copy; ".date('Y')." $name</p></div></body></html>";
+    return @mail($to, $subject, $body, $headers);
 }
 }
