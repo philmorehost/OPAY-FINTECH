@@ -183,14 +183,33 @@ if (isset($script)) echo $script;
         document.querySelectorAll('.meth-btn').forEach(btn => {
             btn.classList.remove('border-billpay-green', 'bg-green-50', 'opacity-100');
             btn.classList.add('border-transparent', 'bg-gray-50', 'opacity-50');
-            btn.querySelector('i').classList.replace('text-billpay-green', 'text-gray-400');
-            btn.querySelector('span').classList.replace('text-gray-800', 'text-gray-400');
+            const icon = btn.querySelector('.lucide') || btn.querySelector('i');
+            if (icon) {
+                icon.classList.remove('text-billpay-green');
+                icon.classList.add('text-gray-400');
+            }
+            const span = btn.querySelector('span');
+            if (span) {
+                span.classList.remove('text-gray-800');
+                span.classList.add('text-gray-400');
+            }
         });
-        const active = document.getElementById('meth' + method.charAt(0).toUpperCase() + method.slice(1));
-        active.classList.add('border-billpay-green', 'bg-green-50', 'opacity-100');
-        active.classList.remove('border-transparent', 'bg-gray-50', 'opacity-50');
-        active.querySelector('i').classList.replace('text-gray-400', 'text-billpay-green');
-        active.querySelector('span').classList.replace('text-gray-400', 'text-gray-800');
+        const activeId = 'meth' + method.charAt(0).toUpperCase() + method.slice(1);
+        const active = document.getElementById(activeId);
+        if (active) {
+            active.classList.add('border-billpay-green', 'bg-green-50', 'opacity-100');
+            active.classList.remove('border-transparent', 'bg-gray-50', 'opacity-50');
+            const icon = active.querySelector('.lucide') || active.querySelector('i');
+            if (icon) {
+                icon.classList.remove('text-gray-400');
+                icon.classList.add('text-billpay-green');
+            }
+            const span = active.querySelector('span');
+            if (span) {
+                span.classList.remove('text-gray-400');
+                span.classList.add('text-gray-800');
+            }
+        }
     }
 </script>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
