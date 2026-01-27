@@ -11,7 +11,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'vtpass' => [
             'apiKey' => $_POST['vt_apiKey'],
             'secretKey' => $_POST['vt_secretKey'],
-            'publicKey' => $_POST['vt_publicKey']
+            'publicKey' => $_POST['vt_publicKey'],
+            'username' => $_POST['vt_username'],
+            'password' => $_POST['vt_password']
         ],
         'nellobyte' => [
             'userId' => $_POST['nb_userId'],
@@ -73,6 +75,16 @@ require_once __DIR__ . '/header.php';
                     <div>
                         <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Public Key</label>
                         <input type="text" name="vt_publicKey" value="<?php echo $us['vtpass']['publicKey'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Username (Alt)</label>
+                            <input type="text" name="vt_username" value="<?php echo $us['vtpass']['username'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Password (Alt)</label>
+                            <input type="password" name="vt_password" value="<?php echo $us['vtpass']['password'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
+                        </div>
                     </div>
                 </div>
             </div>

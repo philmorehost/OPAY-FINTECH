@@ -40,7 +40,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
             if ($isSuccess) {
                 $token = $vtRes['mainToken'] ?? $vtRes['token'] ?? '';
-                logTransaction($pdo, $currentUser['id'], 'Electricity', $amount, 'successful', "Electric ($serviceId) for $meterNumber", $meterNumber, $serviceId, $token);
+                $profit = $amount * 0.01; // Placeholder 1% profit
+                $apiAmount = $amount - $profit;
+                logTransaction($pdo, $currentUser['id'], 'Electricity', $amount, 'successful', "Electric ($serviceId) for $meterNumber", $meterNumber, $serviceId, $token, $apiAmount, $profit);
                 sendMail($pdo, $currentUser['email'], "Electricity Receipt", "Successful recharge for $meterNumber. Token: $token");
                 claimDailyRewardIfEligible($pdo, $currentUser['id']);
                 $success = true;

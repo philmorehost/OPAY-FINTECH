@@ -36,7 +36,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $isSuccess = isset($vtRes['code']) && $vtRes['code'] === '000';
 
             if ($isSuccess) {
-                logTransaction($pdo, $currentUser['id'], 'Betting', $amount, 'successful', "Betting Wallet Fund ($providerId) for ID: $customerId", $customerId, $providerId);
+                $profit = $amount * 0.01; // Placeholder 1% profit
+                $apiAmount = $amount - $profit;
+                logTransaction($pdo, $currentUser['id'], 'Betting', $amount, 'successful', "Betting Wallet Fund ($providerId) for ID: $customerId", $customerId, $providerId, null, $apiAmount, $profit);
                 sendMail($pdo, $currentUser['email'], "Betting Funding Receipt", "Successful funding for $customerId. Amount: " . formatCurrency($amount));
                 claimDailyRewardIfEligible($pdo, $currentUser['id']);
                 $success = true;

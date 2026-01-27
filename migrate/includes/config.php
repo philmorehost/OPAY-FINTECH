@@ -15,7 +15,7 @@ if (!file_exists($dbPath)) {
 require_once $dbPath;
 require_once __DIR__ . '/functions.php';
 require_once __DIR__ . '/api.php';
-// require_once __DIR__ . '/migrations.php'; // Included in admin/header.php or manually
+require_once __DIR__ . '/migrations.php';
 
 startSecureSession();
 

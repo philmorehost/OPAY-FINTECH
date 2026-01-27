@@ -29,6 +29,21 @@ function callApi($url, $method = 'GET', $data = [], $headers = []) {
 }
 
 /**
+ * Helper: Network Code Mapping
+ */
+if (!function_exists('getNetworkCode')) {
+function getNetworkCode($provider, $network) {
+    $network = strtoupper($network);
+    $map = [
+        'nellobyte' => ['MTN' => '01', 'AIRTEL' => '02', 'GLO' => '03', '9MOBILE' => '04'],
+        'datagifting' => ['MTN' => '1', 'AIRTEL' => '2', 'GLO' => '3', '9MOBILE' => '4'],
+        'hdkdata' => ['MTN' => '1', 'AIRTEL' => '2', 'GLO' => '3', '9MOBILE' => '4']
+    ];
+    return $map[$provider][$network] ?? $network;
+}
+}
+
+/**
  * AIRTIME & DATA
  */
 if (!function_exists('purchaseAirtime')) {
@@ -38,13 +53,14 @@ function purchaseAirtime($pdo, $network, $amount, $phone) {
     if (!empty($settings['otherApiSettings']['simulationMode'])) return ['status' => 'success', 'message' => 'Sim Success', 'ref' => 'SIM-' . uniqid()];
     $provider = $as['routing'][$network] ?? 'datagifting';
     $creds = $as['providers'][$provider] ?? [];
+    $netCode = getNetworkCode($provider, $network);
     switch ($provider) {
         case 'datagifting':
-            $res = callApi("https://datagifting.com.ng/api/airtime?apiKey=" . ($creds['apiKey'] ?? '') . "&network=$network&amount=$amount&phone=$phone");
+            $res = callApi("https://v6.datagifting.com.ng/web/api/airtime.php?api_key=" . ($creds['apiKey'] ?? '') . "&network=$netCode&amount=$amount&phone_number=$phone");
             if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
             return ['status' => 'failed', 'message' => $res['msg'] ?? 'Provider Error'];
         case 'nellobyte':
-            $res = callApi("https://nellobyte.com/api/airtime?userid=" . ($creds['userId'] ?? '') . "&apikey=" . ($creds['apiKey'] ?? '') . "&network=$network&amount=$amount&phone=$phone");
+            $res = callApi("https://nellobyte.com/api/airtime?userid=" . ($creds['userId'] ?? '') . "&apikey=" . ($creds['apiKey'] ?? '') . "&network=$netCode&amount=$amount&phone=$phone");
             if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
             return ['status' => 'failed', 'message' => $res['msg'] ?? 'Provider Error'];
         case 'hdkdata':
@@ -63,13 +79,14 @@ function purchaseData($pdo, $network, $planId, $phone) {
     if (!empty($settings['otherApiSettings']['simulationMode'])) return ['status' => 'success', 'message' => 'Sim Success', 'ref' => 'SIM-' . uniqid()];
     $provider = $ds['routing'][$network] ?? 'datagifting';
     $creds = $ds['providers'][$provider] ?? [];
+    $netCode = getNetworkCode($provider, $network);
     switch ($provider) {
         case 'datagifting':
-            $res = callApi("https://datagifting.com.ng/api/data?apiKey=" . ($creds['apiKey'] ?? '') . "&network=$network&plan=$planId&phone=$phone");
+            $res = callApi("https://v6.datagifting.com.ng/web/api/data.php?api_key=" . ($creds['apiKey'] ?? '') . "&network=$netCode&plan=$planId&phone_number=$phone");
             if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
             return ['status' => 'failed', 'message' => $res['msg'] ?? 'Provider Error'];
         case 'nellobyte':
-            $res = callApi("https://nellobyte.com/api/data?userid=" . ($creds['userId'] ?? '') . "&apikey=" . ($creds['apiKey'] ?? '') . "&network=$network&plan=$planId&phone=$phone");
+            $res = callApi("https://nellobyte.com/api/data?userid=" . ($creds['userId'] ?? '') . "&apikey=" . ($creds['apiKey'] ?? '') . "&network=$netCode&plan=$planId&phone=$phone");
             if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
             return ['status' => 'failed', 'message' => $res['msg'] ?? 'Provider Error'];
         case 'hdkdata':
@@ -91,7 +108,17 @@ function callVtpass($pdo, $serviceId, $data) {
     $creds = $settings['utilitySettings']['vtpass'] ?? [];
     if (!isset($data['request_id'])) $data['request_id'] = date('YmdHi') . bin2hex(random_bytes(3));
     $data['serviceID'] = $serviceId;
-    return callApi("https://vtpass.com/api/pay", 'POST', $data, ["api-key: " . ($creds['apiKey'] ?? ''), "secret-key: " . ($creds['secretKey'] ?? ''), "public-key: " . ($creds['publicKey'] ?? ''), "Content-Type: application/json"]);
+
+    $headers = ["Content-Type: application/json"];
+    if (!empty($creds['apiKey'])) {
+        $headers[] = "api-key: " . $creds['apiKey'];
+        $headers[] = "secret-key: " . ($creds['secretKey'] ?? '');
+        $headers[] = "public-key: " . ($creds['publicKey'] ?? '');
+    } elseif (!empty($creds['username']) && !empty($creds['password'])) {
+        $headers[] = "Authorization: Basic " . base64_encode($creds['username'] . ":" . $creds['password']);
+    }
+
+    return callApi("https://vtpass.com/api/pay", 'POST', $data, $headers);
 }
 }
 
