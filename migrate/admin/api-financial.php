@@ -16,12 +16,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'juicyway' => [
             'apiKey' => $_POST['jw_apiKey'],
             'merchantId' => $_POST['jw_merchantId']
-        ],
-        'virtual_card_fee' => $_POST['vc_fee']
+        ]
     ];
 
-    $stmt = $pdo->prepare("UPDATE settings SET financialSettings = ? WHERE id = 1");
-    $stmt->execute([json_encode($finSettings)]);
+    $stmt = $pdo->prepare("UPDATE settings SET financialSettings = ?, vcardIssuanceFee = ? WHERE id = 1");
+    $stmt->execute([json_encode($finSettings), $_POST['vc_fee']]);
     $success = "Financial settings updated!";
     $settings = fetchSettings($pdo);
 }
@@ -88,7 +87,7 @@ require_once __DIR__ . '/header.php';
                     </div>
                     <div>
                         <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Card Issuance Fee (NGN)</label>
-                        <input type="number" name="vc_fee" value="<?php echo $fs['virtual_card_fee'] ?? 1000; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
+                        <input type="number" name="vc_fee" value="<?php echo $settings['vcardIssuanceFee'] ?? 1000; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
                     </div>
                 </div>
             </div>

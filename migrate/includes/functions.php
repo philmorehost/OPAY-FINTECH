@@ -104,7 +104,19 @@ function fetchSettings($pdo) {
     $settings = $stmt->fetch(PDO::FETCH_ASSOC);
     if ($settings) {
         $json_fields = ['dataNetworks', 'cableProviders', 'electricProviders', 'bettingProviders', 'airtimeDiscounts', 'dataProducts', 'airtimeSettings', 'dataSettings', 'utilitySettings', 'financialSettings', 'otherApiSettings'];
-        foreach($json_fields as $f) if(isset($settings[$f])) $settings[$f] = json_decode($settings[$f], true) ?: [];
+        foreach($json_fields as $f) {
+            if(isset($settings[$f])) {
+                $val = json_decode($settings[$f], true) ?: [];
+                $settings[$f] = $val;
+
+                // Compatibility Flattening (e.g. paystackSecretKey)
+                if ($f === 'financialSettings') {
+                    if (isset($val['paystack']['secretKey'])) $settings['paystackSecretKey'] = $val['paystack']['secretKey'];
+                    if (isset($val['paystack']['publicKey'])) $settings['paystackPublicKey'] = $val['paystack']['publicKey'];
+                    if (isset($val['virtual_card_fee'])) $settings['vcardIssuanceFee'] = $val['virtual_card_fee'];
+                }
+            }
+        }
     }
     return $settings;
 }
