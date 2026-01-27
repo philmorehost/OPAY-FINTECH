@@ -11,6 +11,20 @@ $success = '';
 $gcRes = getReloadlyGiftCards($settings);
 $allCards = $gcRes['content'] ?? [];
 
+// Color presets for cards
+$cardColors = [
+    ['bg' => 'bg-orange-50', 'text' => 'text-orange-600', 'border' => 'border-orange-100'],
+    ['bg' => 'bg-blue-50', 'text' => 'text-blue-600', 'border' => 'border-blue-100'],
+    ['bg' => 'bg-pink-50', 'text' => 'text-pink-600', 'border' => 'border-pink-100'],
+    ['bg' => 'bg-emerald-50', 'text' => 'text-emerald-600', 'border' => 'border-emerald-100'],
+    ['bg' => 'bg-purple-50', 'text' => 'text-purple-600', 'border' => 'border-purple-100'],
+    ['bg' => 'bg-indigo-50', 'text' => 'text-indigo-600', 'border' => 'border-indigo-100'],
+    ['bg' => 'bg-amber-50', 'text' => 'text-amber-600', 'border' => 'border-amber-100'],
+    ['bg' => 'bg-rose-50', 'text' => 'text-rose-600', 'border' => 'border-rose-100'],
+    ['bg' => 'bg-cyan-50', 'text' => 'text-cyan-600', 'border' => 'border-cyan-100'],
+    ['bg' => 'bg-lime-50', 'text' => 'text-lime-600', 'border' => 'border-lime-100']
+];
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'purchase') {
     if (!verifyCsrfToken($_POST['csrf_token'])) die('CSRF Failed');
 
@@ -65,15 +79,21 @@ require_once __DIR__ . '/includes/header.php';
             </div>
         </div>
 
-        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4" id="gcGrid">
-            <?php foreach ($allCards as $card): ?>
-            <button onclick='selectCard(<?php echo json_encode($card); ?>)' class="gc-card bg-white p-6 rounded-[32px] shadow-sm border border-gray-100 flex flex-col items-center gap-4 transition-all hover:scale-105 active:scale-95 group">
-                <div class="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center font-black text-xl text-billpay-green group-hover:bg-billpay-green group-hover:text-white transition-colors">
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6" id="gcGrid">
+            <?php
+            foreach ($allCards as $index => $card):
+                $color = $cardColors[$index % count($cardColors)];
+            ?>
+            <button onclick='selectCard(<?php echo json_encode($card); ?>)' class="gc-card bg-white p-6 rounded-[40px] shadow-sm border <?php echo $color['border']; ?> flex flex-col items-center gap-5 transition-all hover:shadow-xl hover:-translate-y-1 active:scale-95 group">
+                <div class="w-16 h-16 <?php echo $color['bg']; ?> rounded-[24px] flex items-center justify-center font-black text-2xl <?php echo $color['text']; ?> shadow-inner group-hover:scale-110 transition-transform">
                     <?php echo substr($card['productName'], 0, 1); ?>
                 </div>
                 <div class="text-center">
-                    <div class="text-[10px] font-black uppercase tracking-tight truncate w-24 card-name"><?php echo $card['productName']; ?></div>
-                    <div class="text-[8px] font-bold text-gray-400 uppercase mt-1"><?php echo $card['denominationType']; ?></div>
+                    <div class="text-[11px] font-black uppercase tracking-tight truncate w-28 card-name text-gray-800"><?php echo $card['productName']; ?></div>
+                    <div class="flex items-center justify-center gap-1.5 mt-2">
+                        <span class="w-1.5 h-1.5 rounded-full bg-billpay-green animate-pulse"></span>
+                        <div class="text-[8px] font-black text-gray-400 uppercase tracking-widest"><?php echo $card['denominationType']; ?></div>
+                    </div>
                 </div>
             </button>
             <?php endforeach; ?>
