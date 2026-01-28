@@ -72,7 +72,7 @@ function callApi($url, $method = 'GET', $data = [], $headers = []) {
 if (!function_exists('testJuicywayConnection')) {
 function testJuicywayConnection($pdo) {
     $res = juicywayGetWallets($pdo);
-    if (isset($res['wallets'])) return ['status' => 'success', 'message' => 'Connection successful! Found ' . count($res['wallets']) . ' wallets.'];
+    if (isset($res['data'])) return ['status' => 'success', 'message' => 'Connection successful! Found ' . count($res['data']) . ' wallets.'];
     return ['status' => 'error', 'message' => $res['message'] ?? 'Connection failed. Check API key and mode.'];
 }
 }
@@ -255,23 +255,22 @@ function callJuicyWay($pdo, $endpoint, $method = 'POST', $data = []) {
 
 if (!function_exists('juicywayGetWallets')) {
 function juicywayGetWallets($pdo) {
-    return callJuicyWay($pdo, 'wallets', 'GET');
+    return callJuicyWay($pdo, 'wallets/all', 'GET');
 }
 }
 
 if (!function_exists('juicywayGetBanks')) {
 function juicywayGetBanks($pdo, $country = 'NG') {
-    return callJuicyWay($pdo, "banks?country=$country", 'GET');
+    return callJuicyWay($pdo, "payment-methods/banks", 'GET');
 }
 }
 
 if (!function_exists('juicywayGetQuote')) {
 function juicywayGetQuote($pdo, $amount, $from, $to) {
-    $minorAmount = (int)($amount * 100);
     $from = strtoupper($from);
     $to = strtoupper($to);
     // GET request to singular endpoint with query params
-    return callJuicyWay($pdo, "exchange/quote?source_currency=$from&target_currency=$to&amount=$minorAmount", 'GET');
+    return callJuicyWay($pdo, "exchange/quote?source_currency=$from&target_currency=$to&lock=true", 'GET');
 }
 }
 

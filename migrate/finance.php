@@ -33,7 +33,7 @@ if (isset($_GET['ajax'])) {
 
 // Fetch Wallets/Balances from JuicyWay
 $walletsRes = juicywayGetWallets($pdo);
-$wallets = (isset($walletsRes['status']) && ($walletsRes['status'] === 'success' || $walletsRes['status'] === true)) ? ($walletsRes['data'] ?? []) : [];
+$wallets = $walletsRes['data'] ?? [];
 
 // Handle Form Submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
@@ -74,7 +74,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
 
             $res = juicywayInitiatePayout($pdo, $payoutData);
-            if (!isset($res['status']) || ($res['status'] !== 'success' && $res['status'] !== true)) throw new Exception($res['message'] ?? 'Transfer failed');
+            $resData = $res['data'] ?? $res;
+            if ((isset($resData['status']) && $resData['status'] === 'failed') || (isset($res['status']) && $res['status'] === 'error')) throw new Exception($res['message'] ?? $resData['message'] ?? 'Transfer failed');
 
             // Save Beneficiary
             if (isset($_POST['save_beneficiary'])) {
@@ -97,7 +98,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 'payment_method' => 'internal',
                 'recipient' => $recipient
             ]);
-            if (!isset($res['status']) || ($res['status'] !== 'success' && $res['status'] !== true)) throw new Exception($res['message'] ?? 'Internal transfer failed');
+            $resData = $res['data'] ?? $res;
+            if ((isset($resData['status']) && $resData['status'] === 'failed') || (isset($res['status']) && $res['status'] === 'error')) throw new Exception($res['message'] ?? $resData['message'] ?? 'Internal transfer failed');
 
             logTransaction($pdo, $currentUser['id'], "Internal Transfer ($currency)", $amount, 'successful', $description, $recipient);
             $success = "Sent $amount $currency to $recipient";
@@ -116,7 +118,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 'address' => $address,
                 'network' => $network
             ]);
-            if (!isset($res['status']) || ($res['status'] !== 'success' && $res['status'] !== true)) throw new Exception($res['message'] ?? 'Crypto transfer failed');
+            $resData = $res['data'] ?? $res;
+            if ((isset($resData['status']) && $resData['status'] === 'failed') || (isset($res['status']) && $res['status'] === 'error')) throw new Exception($res['message'] ?? $resData['message'] ?? 'Crypto transfer failed');
 
             logTransaction($pdo, $currentUser['id'], "Crypto Transfer ($currency)", $amount, 'successful', $description, $address);
             $success = "Crypto payout of $amount $currency processed.";
@@ -125,9 +128,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $amount = (float)$_POST['amount'];
             $currency = sanitize($_POST['currency']);
             $res = juicywayCreatePaymentLink($pdo, $amount, $currency, $description, $currentUser);
-            if (!isset($res['status']) || ($res['status'] !== 'success' && $res['status'] !== true)) throw new Exception($res['message'] ?? 'Failed to generate request link');
+            $resData = $res['data'] ?? $res;
+            if ((isset($resData['status']) && $resData['status'] === 'failed') || (isset($res['status']) && $res['status'] === 'error')) throw new Exception($res['message'] ?? $resData['message'] ?? 'Failed to generate request link');
 
-            $linkId = $res['data']['id'] ?? uniqid();
+            $linkId = $resData['id'] ?? uniqid();
             $pdo->prepare("INSERT INTO payment_links (id, userId, amount, currency, description) VALUES (?, ?, ?, ?, ?)")->execute([$linkId, $currentUser['id'], $amount, $currency, $description]);
             $success = "Payment link generated: " . ($res['data']['url'] ?? '#');
         }
@@ -138,7 +142,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $quoteId = sanitize($_POST['quote_id']);
 
             $res = juicywaySwap($pdo, $amount, $from, $to, $quoteId);
-            if (!isset($res['status']) || ($res['status'] !== 'success' && $res['status'] !== true)) throw new Exception($res['message'] ?? 'Conversion failed');
+            $resData = $res['data'] ?? $res;
+            if ((isset($resData['status']) && $resData['status'] === 'failed') || (isset($res['status']) && $res['status'] === 'error')) throw new Exception($res['message'] ?? $resData['message'] ?? 'Conversion failed');
 
             logTransaction($pdo, $currentUser['id'], "Currency Conversion", $amount, 'successful', "Converted $from to $to", 'System');
             $success = "Successfully converted $from to $to!";
