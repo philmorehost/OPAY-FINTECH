@@ -222,7 +222,18 @@ function testJuicywayConnection($pdo) {
     $baseUrl = $isLive ? "https://api.spendjuice.com" : "https://api-sandbox.spendjuice.com";
 
     $res = callJuicyWay($pdo, 'merchants/me', 'GET');
-    if (isset($res['status']) && ($res['status'] === 'success' || $res['status'] === true || isset($res['data']['id']))) {
+
+    // Check for success: either a 'status' key that is truthy/success, or the presence of merchant data
+    $isSuccess = false;
+    if (isset($res['status']) && ($res['status'] === 'success' || $res['status'] === true || $res['status'] === 1)) {
+        $isSuccess = true;
+    } elseif (isset($res['data']['id'])) {
+        $isSuccess = true;
+    } elseif (isset($res['id'])) {
+        $isSuccess = true;
+    }
+
+    if ($isSuccess) {
         return ['status' => 'success', 'message' => 'Connected to JuicyWay (' . ($isLive ? 'Live' : 'Sandbox') . ')'];
     }
 
