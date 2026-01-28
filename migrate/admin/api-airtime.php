@@ -18,6 +18,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'Airtel' => $_POST['route_airtel'],
             'Glo' => $_POST['route_glo'],
             '9mobile' => $_POST['route_9mobile']
+        ],
+        'networkApiDiscounts' => [
+            'MTN' => $_POST['api_discount_mtn'],
+            'Airtel' => $_POST['api_discount_airtel'],
+            'Glo' => $_POST['api_discount_glo'],
+            '9mobile' => $_POST['api_discount_9mobile']
         ]
     ];
 
@@ -116,7 +122,7 @@ require_once __DIR__ . '/header.php';
                         <tr class="text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">
                             <th class="pb-6">Network</th>
                             <th class="pb-6">Route Provider</th>
-                            <th class="pb-6">API Discount (%)</th>
+                            <th class="pb-6">Your API Discount (%)</th>
                             <th class="pb-6">User Discount (%)</th>
                             <th class="pb-6">Profit (%)</th>
                         </tr>
@@ -125,7 +131,7 @@ require_once __DIR__ . '/header.php';
                         <?php foreach (['MTN', 'Airtel', 'Glo', '9mobile'] as $net): ?>
                         <?php
                             $route = $as['routing'][$net] ?? 'datagifting';
-                            $apiDisc = (float)($as['providers'][$route]['discount'] ?? 0);
+                            $apiDisc = (float)($as['networkApiDiscounts'][$net] ?? ($as['providers'][$route]['discount'] ?? 0));
                             $userDisc = (float)($settings['airtimeDiscounts'][$net] ?? 0);
                         ?>
                         <tr x-data="{ userDisc: <?php echo $userDisc; ?>, apiDisc: <?php echo $apiDisc; ?> }">
@@ -138,10 +144,7 @@ require_once __DIR__ . '/header.php';
                                 </select>
                             </td>
                             <td class="py-6">
-                                <div class="flex items-center gap-2 text-xs font-black text-gray-400">
-                                    <span x-text="apiDisc.toFixed(2) + '%'"></span>
-                                    <i data-lucide="info" class="w-3 h-3 opacity-30"></i>
-                                </div>
+                                <input type="number" step="0.01" name="api_discount_<?php echo strtolower($net); ?>" x-model="apiDisc" class="w-24 p-3 bg-gray-50 rounded-xl font-black text-xs outline-none border-2 border-transparent focus:border-billpay-green">
                             </td>
                             <td class="py-6">
                                 <input type="number" step="0.01" name="user_discount_<?php echo strtolower($net); ?>" x-model="userDisc" class="w-24 p-3 bg-gray-50 rounded-xl font-black text-xs outline-none border-2 border-transparent focus:border-billpay-green">

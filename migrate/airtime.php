@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     // API Info for Profit
     $as = $settings['airtimeSettings'] ?? [];
     $provider = $as['routing'][$network] ?? 'datagifting';
-    $apiDiscount = (float)($as['providers'][$provider]['discount'] ?? 0);
+    $apiDiscount = (float)($as['networkApiDiscounts'][$network] ?? ($as['providers'][$provider]['discount'] ?? 0));
     $unitApiCost = $amount * (1 - $apiDiscount / 100);
     $unitProfit = $unitCost - $unitApiCost;
 
