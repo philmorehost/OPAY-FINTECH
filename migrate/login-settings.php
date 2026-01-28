@@ -14,10 +14,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt = $pdo->prepare("UPDATE users SET loginAlertsEnabled = ?, biometricEnabled = ?, marketingEmailsEnabled = ?, smsAlertsEnabled = ? WHERE id = ?");
     $stmt->execute([$loginAlerts, $biometric, $marketing, $smsAlerts, $currentUser['id']]);
 
-    if (isset($_POST['biometricCredentialId'])) {
+    if (!empty($_POST['biometricCredentialId'])) {
         $stmt = $pdo->prepare("UPDATE users SET biometricCredentialId = ?, biometricPublicKey = ? WHERE id = ?");
         $stmt->execute([$_POST['biometricCredentialId'], $_POST['biometricPublicKey'], $currentUser['id']]);
+
+        $configured = json_decode($currentUser['configuredSecurityMethods'] ?? '[]', true);
+        if (!in_array('biometric', $configured)) {
+            $configured[] = 'biometric';
+            $pdo->prepare("UPDATE users SET configuredSecurityMethods = ? WHERE id = ?")->execute([json_encode($configured), $currentUser['id']]);
+        }
     }
+
+    if (!empty($_POST['new_pin'])) {
+        $hashed = password_hash($_POST['new_pin'], PASSWORD_DEFAULT);
+        $pdo->prepare("UPDATE users SET loginSecurityPin = ? WHERE id = ?")->execute([$hashed, $currentUser['id']]);
+
+        $configured = json_decode($currentUser['configuredSecurityMethods'] ?? '[]', true);
+        if (!in_array('pin', $configured)) {
+            $configured[] = 'pin';
+            $pdo->prepare("UPDATE users SET configuredSecurityMethods = ? WHERE id = ?")->execute([json_encode($configured), $currentUser['id']]);
+        }
+    }
+
+    // Toggle for Email Auth
+    $configured = json_decode($currentUser['configuredSecurityMethods'] ?? '[]', true);
+    if (isset($_POST['emailAuthEnabled'])) {
+        if (!in_array('email', $configured)) $configured[] = 'email';
+    } else {
+        $configured = array_diff($configured, ['email']);
+    }
+
+    // Toggle for G2FA (Simulated setup)
+    if (isset($_POST['google2faEnabled'])) {
+        if (!in_array('google2fa', $configured)) $configured[] = 'google2fa';
+    } else {
+        $configured = array_diff($configured, ['google2fa']);
+    }
+    $pdo->prepare("UPDATE users SET configuredSecurityMethods = ? WHERE id = ?")->execute([json_encode(array_values($configured)), $currentUser['id']]);
 
     $success = "Security settings updated!";
     // Refresh
@@ -74,6 +107,28 @@ require_once __DIR__ . '/includes/header.php';
 
                 <div class="flex items-center justify-between">
                     <div>
+                        <div class="text-sm font-black text-gray-800">Email Auth</div>
+                        <div class="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Login code via email</div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" name="emailAuthEnabled" class="sr-only peer" <?php echo in_array('email', json_decode($currentUser['configuredSecurityMethods'] ?? '[]', true)) ? 'checked' : ''; ?>>
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-billpay-green"></div>
+                    </label>
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="text-sm font-black text-gray-800">Google 2FA</div>
+                        <div class="text-[10px] text-gray-400 font-bold uppercase tracking-tight">MFA via Authenticator App</div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" name="google2faEnabled" class="sr-only peer" <?php echo in_array('google2fa', json_decode($currentUser['configuredSecurityMethods'] ?? '[]', true)) ? 'checked' : ''; ?>>
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-billpay-green"></div>
+                    </label>
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <div>
                         <div class="text-sm font-black text-gray-800">Marketing Emails</div>
                         <div class="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Receive promo & updates</div>
                     </div>
@@ -82,9 +137,14 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-billpay-green"></div>
                     </label>
                 </div>
+
+                <div class="pt-6 border-t border-gray-50">
+                    <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Set Security PIN (Optional/Change)</label>
+                    <input type="password" name="new_pin" maxlength="6" placeholder="Enter 6-digit PIN" class="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-bold text-sm mt-2">
+                </div>
             </div>
 
-            <button type="submit" class="w-full bg-gray-900 text-white font-black py-5 rounded-[24px] shadow-xl active:scale-95 transition-all uppercase">Save Preferences</button>
+            <button type="submit" class="w-full bg-gray-900 text-white font-black py-5 rounded-[24px] shadow-xl active:scale-95 transition-all uppercase">Save Security Settings</button>
         </form>
     </div>
 </div>

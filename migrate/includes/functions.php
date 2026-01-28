@@ -206,6 +206,23 @@ function verifyFundPassword($pdo, $userId, $password) {
 }
 }
 
+if (!function_exists('getMissingLoginSecurity')) {
+function getMissingLoginSecurity($settings, $user) {
+    $lss = $settings['loginSecuritySettings'] ?? [];
+    if (is_string($lss)) $lss = json_decode($lss, true) ?: [];
+
+    $configured = json_decode($user['configuredSecurityMethods'] ?? '[]', true);
+    $missing = [];
+
+    foreach (['biometric', 'pin', 'email', 'google2fa'] as $m) {
+        if (!empty($lss[$m]) && !in_array($m, $configured)) {
+            $missing[] = $m;
+        }
+    }
+    return $missing;
+}
+}
+
 if (!function_exists('logTransaction')) {
 function logTransaction($pdo, $userId, $type, $amount, $status, $details, $recipient, $provider = null, $token = null, $apiAmount = 0, $profit = 0) {
     $id = 'TX-' . strtoupper(bin2hex(random_bytes(4)));

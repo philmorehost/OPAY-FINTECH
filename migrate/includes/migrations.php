@@ -31,6 +31,7 @@ try {
     addColumnIfNotExists($pdo, 'settings', 'isBiometricEnforced', "TINYINT(1) DEFAULT 0");
     addColumnIfNotExists($pdo, 'settings', 'siteVersion', "VARCHAR(50) DEFAULT '1.0.0'");
     addColumnIfNotExists($pdo, 'settings', 'vcardIssuanceFee', "DECIMAL(15, 2) DEFAULT 1500.00");
+    addColumnIfNotExists($pdo, 'settings', 'loginSecuritySettings', "TEXT");
 
     // API Hub Restructured Settings
     addColumnIfNotExists($pdo, 'settings', 'airtimeSettings', "TEXT");
@@ -57,6 +58,8 @@ try {
     addColumnIfNotExists($pdo, 'users', 'google2faSecret', "VARCHAR(100)");
     addColumnIfNotExists($pdo, 'users', 'google2faEnabled', "TINYINT(1) DEFAULT 0");
     addColumnIfNotExists($pdo, 'users', 'email2faEnabled', "TINYINT(1) DEFAULT 0");
+    addColumnIfNotExists($pdo, 'users', 'loginSecurityPin', "VARCHAR(255)");
+    addColumnIfNotExists($pdo, 'users', 'configuredSecurityMethods', "TEXT");
 
     // Virtual Cards Table
     $pdo->exec("CREATE TABLE IF NOT EXISTS virtual_cards (

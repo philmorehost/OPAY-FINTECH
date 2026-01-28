@@ -44,10 +44,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($user['isSuspended']) {
                 $error = 'ACCOUNT SUSPENDED. CONTACT SUPPORT.';
             } else {
-                $_SESSION['user_id'] = $user['id'];
-                $_SESSION['username'] = $user['username'];
-                $_SESSION['role'] = $user['role'];
-                redirect('/dashboard');
+                // Biometric passed, but check if other MFA are needed
+                $_SESSION['pending_login_id'] = $user['id'];
+                $_SESSION['mfa_passed'] = ['biometric']; // Mark biometric as passed
+
+                $lss = $settings['loginSecuritySettings'] ?? [];
+                if (is_string($lss)) $lss = json_decode($lss, true) ?: [];
+
+                $needsVerification = false;
+                $configured = json_decode($user['configuredSecurityMethods'] ?? '[]', true);
+
+                foreach (['pin', 'email', 'google2fa'] as $m) {
+                    if (!empty($lss[$m]) && in_array($m, $configured)) {
+                        $needsVerification = true;
+                    }
+                }
+
+                if ($needsVerification) {
+                    redirect('/login-verify');
+                } else {
+                    $_SESSION['user_id'] = $user['id'];
+                    $_SESSION['username'] = $user['username'];
+                    $_SESSION['role'] = $user['role'];
+                    unset($_SESSION['pending_login_id'], $_SESSION['mfa_passed']);
+                    redirect($user['role'] === 'admin' ? '/admin/' : '/dashboard');
+                }
             }
         } else {
             $error = 'Biometric authentication failed or feature disabled.';
@@ -66,9 +87,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($user['isSuspended']) {
             $error = 'ACCOUNT SUSPENDED. CONTACT SUPPORT.';
         } else {
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['username'] = $user['username'];
-            $_SESSION['role'] = $user['role'];
+            // Check for Login Security
+            $lss = $settings['loginSecuritySettings'] ?? [];
+            if (is_string($lss)) $lss = json_decode($lss, true) ?: [];
+
+            $configured = json_decode($user['configuredSecurityMethods'] ?? '[]', true);
+            $needsVerification = false;
+
+            // Check if any globally enabled methods are configured by this user
+            foreach (['biometric', 'pin', 'email', 'google2fa'] as $m) {
+                if (!empty($lss[$m]) && in_array($m, $configured)) {
+                    $needsVerification = true;
+                    break;
+                }
+            }
+
+            if ($needsVerification) {
+                $_SESSION['pending_login_id'] = $user['id'];
+                $target = '/login-verify';
+            } else {
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['username'] = $user['username'];
+                $_SESSION['role'] = $user['role'];
+                $target = ($user['role'] === 'admin') ? '/admin/' : '/dashboard';
+            }
 
             // Store user info in script for JS to save to localStorage
             $jsUser = [
@@ -77,15 +119,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'hasBiometrics' => !empty($user['biometricCredentialId'])
             ];
 
-            if ($user['role'] === 'admin') {
-                $target = '/admin/';
-            } else {
-                $target = '/dashboard';
-                // If biometric enabled in settings but not set up, take them to setup
-                if ($user['biometricEnabled'] && empty($user['biometricCredentialId'])) {
-                    $target = '/login-settings?setup=biometric';
-                }
-            }
             echo "<script>
                 localStorage.setItem('lastUser', '".json_encode($jsUser)."');
                 window.location.href = '$target';
