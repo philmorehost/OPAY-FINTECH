@@ -59,6 +59,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $currentUser = $stmt->fetch();
 }
 
+$lss = $settings['loginSecuritySettings'] ?? [];
+if (is_string($lss)) $lss = json_decode($lss, true) ?: [];
+if (empty($lss)) $lss = ['biometric' => 0, 'email' => 0, 'google2fa' => 0, 'pin' => 0];
+
 require_once __DIR__ . '/includes/header.php';
 ?>
 <div class="mx-auto min-h-screen bg-gray-50 flex flex-col pb-24">
@@ -74,17 +78,7 @@ require_once __DIR__ . '/includes/header.php';
             <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
 
             <div class="space-y-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <div class="text-sm font-black text-gray-800">Login Alerts</div>
-                        <div class="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Email notification on new login</div>
-                    </div>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" name="loginAlertsEnabled" class="sr-only peer" <?php echo $currentUser['loginAlertsEnabled'] ? 'checked' : ''; ?>>
-                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-billpay-green"></div>
-                    </label>
-                </div>
-
+                <?php if (!empty($lss['biometric']) || !empty($currentUser['biometricCredentialId'])): ?>
                 <div class="flex items-center justify-between">
                     <div>
                         <div class="text-sm font-black text-gray-800">Biometric Login</div>
@@ -104,7 +98,20 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
                 <input type="hidden" name="biometricCredentialId" id="biometricCredentialId">
                 <input type="hidden" name="biometricPublicKey" id="biometricPublicKey">
+                <?php endif; ?>
 
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="text-sm font-black text-gray-800">Login Alerts</div>
+                        <div class="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Email notification on new login</div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" name="loginAlertsEnabled" class="sr-only peer" <?php echo $currentUser['loginAlertsEnabled'] ? 'checked' : ''; ?>>
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-billpay-green"></div>
+                    </label>
+                </div>
+
+                <?php if (!empty($lss['email']) || in_array('email', json_decode($currentUser['configuredSecurityMethods'] ?? '[]', true))): ?>
                 <div class="flex items-center justify-between">
                     <div>
                         <div class="text-sm font-black text-gray-800">Email Auth</div>
@@ -115,7 +122,9 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-billpay-green"></div>
                     </label>
                 </div>
+                <?php endif; ?>
 
+                <?php if (!empty($lss['google2fa']) || in_array('google2fa', json_decode($currentUser['configuredSecurityMethods'] ?? '[]', true))): ?>
                 <div class="flex items-center justify-between">
                     <div>
                         <div class="text-sm font-black text-gray-800">Google 2FA</div>
@@ -126,6 +135,7 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-billpay-green"></div>
                     </label>
                 </div>
+                <?php endif; ?>
 
                 <div class="flex items-center justify-between">
                     <div>
@@ -138,10 +148,12 @@ require_once __DIR__ . '/includes/header.php';
                     </label>
                 </div>
 
+                <?php if (!empty($lss['pin']) || !empty($currentUser['loginSecurityPin'])): ?>
                 <div class="pt-6 border-t border-gray-50">
                     <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Set Security PIN (Optional/Change)</label>
                     <input type="password" name="new_pin" maxlength="6" placeholder="Enter 6-digit PIN" class="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-bold text-sm mt-2">
                 </div>
+                <?php endif; ?>
             </div>
 
             <button type="submit" class="w-full bg-gray-900 text-white font-black py-5 rounded-[24px] shadow-xl active:scale-95 transition-all uppercase">Save Security Settings</button>

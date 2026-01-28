@@ -285,6 +285,17 @@ function bybitGetPositions($pdo, $category, $symbol = '') {
 }
 
 /**
+ * Trade: Get Open Orders
+ */
+if (!function_exists('bybitGetOrders')) {
+function bybitGetOrders($pdo, $category, $symbol = '') {
+    $params = ['category' => strtolower($category)];
+    if ($symbol) $params['symbol'] = strtoupper($symbol);
+    return callBybit($pdo, '/v5/order/realtime', 'GET', $params);
+}
+}
+
+/**
  * Wallet: Internal/Account Transfer
  */
 if (!function_exists('bybitTransfer')) {
