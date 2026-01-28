@@ -92,6 +92,31 @@ try {
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
     )");
 
+    // Beneficiaries Table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS beneficiaries (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        userId VARCHAR(50) NOT NULL,
+        type ENUM('bank', 'crypto', 'internal', 'interac') NOT NULL,
+        currency VARCHAR(10) NOT NULL,
+        details TEXT NOT NULL,
+        description VARCHAR(255) NOT NULL,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX (userId)
+    )");
+
+    // Payment Links Table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS payment_links (
+        id VARCHAR(100) PRIMARY KEY,
+        userId VARCHAR(50) NOT NULL,
+        amount DECIMAL(15, 2) NOT NULL,
+        currency VARCHAR(10) NOT NULL,
+        description TEXT NOT NULL,
+        status ENUM('pending', 'paid', 'expired') DEFAULT 'pending',
+        paidAt DATETIME,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX (userId)
+    )");
+
 } catch (PDOException $e) {
     // Silent fail
 }

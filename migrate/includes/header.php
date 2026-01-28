@@ -139,6 +139,7 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
                 $menuItems = [
                     ['label' => 'Dashboard', 'icon' => 'layout-dashboard', 'path' => '/dashboard'],
                     ['label' => 'Services', 'icon' => 'grid', 'path' => '/services'],
+                    ['label' => 'Finance Hub', 'icon' => 'crown', 'path' => '/finance'],
                     ['label' => 'Transactions', 'icon' => 'arrow-right-left', 'path' => '/transactions'],
                     ['label' => 'Rewards', 'icon' => 'coins', 'path' => '/rewards'],
                     ['label' => 'Virtual Card', 'icon' => 'credit-card', 'path' => '/vcard'],
@@ -198,7 +199,7 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
             <?php
             // Min Deposit Enforcement
             $isRestricted = checkMinDepositRestriction($settings, $currentUser);
-            $servicePages = ['airtime.php', 'data.php', 'cable.php', 'electric.php', 'betting.php', 'exam.php', 'giftcards.php', 'crypto.php', 'transfer.php', 'sms.php', 'vcard.php', 'services.php'];
+            $servicePages = ['airtime.php', 'data.php', 'cable.php', 'electric.php', 'betting.php', 'exam.php', 'giftcards.php', 'finance.php', 'transfer.php', 'sms.php', 'vcard.php', 'services.php'];
             $currentFile = basename($_SERVER['PHP_SELF']);
             $isServicePage = in_array($currentFile, $servicePages);
 
