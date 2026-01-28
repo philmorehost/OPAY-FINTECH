@@ -85,6 +85,34 @@ function testJuicywayConnection($pdo) {
 }
 }
 
+if (!function_exists('testUtilityProvider')) {
+function testUtilityProvider($pdo, $provider) {
+    $settings = fetchSettings($pdo);
+    $us = $settings['utilitySettings'] ?? [];
+    $creds = $us[$provider] ?? [];
+
+    switch ($provider) {
+        case 'vtpass':
+            // Check balance as a test
+            $res = callVtpass($pdo, '', ['endpoint' => '/balance']);
+            if (isset($res['contents']['balance'])) {
+                return ['status' => 'success', 'message' => 'VTPass Connected! Balance: ₦' . number_format($res['contents']['balance'], 2)];
+            }
+            return ['status' => 'error', 'message' => 'VTPass Error: ' . ($res['response_description'] ?? 'Authentication failed'), 'debug' => $res];
+
+        case 'nellobyte':
+            $userId = $creds['userId'] ?? '';
+            $apiKey = $creds['apiKey'] ?? '';
+            $res = callApi("https://nellobytesystems.com/api/profile?userid=$userId&apikey=$apiKey");
+            if (isset($res['status']) && $res['status'] === 'success') {
+                return ['status' => 'success', 'message' => 'Nellobyte Connected! Wallet Balance: ' . ($res['wallet_balance'] ?? 'N/A')];
+            }
+            return ['status' => 'error', 'message' => $res['msg'] ?? 'Nellobyte Connection Failed.', 'debug' => $res];
+    }
+    return ['status' => 'error', 'message' => 'Unknown Provider'];
+}
+}
+
 /**
  * Helper: Network Code Mapping
  */
@@ -156,16 +184,30 @@ if (!function_exists('callVtpass')) {
 function callVtpass($pdo, $serviceId, $data) {
     $settings = fetchSettings($pdo);
     $creds = $settings['utilitySettings']['vtpass'] ?? [];
-    if (!isset($data['request_id'])) $data['request_id'] = date('YmdHi') . bin2hex(random_bytes(3));
+    if (!isset($data['request_id'])) {
+        // VTpass Request ID: YYYYMMDDHHII + unique string (min 12 chars)
+        $data['request_id'] = date('YmdHi') . bin2hex(random_bytes(4));
+    }
     $data['serviceID'] = $serviceId;
     $headers = ["Content-Type: application/json"];
-    if (!empty($creds['apiKey'])) {
+
+    // Priority: Username/Password (Basic Auth) as requested by user
+    if (!empty($creds['username']) && !empty($creds['password'])) {
+        $headers[] = "Authorization: Basic " . base64_encode($creds['username'] . ":" . $creds['password']);
+    } elseif (!empty($creds['apiKey'])) {
         $headers[] = "api-key: " . $creds['apiKey'];
         $headers[] = "secret-key: " . ($creds['secretKey'] ?? '');
-    } elseif (!empty($creds['username']) && !empty($creds['password'])) {
-        $headers[] = "Authorization: Basic " . base64_encode($creds['username'] . ":" . $creds['password']);
     }
-    return callApi("https://vtpass.com/api/pay", 'POST', $data, $headers);
+
+    if (!empty($creds['publicKey'])) {
+        $headers[] = "public-key: " . $creds['publicKey'];
+    }
+
+    $baseUrl = !empty($creds['liveMode']) ? "https://vtpass.com/api" : "https://sandbox.vtpass.com/api";
+    $endpoint = isset($data['endpoint']) ? $data['endpoint'] : "/pay";
+    unset($data['endpoint']);
+
+    return callApi($baseUrl . $endpoint, 'POST', $data, $headers);
 }
 }
 
@@ -205,7 +247,14 @@ function callBybit($pdo, $endpoint, $method = 'GET', $params = []) {
         "Content-Type: application/json"
     ];
 
-    return callApi($fullUrl, $method, $payload, $headers);
+    $res = callApi($fullUrl, $method, $payload, $headers);
+
+    // If we get a raw string (maybe 403 Forbidden from Cloudflare or similar), wrap it
+    if (is_string($res) && !empty($res)) {
+        return ['retCode' => -1, 'retMsg' => 'Bybit Raw Response: ' . substr(strip_tags($res), 0, 200), 'debug' => $res];
+    }
+
+    return $res;
 }
 }
 
@@ -477,7 +526,8 @@ function juicywaySwap($pdo, $amount, $from, $to, $quoteId = null) {
         'to' => $to,
         'source_currency' => $from,
         'target_currency' => $to,
-        'reference' => 'SW-' . time() . '-' . rand(1000, 9999)
+        'reference' => 'SW-' . time() . '-' . rand(1000, 9999),
+        'correlation_id' => uniqid('COR-')
     ];
 
     if (!empty($quoteId)) {
