@@ -301,7 +301,7 @@ function callJuicyWay($pdo, $endpoint, $method = 'POST', $data = []) {
     $baseUrl = !empty($creds['liveMode']) ? "https://api.spendjuice.com" : "https://api-sandbox.spendjuice.com";
 
     $headers = [
-        "Authorization: Bearer " . str_replace('Bearer ', '', $apiKey),
+        "Authorization: " . $apiKey,
         "Content-Type: application/json"
     ];
     if ($businessId) $headers[] = "X-Business-ID: $businessId";

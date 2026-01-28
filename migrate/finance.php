@@ -144,8 +144,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $res = juicywaySwap($pdo, $amount, $from, $to, $quoteId);
             $resData = $res['data'] ?? $res;
 
-            if ((isset($resData['status']) && ($resData['status'] === 'failed' || $resData['status'] === 'error')) || (isset($res['status']) && ($res['status'] === 'error' || $res['status'] === 'failed')) || isset($res['errors'])) {
+            if ((isset($resData['status']) && ($resData['status'] === 'failed' || $resData['status'] === 'error')) ||
+                (isset($res['status']) && ($res['status'] === 'error' || $res['status'] === 'failed')) ||
+                isset($res['errors']) ||
+                (is_array($res) && isset($res['code']) && $res['code'] === 'invalid_token') ||
+                (is_string($res) && strpos($res, 'invalid_token') !== false)) {
+
                 $msg = $res['message'] ?? $resData['message'] ?? 'Conversion failed';
+                if (is_array($res) && isset($res['code']) && $res['code'] === 'invalid_token') $msg = "Authentication Failure: Invalid API Token";
                 if (isset($res['errors']) && is_array($res['errors'])) {
                     $msg .= ": " . implode(", ", array_map(fn($e) => is_array($e) ? implode(" ", $e) : $e, $res['errors']));
                 }
