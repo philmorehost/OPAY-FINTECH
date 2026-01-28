@@ -358,6 +358,17 @@ function bybitSubAccountTransfer($pdo, $coin, $amount, $subMemberId, $type = 'OU
     ];
     return callBybit($pdo, '/v5/asset/transfer/save-transfer', 'POST', $params);
 }
+
+function bybitWithdraw($pdo, $coin, $amount, $address, $chain = 'TRC20') {
+    $data = [
+        'coin' => strtoupper($coin),
+        'chain' => strtoupper($chain),
+        'address' => $address,
+        'amount' => (string)$amount,
+        'timestamp' => time() * 1000
+    ];
+    return callBybit($pdo, "v5/asset/withdraw/create", 'POST', $data);
+}
 }
 
 /**
@@ -440,9 +451,8 @@ if (!function_exists('juicywayGetQuote')) {
 function juicywayGetQuote($pdo, $amount, $from, $to) {
     $from = strtoupper($from);
     $to = strtoupper($to);
-    $minorAmount = (int)($amount * 100);
-    // GET request to singular endpoint with query params
-    return callJuicyWay($pdo, "exchange/quote?source_currency=$from&target_currency=$to&amount=$minorAmount&lock=true", 'GET');
+    // SpendJuice GET quote typically uses major units in query string and 'source_amount'
+    return callJuicyWay($pdo, "exchange/quote?source_currency=$from&target_currency=$to&source_amount=$amount&lock=true", 'GET');
 }
 }
 
@@ -526,5 +536,57 @@ function sendKudiSms($pdo, $senderId, $message, $to) {
 if (!function_exists('getCryptoPrices')) {
 function getCryptoPrices() {
     return callApi("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,binancecoin,solana,tether&vs_currencies=ngn,usd&include_24hr_change=true");
+}
+}
+
+/**
+ * RELOADLY GIFT CARDS
+ */
+if (!function_exists('getReloadlyToken')) {
+function getReloadlyToken($pdo) {
+    $settings = fetchSettings($pdo);
+    $creds = $settings['otherApiSettings']['reloadly'] ?? [];
+    $clientId = $creds['clientId'] ?? '';
+    $clientSecret = $creds['clientSecret'] ?? '';
+
+    $res = callApi("https://auth.reloadly.com/oauth/token", 'POST', [
+        'client_id' => $clientId,
+        'client_secret' => $clientSecret,
+        'grant_type' => 'client_credentials',
+        'audience' => 'https://giftcards.reloadly.com'
+    ], ["Content-Type: application/json"]);
+
+    return $res['access_token'] ?? null;
+}
+}
+
+if (!function_exists('getReloadlyGiftCards')) {
+function getReloadlyGiftCards($pdo) {
+    $token = getReloadlyToken($pdo);
+    if (!$token) return ['status' => 'error', 'message' => 'Failed to authenticate with Reloadly'];
+
+    return callApi("https://giftcards.reloadly.com/products", 'GET', [], [
+        "Authorization: Bearer $token",
+        "Accept: application/com.reloadly.giftcards-v1+json"
+    ]);
+}
+}
+
+if (!function_exists('purchaseReloadlyGiftCard')) {
+function purchaseReloadlyGiftCard($pdo, $productId, $amount, $recipientEmail) {
+    $token = getReloadlyToken($pdo);
+    if (!$token) return ['status' => 'error', 'message' => 'Failed to authenticate with Reloadly'];
+
+    return callApi("https://giftcards.reloadly.com/orders", 'POST', [
+        'productId' => $productId,
+        'amount' => $amount,
+        'quantity' => 1,
+        'recipientEmail' => $recipientEmail,
+        'customIdentifier' => uniqid('GC-')
+    ], [
+        "Authorization: Bearer $token",
+        "Content-Type: application/json",
+        "Accept: application/com.reloadly.giftcards-v1+json"
+    ]);
 }
 }

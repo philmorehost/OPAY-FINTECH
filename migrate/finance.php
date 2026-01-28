@@ -682,13 +682,17 @@ require_once __DIR__ . '/includes/header.php';
                 btn.disabled = false;
                 if (res.status === 'success' || res.status === true || res.id || res.data) {
                     const data = res.data || res;
-                    // JuicyWay returns target_amount in minor units.
-                    // If target_amount is not present, calculate via rate.
+                    // JuicyWay returns target_amount in minor units usually.
                     let targetVal = 0;
                     if (data.target_amount) {
                         targetVal = data.target_amount / 100;
                     } else if (data.rate) {
-                        targetVal = amount * data.rate;
+                        // If rate > 100 and we are going NGN -> USD, it's likely inverted (NGN per 1 USD)
+                        if (amount > 0 && data.rate > 100 && (from === 'NGN' || from === 'KES' || from === 'GHS')) {
+                             targetVal = amount / data.rate;
+                        } else {
+                             targetVal = amount * data.rate;
+                        }
                     }
 
                     document.getElementById('toAmountDisplay').innerText = targetVal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
