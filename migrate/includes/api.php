@@ -423,8 +423,12 @@ function callJuicyWay($pdo, $endpoint, $method = 'POST', $data = []) {
     $creds = $settings['financialSettings']['juicyway'] ?? [];
     $apiKey = $creds['apiKey'] ?? '';
     $baseUrl = !empty($creds['liveMode']) ? "https://api.spendjuice.com" : "https://api-sandbox.spendjuice.com";
+
+    // Ensure API Key has Bearer prefix if not already present
+    $auth = (stripos($apiKey, 'Bearer ') === 0) ? $apiKey : "Bearer " . $apiKey;
+
     return callApi("$baseUrl/$endpoint", $method, $data, [
-        "Authorization: " . $apiKey,
+        "Authorization: " . $auth,
         "Content-Type: application/json"
     ]);
 }
@@ -447,8 +451,15 @@ function juicywayGetQuote($pdo, $amount, $from, $to) {
     $from = strtoupper($from);
     $to = strtoupper($to);
     $minorAmount = (int)($amount * 100);
-    // JuicyWay GET quote uses minor units for 'amount'
-    return callJuicyWay($pdo, "exchange/quote?source_currency=$from&target_currency=$to&amount=$minorAmount&lock=true", 'GET');
+    // Include both major and minor units to be safe across different API versions
+    $query = http_build_query([
+        'source_currency' => $from,
+        'target_currency' => $to,
+        'amount' => $minorAmount,
+        'source_amount' => $amount,
+        'lock' => 'true'
+    ]);
+    return callJuicyWay($pdo, "exchange/quote?$query", 'GET');
 }
 }
 
@@ -458,9 +469,12 @@ function juicywaySwap($pdo, $amount, $from, $to, $quoteId = null) {
     $to = strtoupper($to);
     $minorAmount = (int)($amount * 100);
 
-    // Exact payload as per documentation to avoid 422 Unprocessable Entity
+    // Provide a broad payload with redundant keys to satisfy different validation schemas
     $data = [
         'amount' => $minorAmount,
+        'source_amount' => (float)$amount,
+        'from' => $from,
+        'to' => $to,
         'source_currency' => $from,
         'target_currency' => $to,
         'reference' => 'SW-' . time() . '-' . rand(1000, 9999)
@@ -468,6 +482,7 @@ function juicywaySwap($pdo, $amount, $from, $to, $quoteId = null) {
 
     if (!empty($quoteId)) {
         $data['quote_id'] = $quoteId;
+        $data['rate_id'] = $quoteId;
     }
 
     return callJuicyWay($pdo, "exchange/swap", 'POST', $data);
