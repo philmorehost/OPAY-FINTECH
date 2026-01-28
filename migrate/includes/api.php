@@ -86,7 +86,7 @@ function getNetworkCode($provider, $network) {
     $map = [
         'nellobyte' => ['MTN' => '01', 'GLO' => '02', '9MOBILE' => '03', 'AIRTEL' => '04'],
         'datagifting' => ['MTN' => '1', 'AIRTEL' => '2', 'GLO' => '3', '9MOBILE' => '4'],
-        'hdkdata' => ['MTN' => '1', 'AIRTEL' => '2', 'GLO' => '3', '9MOBILE' => '4'],
+        'datastation' => ['MTN' => '1', 'GLO' => '2', 'AIRTEL' => '3', '9MOBILE' => '4'],
         'vtpass' => ['MTN' => 'mtn', 'AIRTEL' => 'airtel', 'GLO' => 'glo', '9MOBILE' => 'etisalat']
     ];
     return $map[$provider][$network] ?? strtolower($network);
@@ -110,13 +110,25 @@ function purchaseAirtime($pdo, $network, $amount, $phone) {
             if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
             return ['status' => 'failed', 'message' => $res['msg'] ?? 'Provider Error'];
         case 'nellobyte':
-            $res = callApi("https://nellobytesystems.com/api/airtime?userid=" . ($creds['userId'] ?? '') . "&apikey=" . ($creds['apiKey'] ?? '') . "&network=$netCode&amount=$amount&phone=$phone");
-            if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
-            return ['status' => 'failed', 'message' => $res['msg'] ?? 'Provider Error'];
-        case 'hdkdata':
-             $res = callApi("https://hdkdata.com/api/airtime?api_key=" . ($creds['apiKey'] ?? '') . "&network=$netCode&amount=$amount&phone=$phone");
-             if (isset($res['status']) && ($res['status'] === 'success' || $res['status'] === true)) return ['status' => 'success', 'message' => $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
-             return ['status' => 'failed', 'message' => $res['msg'] ?? 'Provider Error'];
+            $requestId = date('YmdHi') . bin2hex(random_bytes(4));
+            $callbackUrl = (isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST]/webhook-nellobyte.php";
+            $url = "https://www.nellobytesystems.com/APIAirtimeV1.asp?UserID=" . ($creds['userId'] ?? '') . "&APIKey=" . ($creds['apiKey'] ?? '') . "&MobileNetwork=$netCode&Amount=$amount&MobileNumber=$phone&RequestID=$requestId&CallBackURL=" . urlencode($callbackUrl);
+            $res = callApi($url);
+            if (isset($res['status']) && ($res['status'] === 'ORDER_RECEIVED' || $res['status'] === 'ORDER_COMPLETED')) return ['status' => 'success', 'message' => 'Successful', 'ref' => $res['orderid'] ?? $requestId];
+            return ['status' => 'failed', 'message' => $res['status'] ?? 'Provider Error'];
+        case 'datastation':
+            $res = callApi("https://datastationapi.com/api/topup/", 'POST', [
+                'network' => $netCode,
+                'amount' => $amount,
+                'mobile_number' => $phone,
+                'Ported_number' => true,
+                'airtime_type' => 'VTU'
+            ], ["Authorization: Token " . ($creds['token'] ?? '')]);
+            // Documentation says: "This request doesn't return any response body"
+            // But usually there is something or at least HTTP 201/200.
+            // I'll check for any response or just assume success if no error.
+            if (empty($res) || (isset($res['Status']) && $res['Status'] === 'successful')) return ['status' => 'success', 'message' => 'Successful', 'ref' => uniqid()];
+            return ['status' => 'failed', 'message' => 'Provider Error'];
         case 'vtpass':
             $requestId = date('YmdHi') . bin2hex(random_bytes(4));
             $payload = ['request_id' => $requestId, 'serviceID' => $netCode, 'amount' => $amount, 'phone' => $phone];
@@ -142,25 +154,29 @@ function testAirtimeConnection($pdo, $provider) {
     switch ($provider) {
         case 'datagifting':
             $res = callApi("https://v6.datagifting.com.ng/web/api/user.php?api_key=" . ($creds['apiKey'] ?? ''));
-            if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => 'Connected! Balance: ' . ($res['balance'] ?? 'N/A')];
+            if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => 'Connected! Balance: ' . ($res['wallet'] ?? $res['balance'] ?? 'N/A')];
+            if (isset($res['status']) && $res['status'] === 'fail') return ['status' => 'error', 'message' => $res['msg'] ?? 'Auth Failed'];
             break;
         case 'nellobyte':
-            $res = callApi("https://nellobytesystems.com/api/wallet?userid=" . ($creds['userId'] ?? '') . "&apikey=" . ($creds['apiKey'] ?? ''));
-            if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => 'Connected! Balance: ' . ($res['balance'] ?? 'N/A')];
+            $res = callApi("https://www.nellobytesystems.com/APIWalletV1.asp?UserID=" . ($creds['userId'] ?? '') . "&APIKey=" . ($creds['apiKey'] ?? ''));
+            if (isset($res['status']) && strpos($res['status'], 'SUCCESS') !== false) return ['status' => 'success', 'message' => 'Connected! Balance: ' . ($res['balance'] ?? 'N/A')];
+            if (isset($res['walletbalance'])) return ['status' => 'success', 'message' => 'Connected! Balance: ' . $res['walletbalance']];
             break;
-        case 'hdkdata':
-            $res = callApi("https://hdkdata.com/api/user?api_key=" . ($creds['apiKey'] ?? ''));
-            if (isset($res['status']) && ($res['status'] === 'success' || $res['status'] === true)) return ['status' => 'success', 'message' => 'Connected! Balance: ' . ($res['balance'] ?? 'N/A')];
+        case 'datastation':
+            $res = callApi("https://datastationapi.com/api/user/", 'GET', [], ["Authorization: Token " . ($creds['token'] ?? '')]);
+            if (isset($res['user']['wallet_balance'])) return ['status' => 'success', 'message' => 'Connected! Balance: ' . $res['user']['wallet_balance']];
+            if (isset($res['wallet_balance'])) return ['status' => 'success', 'message' => 'Connected! Balance: ' . $res['wallet_balance']];
             break;
         case 'vtpass':
             $headers = ["Content-Type: application/json"];
-            if (!empty($creds['apiKey'])) {
+            if (!empty($creds['username']) && !empty($creds['password'])) {
+                $headers[] = "Authorization: Basic " . base64_encode($creds['username'] . ":" . $creds['password']);
+            } elseif (!empty($creds['apiKey'])) {
                 $headers[] = "api-key: " . $creds['apiKey'];
                 $headers[] = "public-key: " . ($creds['publicKey'] ?? '');
-            } elseif (!empty($creds['username']) && !empty($creds['password'])) {
-                $headers[] = "Authorization: Basic " . base64_encode($creds['username'] . ":" . $creds['password']);
             }
-            $res = callApi("https://vtpass.com/api/balance", 'GET', [], $headers);
+            $url = (!empty($creds['sandbox'])) ? "https://sandbox.vtpass.com/api/balance" : "https://vtpass.com/api/balance";
+            $res = callApi($url, 'GET', [], $headers);
             if (isset($res['code']) && $res['code'] === '000') return ['status' => 'success', 'message' => 'Connected! Balance: ' . ($res['contents']['balance'] ?? 'N/A')];
             return ['status' => 'error', 'message' => $res['response_description'] ?? 'Auth Failed'];
     }
@@ -203,13 +219,16 @@ function callVtpass($pdo, $serviceId, $data, $customCreds = null) {
     if (!isset($data['request_id'])) $data['request_id'] = date('YmdHi') . bin2hex(random_bytes(3));
     $data['serviceID'] = $serviceId;
     $headers = ["Content-Type: application/json"];
-    if (!empty($creds['apiKey'])) {
+
+    if (!empty($creds['username']) && !empty($creds['password'])) {
+        $headers[] = "Authorization: Basic " . base64_encode($creds['username'] . ":" . $creds['password']);
+    } elseif (!empty($creds['apiKey'])) {
         $headers[] = "api-key: " . $creds['apiKey'];
         $headers[] = "secret-key: " . ($creds['secretKey'] ?? '');
-    } elseif (!empty($creds['username']) && !empty($creds['password'])) {
-        $headers[] = "Authorization: Basic " . base64_encode($creds['username'] . ":" . $creds['password']);
     }
-    return callApi("https://vtpass.com/api/pay", 'POST', $data, $headers);
+
+    $url = (!empty($creds['sandbox'])) ? "https://sandbox.vtpass.com/api/pay" : "https://vtpass.com/api/pay";
+    return callApi($url, 'POST', $data, $headers);
 }
 }
 
@@ -327,21 +346,24 @@ function juicywayGetQuote($pdo, $amount, $from, $to) {
     $from = strtoupper($from);
     $to = strtoupper($to);
     $minorAmount = (int)($amount * 100);
-    // GET request to singular endpoint with query params - including multiple variations of amount param for compatibility
-    return callJuicyWay($pdo, "exchange/quote?source_currency=$from&target_currency=$to&amount=$minorAmount&source_amount=$minorAmount&lock=true", 'GET');
+    // JuicyWay quote API usually expects amount as a query parameter
+    return callJuicyWay($pdo, "exchange/quote?source_currency=$from&target_currency=$to&amount=$minorAmount&lock=true", 'GET');
 }
 }
 
 if (!function_exists('juicywaySwap')) {
 function juicywaySwap($pdo, $amount, $from, $to, $quoteId = null) {
-    $minorAmount = (int)($amount * 100);
-    $data = [
-        'source_amount' => $minorAmount,
-        'amount' => $minorAmount,
-        'source_currency' => strtoupper($from),
-        'target_currency' => strtoupper($to)
-    ];
-    if ($quoteId) $data['quote_id'] = $quoteId;
+    if ($quoteId) {
+        // If quote_id is provided, the API often rejects redundant amount/currency fields
+        $data = ['quote_id' => $quoteId];
+    } else {
+        $minorAmount = (int)($amount * 100);
+        $data = [
+            'amount' => $minorAmount,
+            'source_currency' => strtoupper($from),
+            'target_currency' => strtoupper($to)
+        ];
+    }
     return callJuicyWay($pdo, "exchange/swap", 'POST', $data);
 }
 }

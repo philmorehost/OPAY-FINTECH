@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'providers' => [
                 'datagifting' => ['apiKey' => $_POST['dg_apiKey']],
                 'nellobyte' => ['userId' => $_POST['nb_userId'], 'apiKey' => $_POST['nb_apiKey']],
-                'hdkdata' => ['apiKey' => $_POST['hdk_apiKey']],
+                'datastation' => ['token' => $_POST['ds_token']],
                 'vtpass' => ['username' => $_POST['vtp_username'], 'password' => $_POST['vtp_password']]
             ],
             'routing' => [
@@ -60,7 +60,7 @@ if (empty($as)) {
         'providers' => [
             'datagifting' => ['apiKey' => ''],
             'nellobyte' => ['userId' => '', 'apiKey' => ''],
-            'hdkdata' => ['apiKey' => ''],
+            'datastation' => ['token' => ''],
             'vtpass' => ['username' => '', 'password' => '']
         ],
         'routing' => ['MTN' => 'datagifting', 'Airtel' => 'datagifting', 'Glo' => 'datagifting', '9mobile' => 'datagifting'],
@@ -114,11 +114,11 @@ require_once __DIR__ . '/header.php';
 
             <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
                 <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-blue-600"><i data-lucide="key" class="w-4 h-4"></i> HDKData</h3>
-                    <button type="submit" name="action" value="test_api" onclick="this.form.provider.value='hdkdata'" class="text-[8px] font-black text-blue-600 uppercase hover:underline">Test</button>
+                    <h3 class="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-blue-600"><i data-lucide="key" class="w-4 h-4"></i> Datastationapi</h3>
+                    <button type="submit" name="action" value="test_api" onclick="this.form.provider.value='datastation'" class="text-[8px] font-black text-blue-600 uppercase hover:underline">Test</button>
                 </div>
                 <div class="space-y-4">
-                    <div><label class="text-[8px] font-black text-gray-400 uppercase ml-1">API Key</label><input type="password" name="hdk_apiKey" value="<?php echo $as['providers']['hdkdata']['apiKey'] ?? $as['providers']['hdkdata']['token'] ?? ''; ?>" class="w-full p-3 bg-gray-50 rounded-xl font-bold mt-1 outline-none text-xs"></div>
+                    <div><label class="text-[8px] font-black text-gray-400 uppercase ml-1">Token</label><input type="password" name="ds_token" value="<?php echo $as['providers']['datastation']['token'] ?? ''; ?>" class="w-full p-3 bg-gray-50 rounded-xl font-bold mt-1 outline-none text-xs"></div>
                 </div>
             </div>
 
@@ -162,7 +162,7 @@ require_once __DIR__ . '/header.php';
                                 <select name="route_<?php echo strtolower($net); ?>" class="p-3 bg-gray-50 rounded-xl font-bold outline-none text-xs border border-transparent focus:border-billpay-green">
                                     <option value="datagifting" <?php echo $route === 'datagifting' ? 'selected' : ''; ?>>DataGifting</option>
                                     <option value="nellobyte" <?php echo $route === 'nellobyte' ? 'selected' : ''; ?>>Nellobyte</option>
-                                    <option value="hdkdata" <?php echo $route === 'hdkdata' ? 'selected' : ''; ?>>HDKData</option>
+                                    <option value="datastation" <?php echo $route === 'datastation' ? 'selected' : ''; ?>>Datastationapi</option>
                                     <option value="vtpass" <?php echo $route === 'vtpass' ? 'selected' : ''; ?>>VTpass</option>
                                 </select>
                             </td>
