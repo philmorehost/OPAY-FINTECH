@@ -54,18 +54,10 @@ if (isLoggedIn()) {
     if ($currentUser['role'] !== 'admin' && !isset($_SESSION['original_admin_id'])) {
         $missing = getMissingLoginSecurity($settings, $currentUser);
         if (!empty($missing)) {
-            $allowedPaths = ['/dashboard', '/login-settings', '/logout', '/login-verify', '/maintenance', '/2fa-verify', '/kyc', '/security'];
-            $currentPath = explode('?', $_SERVER['REQUEST_URI'])[0];
+            $allowedFiles = ['dashboard.php', 'login-settings.php', 'logout.php', 'login-verify.php', 'maintenance.php', '2fa-verify.php', 'kyc.php', 'security.php', 'index.php', 'profile.php'];
+            $currentFile = basename($_SERVER['PHP_SELF']);
 
-            $isAllowed = false;
-            foreach ($allowedPaths as $ap) {
-                if ($currentPath === $ap) {
-                    $isAllowed = true;
-                    break;
-                }
-            }
-
-            if (!$isAllowed) {
+            if (!in_array($currentFile, $allowedFiles)) {
                 header("Location: /dashboard");
                 exit;
             }

@@ -119,7 +119,7 @@ function fetchSettings($pdo) {
     $stmt = $pdo->query("SELECT * FROM settings WHERE id = 1");
     $settings = $stmt->fetch(PDO::FETCH_ASSOC);
     if ($settings) {
-        $json_fields = ['dataNetworks', 'cableProviders', 'electricProviders', 'bettingProviders', 'airtimeDiscounts', 'dataProducts', 'airtimeSettings', 'dataSettings', 'utilitySettings', 'financialSettings', 'otherApiSettings'];
+        $json_fields = ['dataNetworks', 'cableProviders', 'electricProviders', 'bettingProviders', 'airtimeDiscounts', 'dataProducts', 'airtimeSettings', 'dataSettings', 'utilitySettings', 'financialSettings', 'otherApiSettings', 'loginSecuritySettings'];
         foreach($json_fields as $f) {
             if(isset($settings[$f])) {
                 $val = json_decode($settings[$f], true) ?: [];

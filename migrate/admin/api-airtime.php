@@ -7,6 +7,19 @@ $pageTitle = 'Airtime API Settings';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrfToken($_POST['csrf_token'])) die('CSRF Failed');
 
+    if (isset($_POST['action']) && $_POST['action'] === 'test_provider') {
+        $provider = $_POST['provider'];
+        $testRes = testAirtimeProvider($pdo, $provider);
+        if ($testRes['status'] === 'success') {
+            $success = "Connection Successful for ".ucfirst($provider).": " . $testRes['message'];
+        } else {
+            $error = "Connection Failed for ".ucfirst($provider).": " . $testRes['message'];
+            if (!empty($testRes['debug'])) {
+                $error .= "<br><div class='mt-2 p-2 bg-black/10 rounded text-[8px] lowercase text-left overflow-auto max-h-40 font-mono'>" . print_r($testRes['debug'], true) . "</div>";
+            }
+        }
+    } else {
+
     $airtimeSettings = [
         'providers' => [
             'datagifting' => ['apiKey' => $_POST['dg_apiKey'], 'discount' => $_POST['dg_discount']],
@@ -42,6 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $success = "Airtime settings and routing updated!";
     $settings = fetchSettings($pdo);
+    }
 }
 
 $as = $settings['airtimeSettings'] ?? [];
@@ -72,13 +86,17 @@ require_once __DIR__ . '/header.php';
 
     <form method="POST" class="space-y-10">
         <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+        <input type="hidden" name="provider" value="">
 
         <!-- Provider Credentials -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-                <h3 class="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-3 text-billpay-green">
-                    <i data-lucide="key" class="w-5 h-5"></i> DataGifting (1)
-                </h3>
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-sm font-black uppercase tracking-widest flex items-center gap-3 text-billpay-green">
+                        <i data-lucide="key" class="w-5 h-5"></i> DataGifting (1)
+                    </h3>
+                    <button type="submit" name="action" value="test_provider" onclick="document.querySelector('input[name=provider]').value='datagifting'" class="text-[10px] font-black uppercase text-billpay-green hover:underline">Test</button>
+                </div>
                 <div class="space-y-4">
                     <div>
                         <label class="text-[10px] font-black text-gray-400 uppercase ml-1">API Key</label>
@@ -92,9 +110,12 @@ require_once __DIR__ . '/header.php';
             </div>
 
             <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-                <h3 class="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-3 text-orange-500">
-                    <i data-lucide="key" class="w-5 h-5"></i> Nellobyte (2)
-                </h3>
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-sm font-black uppercase tracking-widest flex items-center gap-3 text-orange-500">
+                        <i data-lucide="key" class="w-5 h-5"></i> Nellobyte (2)
+                    </h3>
+                    <button type="submit" name="action" value="test_provider" onclick="document.querySelector('input[name=provider]').value='nellobyte'" class="text-[10px] font-black uppercase text-orange-500 hover:underline">Test</button>
+                </div>
                 <div class="space-y-4">
                     <div><label class="text-[10px] font-black text-gray-400 uppercase ml-1">User ID</label><input type="text" name="nb_userId" value="<?php echo $as['providers']['nellobyte']['userId'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none"></div>
                     <div><label class="text-[10px] font-black text-gray-400 uppercase ml-1">API Key</label><input type="password" name="nb_apiKey" value="<?php echo $as['providers']['nellobyte']['apiKey'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none"></div>
@@ -103,9 +124,12 @@ require_once __DIR__ . '/header.php';
             </div>
 
             <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-                <h3 class="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-3 text-blue-600">
-                    <i data-lucide="key" class="w-5 h-5"></i> HDKData (3)
-                </h3>
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-sm font-black uppercase tracking-widest flex items-center gap-3 text-blue-600">
+                        <i data-lucide="key" class="w-5 h-5"></i> HDKData (3)
+                    </h3>
+                    <button type="submit" name="action" value="test_provider" onclick="document.querySelector('input[name=provider]').value='hdkdata'" class="text-[10px] font-black uppercase text-blue-600 hover:underline">Test</button>
+                </div>
                 <div class="space-y-4">
                     <div><label class="text-[10px] font-black text-gray-400 uppercase ml-1">Token</label><input type="password" name="hdk_token" value="<?php echo $as['providers']['hdkdata']['token'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none"></div>
                     <div><label class="text-[10px] font-black text-gray-400 uppercase ml-1">Your API Discount (%)</label><input type="number" step="0.01" name="hdk_discount" value="<?php echo $as['providers']['hdkdata']['discount'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none"></div>

@@ -209,6 +209,42 @@ function callBybit($pdo, $endpoint, $method = 'GET', $params = []) {
 }
 }
 
+if (!function_exists('testAirtimeProvider')) {
+function testAirtimeProvider($pdo, $provider) {
+    $settings = fetchSettings($pdo);
+    $as = $settings['airtimeSettings'] ?? [];
+    $creds = $as['providers'][$provider] ?? [];
+
+    switch ($provider) {
+        case 'datagifting':
+            $apiKey = $creds['apiKey'] ?? '';
+            $res = callApi("https://v6.datagifting.com.ng/web/api/profile.php?api_key=$apiKey");
+            if (isset($res['status']) && $res['status'] === 'success') {
+                return ['status' => 'success', 'message' => 'Connection Successful! Wallet Balance: ' . ($res['wallet_balance'] ?? 'N/A')];
+            }
+            return ['status' => 'error', 'message' => $res['msg'] ?? 'Connection Failed or Invalid API Key.', 'debug' => $res];
+
+        case 'nellobyte':
+            $userId = $creds['userId'] ?? '';
+            $apiKey = $creds['apiKey'] ?? '';
+            $res = callApi("https://nellobytesystems.com/api/profile?userid=$userId&apikey=$apiKey");
+            if (isset($res['status']) && $res['status'] === 'success') {
+                return ['status' => 'success', 'message' => 'Connection Successful! Wallet Balance: ' . ($res['wallet_balance'] ?? 'N/A')];
+            }
+            return ['status' => 'error', 'message' => $res['msg'] ?? 'Connection Failed or Invalid Credentials.', 'debug' => $res];
+
+        case 'hdkdata':
+            $token = $creds['token'] ?? '';
+            $res = callApi("https://hdkdata.com/api/user/", 'GET', [], ["Authorization: Token $token"]);
+            if (isset($res['user']['wallet_balance'])) {
+                return ['status' => 'success', 'message' => 'Connection Successful! Wallet Balance: ' . ($res['user']['wallet_balance'] ?? 'N/A')];
+            }
+            return ['status' => 'error', 'message' => $res['msg'] ?? 'Connection Failed. Check Token.', 'debug' => $res];
+    }
+    return ['status' => 'error', 'message' => 'Unknown Provider'];
+}
+}
+
 if (!function_exists('testBybitConnection')) {
 function testBybitConnection($pdo) {
     $res = callBybit($pdo, '/v5/user/query-api', 'GET');
