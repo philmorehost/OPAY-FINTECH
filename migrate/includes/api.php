@@ -192,7 +192,7 @@ function callJuicyWay($pdo, $endpoint, $method = 'POST', $data = []) {
 
     // Explicit environment toggle from settings
     $isLive = !empty($creds['liveMode']);
-    $baseUrl = $isLive ? "https://api.juicyway.com/v1" : "https://api-sandbox.spendjuice.com";
+    $baseUrl = $isLive ? "https://api.spendjuice.com" : "https://api-sandbox.spendjuice.com";
 
     return callApi("$baseUrl/$endpoint", $method, $data, [
         "Authorization: " . $apiKey,
@@ -206,7 +206,7 @@ function testJuicywayConnection($pdo) {
     $settings = fetchSettings($pdo);
     $creds = $settings['financialSettings']['juicyway'] ?? [];
     $isLive = !empty($creds['liveMode']);
-    $baseUrl = $isLive ? "https://api.juicyway.com/v1" : "https://api-sandbox.spendjuice.com";
+    $baseUrl = $isLive ? "https://api.spendjuice.com" : "https://api-sandbox.spendjuice.com";
 
     $res = callJuicyWay($pdo, 'merchants/profile', 'GET');
     if (isset($res['status']) && ($res['status'] === 'success' || $res['status'] === true)) {
