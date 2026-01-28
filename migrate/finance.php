@@ -143,7 +143,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
             $res = juicywaySwap($pdo, $amount, $from, $to, $quoteId);
             $resData = $res['data'] ?? $res;
-            if ((isset($resData['status']) && $resData['status'] === 'failed') || (isset($res['status']) && $res['status'] === 'error')) throw new Exception($res['message'] ?? $resData['message'] ?? 'Conversion failed');
+
+            if ((isset($resData['status']) && ($resData['status'] === 'failed' || $resData['status'] === 'error')) || (isset($res['status']) && ($res['status'] === 'error' || $res['status'] === 'failed')) || isset($res['errors'])) {
+                $msg = $res['message'] ?? $resData['message'] ?? 'Conversion failed';
+                if (isset($res['errors']) && is_array($res['errors'])) {
+                    $msg .= ": " . implode(", ", array_map(fn($e) => is_array($e) ? implode(" ", $e) : $e, $res['errors']));
+                }
+                throw new Exception($msg);
+            }
 
             logTransaction($pdo, $currentUser['id'], "Currency Conversion", $amount, 'successful', "Converted $from to $to", 'System');
             $success = "Successfully converted $from to $to!";
@@ -781,7 +788,9 @@ require_once __DIR__ . '/includes/header.php';
 
                 } else {
                     btn.innerText = 'Preview Conversion';
-                    alert(res.message || 'Conversion Not Found. Please check currencies.');
+                    let msg = res.message || 'Conversion Not Found. Please check currencies.';
+                    if (res.errors) msg += "\n" + JSON.stringify(res.errors);
+                    alert(msg);
                 }
             })
             .catch(err => {

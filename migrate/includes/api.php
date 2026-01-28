@@ -120,7 +120,7 @@ function purchaseAirtime($pdo, $network, $amount, $phone) {
         case 'vtpass':
             $requestId = date('YmdHi') . bin2hex(random_bytes(4));
             $payload = ['request_id' => $requestId, 'serviceID' => $netCode, 'amount' => $amount, 'phone' => $phone];
-            $res = callVtpass($pdo, $netCode, $payload);
+            $res = callVtpass($pdo, $netCode, $payload, $creds);
             if (isset($res['code']) && $res['code'] === '000') {
                 $status = $res['content']['transactions']['status'] ?? 'pending';
                 if ($status === 'delivered') return ['status' => 'success', 'message' => 'Successful', 'ref' => $res['requestId'] ?? $requestId];
@@ -153,11 +153,14 @@ function testAirtimeConnection($pdo, $provider) {
             if (isset($res['status']) && ($res['status'] === 'success' || $res['status'] === true)) return ['status' => 'success', 'message' => 'Connected! Balance: ' . ($res['balance'] ?? 'N/A')];
             break;
         case 'vtpass':
-            // Using a simple balance check or similar if available, or just testing auth
-            $res = callApi("https://vtpass.com/api/balance", 'GET', [], [
-                "api-key: " . ($creds['apiKey'] ?? ''),
-                "public-key: " . ($creds['publicKey'] ?? '')
-            ]);
+            $headers = ["Content-Type: application/json"];
+            if (!empty($creds['apiKey'])) {
+                $headers[] = "api-key: " . $creds['apiKey'];
+                $headers[] = "public-key: " . ($creds['publicKey'] ?? '');
+            } elseif (!empty($creds['username']) && !empty($creds['password'])) {
+                $headers[] = "Authorization: Basic " . base64_encode($creds['username'] . ":" . $creds['password']);
+            }
+            $res = callApi("https://vtpass.com/api/balance", 'GET', [], $headers);
             if (isset($res['code']) && $res['code'] === '000') return ['status' => 'success', 'message' => 'Connected! Balance: ' . ($res['contents']['balance'] ?? 'N/A')];
             return ['status' => 'error', 'message' => $res['response_description'] ?? 'Auth Failed'];
     }
@@ -194,9 +197,9 @@ function purchaseData($pdo, $network, $planId, $phone) {
  * UTILITIES
  */
 if (!function_exists('callVtpass')) {
-function callVtpass($pdo, $serviceId, $data) {
+function callVtpass($pdo, $serviceId, $data, $customCreds = null) {
     $settings = fetchSettings($pdo);
-    $creds = $settings['utilitySettings']['vtpass'] ?? [];
+    $creds = $customCreds ?: ($settings['utilitySettings']['vtpass'] ?? []);
     if (!isset($data['request_id'])) $data['request_id'] = date('YmdHi') . bin2hex(random_bytes(3));
     $data['serviceID'] = $serviceId;
     $headers = ["Content-Type: application/json"];
@@ -294,11 +297,16 @@ function callJuicyWay($pdo, $endpoint, $method = 'POST', $data = []) {
     $settings = fetchSettings($pdo);
     $creds = $settings['financialSettings']['juicyway'] ?? [];
     $apiKey = $creds['apiKey'] ?? '';
+    $businessId = $creds['businessId'] ?? '';
     $baseUrl = !empty($creds['liveMode']) ? "https://api.spendjuice.com" : "https://api-sandbox.spendjuice.com";
-    return callApi("$baseUrl/$endpoint", $method, $data, [
-        "Authorization: " . $apiKey,
+
+    $headers = [
+        "Authorization: Bearer " . str_replace('Bearer ', '', $apiKey),
         "Content-Type: application/json"
-    ]);
+    ];
+    if ($businessId) $headers[] = "X-Business-ID: $businessId";
+
+    return callApi("$baseUrl/$endpoint", $method, $data, $headers);
 }
 }
 
@@ -319,8 +327,8 @@ function juicywayGetQuote($pdo, $amount, $from, $to) {
     $from = strtoupper($from);
     $to = strtoupper($to);
     $minorAmount = (int)($amount * 100);
-    // GET request to singular endpoint with query params
-    return callJuicyWay($pdo, "exchange/quote?source_currency=$from&target_currency=$to&amount=$minorAmount&lock=true", 'GET');
+    // GET request to singular endpoint with query params - including multiple variations of amount param for compatibility
+    return callJuicyWay($pdo, "exchange/quote?source_currency=$from&target_currency=$to&amount=$minorAmount&source_amount=$minorAmount&lock=true", 'GET');
 }
 }
 
@@ -328,6 +336,7 @@ if (!function_exists('juicywaySwap')) {
 function juicywaySwap($pdo, $amount, $from, $to, $quoteId = null) {
     $minorAmount = (int)($amount * 100);
     $data = [
+        'source_amount' => $minorAmount,
         'amount' => $minorAmount,
         'source_currency' => strtoupper($from),
         'target_currency' => strtoupper($to)

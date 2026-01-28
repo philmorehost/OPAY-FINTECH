@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'datagifting' => ['apiKey' => $_POST['dg_apiKey']],
                 'nellobyte' => ['userId' => $_POST['nb_userId'], 'apiKey' => $_POST['nb_apiKey']],
                 'hdkdata' => ['apiKey' => $_POST['hdk_apiKey']],
-                'vtpass' => ['apiKey' => $_POST['vtp_apiKey'], 'publicKey' => $_POST['vtp_publicKey']]
+                'vtpass' => ['username' => $_POST['vtp_username'], 'password' => $_POST['vtp_password']]
             ],
             'routing' => [
                 'MTN' => $_POST['route_mtn'],
@@ -61,7 +61,7 @@ if (empty($as)) {
             'datagifting' => ['apiKey' => ''],
             'nellobyte' => ['userId' => '', 'apiKey' => ''],
             'hdkdata' => ['apiKey' => ''],
-            'vtpass' => ['apiKey' => '', 'publicKey' => '']
+            'vtpass' => ['username' => '', 'password' => '']
         ],
         'routing' => ['MTN' => 'datagifting', 'Airtel' => 'datagifting', 'Glo' => 'datagifting', '9mobile' => 'datagifting'],
         'networkDiscounts' => ['MTN' => 2.0, 'Airtel' => 2.0, 'Glo' => 2.0, '9mobile' => 2.0]
@@ -128,8 +128,8 @@ require_once __DIR__ . '/header.php';
                     <button type="submit" name="action" value="test_api" onclick="this.form.provider.value='vtpass'" class="text-[8px] font-black text-purple-600 uppercase hover:underline">Test</button>
                 </div>
                 <div class="space-y-4">
-                    <div><label class="text-[8px] font-black text-gray-400 uppercase ml-1">API Key</label><input type="password" name="vtp_apiKey" value="<?php echo $as['providers']['vtpass']['apiKey'] ?? ''; ?>" class="w-full p-3 bg-gray-50 rounded-xl font-bold mt-1 outline-none text-xs"></div>
-                    <div><label class="text-[8px] font-black text-gray-400 uppercase ml-1">Public Key</label><input type="password" name="vtp_publicKey" value="<?php echo $as['providers']['vtpass']['publicKey'] ?? ''; ?>" class="w-full p-3 bg-gray-50 rounded-xl font-bold mt-1 outline-none text-xs"></div>
+                    <div><label class="text-[8px] font-black text-gray-400 uppercase ml-1">Username (Email)</label><input type="text" name="vtp_username" value="<?php echo $as['providers']['vtpass']['username'] ?? ''; ?>" class="w-full p-3 bg-gray-50 rounded-xl font-bold mt-1 outline-none text-xs"></div>
+                    <div><label class="text-[8px] font-black text-gray-400 uppercase ml-1">Password</label><input type="password" name="vtp_password" value="<?php echo $as['providers']['vtpass']['password'] ?? ''; ?>" class="w-full p-3 bg-gray-50 rounded-xl font-bold mt-1 outline-none text-xs"></div>
                 </div>
             </div>
         </div>
