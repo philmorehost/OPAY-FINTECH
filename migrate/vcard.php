@@ -13,7 +13,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
     $action = $_POST['action'];
 
-    if ($action === 'request_card') {
+    // Security Verification
+    if (!verifyFundPassword($pdo, $currentUser['id'], $_POST['fund_password'] ?? '')) {
+        $error = "Incorrect Fund Password. Action denied.";
+    } elseif ($action === 'request_card') {
         $type = $_POST['type'] ?? 'Visa';
         $issuanceFee = (float)($settings['vcardIssuanceFee'] ?? 1500);
 
@@ -248,6 +251,11 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
             </div>
 
+            <div>
+                <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Fund Password</label>
+                <input type="password" name="fund_password" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-2xl font-black outline-none" required>
+            </div>
+
             <div class="bg-gray-50 p-6 rounded-3xl flex justify-between items-center">
                 <span class="text-[10px] font-black uppercase text-gray-400">Issuance Fee</span>
                 <span class="text-lg font-black"><?php echo formatCurrency($settings['vcardIssuanceFee'] ?? 1500); ?></span>
@@ -270,9 +278,15 @@ require_once __DIR__ . '/includes/header.php';
             <input type="hidden" name="action" value="fund_card">
             <input type="hidden" name="cardId" id="fundCardId">
 
-            <div>
-                <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Amount (₦)</label>
-                <input type="number" name="amount" placeholder="0.00" class="w-full p-6 bg-gray-50 rounded-3xl font-black text-2xl outline-none focus:ring-4 focus:ring-billpay-green/5" required>
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Amount (₦)</label>
+                    <input type="number" name="amount" placeholder="0.00" class="w-full p-6 bg-gray-50 rounded-3xl font-black text-2xl outline-none focus:ring-4 focus:ring-billpay-green/5" required>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Fund Password</label>
+                    <input type="password" name="fund_password" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-2xl font-black outline-none" required>
+                </div>
             </div>
 
             <button type="submit" class="w-full bg-billpay-green text-white font-black py-5 rounded-[24px] shadow-xl hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-widest">Add Funds</button>

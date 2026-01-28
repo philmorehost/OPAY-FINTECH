@@ -17,6 +17,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error .= "<br><div class='mt-2 p-2 bg-black/10 rounded text-[8px] lowercase text-left overflow-auto max-h-40 font-mono'>" . print_r($testRes['debug'], true) . "</div>";
             }
         }
+    } elseif (isset($_POST['action']) && $_POST['action'] === 'test_bybit') {
+        $testRes = testBybitConnection($pdo);
+        if ($testRes['status'] === 'success') {
+            $success = $testRes['message'];
+        } else {
+            $error = $testRes['message'];
+        }
     } else {
         $finSettings = [
             'paystack' => [
@@ -35,6 +42,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'swap' => (float)$_POST['jw_crypto_swap_charge'],
                     'withdraw' => (float)$_POST['jw_crypto_withdraw_charge']
                 ]
+            ],
+            'bybit' => [
+                'apiKey' => $_POST['bb_apiKey'],
+                'apiSecret' => $_POST['bb_apiSecret'],
+                'testnet' => isset($_POST['bb_testnet']) ? 1 : 0
             ]
         ];
 
@@ -70,7 +82,7 @@ require_once __DIR__ . '/header.php';
     <form method="POST" class="space-y-10">
         <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
             <!-- Paystack -->
             <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
                 <h3 class="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-3 text-billpay-green">
@@ -88,6 +100,33 @@ require_once __DIR__ . '/header.php';
                     <div>
                         <label class="text-[10px] font-black text-gray-400 uppercase ml-1 text-red-500">Webhook URL (Set in Paystack Dashboard)</label>
                         <input type="text" readonly name="ps_webhookUrl" value="<?php echo $fs['paystack']['webhookUrl'] ?? ''; ?>" class="w-full p-4 bg-gray-100 rounded-2xl font-mono text-[10px] mt-1 outline-none border border-transparent">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bybit API -->
+            <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-sm font-black uppercase tracking-widest flex items-center gap-3 text-amber-500">
+                        <i data-lucide="bar-chart-3" class="w-5 h-5"></i> Bybit API (Crypto Hub)
+                    </h3>
+                    <div class="flex items-center gap-4">
+                        <label class="flex items-center cursor-pointer gap-2">
+                            <input type="checkbox" name="bb_testnet" value="1" <?php echo !empty($fs['bybit']['testnet']) ? 'checked' : ''; ?> class="sr-only peer">
+                            <div class="w-8 h-4 bg-gray-200 rounded-full peer peer-checked:bg-amber-500 relative transition-all after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:after:translate-x-4"></div>
+                            <span class="text-[10px] font-black uppercase peer-checked:text-amber-500 text-gray-400">Testnet</span>
+                        </label>
+                        <button type="submit" name="action" value="test_bybit" class="text-[10px] font-black uppercase text-amber-500 hover:underline">Test API</button>
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1">API Key</label>
+                        <input type="password" name="bb_apiKey" value="<?php echo $fs['bybit']['apiKey'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-amber-500">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1">API Secret</label>
+                        <input type="password" name="bb_apiSecret" value="<?php echo $fs['bybit']['apiSecret'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-amber-500">
                     </div>
                 </div>
             </div>

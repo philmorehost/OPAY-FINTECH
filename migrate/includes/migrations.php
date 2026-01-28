@@ -53,6 +53,10 @@ try {
     addColumnIfNotExists($pdo, 'users', 'biometricEnabled', "TINYINT(1) DEFAULT 0");
     addColumnIfNotExists($pdo, 'users', 'biometricCredentialId', "TEXT");
     addColumnIfNotExists($pdo, 'users', 'biometricPublicKey', "TEXT");
+    addColumnIfNotExists($pdo, 'users', 'fundPassword', "VARCHAR(255)");
+    addColumnIfNotExists($pdo, 'users', 'google2faSecret', "VARCHAR(100)");
+    addColumnIfNotExists($pdo, 'users', 'google2faEnabled', "TINYINT(1) DEFAULT 0");
+    addColumnIfNotExists($pdo, 'users', 'email2faEnabled', "TINYINT(1) DEFAULT 0");
 
     // Virtual Cards Table
     $pdo->exec("CREATE TABLE IF NOT EXISTS virtual_cards (
@@ -100,6 +104,19 @@ try {
         currency VARCHAR(10) NOT NULL,
         details TEXT NOT NULL,
         description VARCHAR(255) NOT NULL,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX (userId)
+    )");
+
+    // Withdrawal Whitelist Table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS withdrawal_whitelist (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        userId VARCHAR(50) NOT NULL,
+        address VARCHAR(255) NOT NULL,
+        label VARCHAR(100),
+        type ENUM('crypto', 'bank') DEFAULT 'crypto',
+        isLocked TINYINT(1) DEFAULT 1,
+        unlockedAt DATETIME,
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
         INDEX (userId)
     )");

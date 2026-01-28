@@ -138,6 +138,14 @@ function fetchSettings($pdo) {
 }
 }
 
+if (!function_exists('fetchUser')) {
+function fetchUser($pdo, $userId) {
+    $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+    $stmt->execute([$userId]);
+    return $stmt->fetch(PDO::FETCH_ASSOC);
+}
+}
+
 if (!function_exists('updateWallet')) {
 function updateWallet($pdo, $userId, $amount, $type = 'credit') {
     $op = ($type === 'credit') ? '+' : '-';
@@ -177,11 +185,43 @@ function checkRateLimit($key, $limit = 5, $period = 60) {
 }
 }
 
+if (!function_exists('require2fa')) {
+function require2fa($currentUser) {
+    if ($currentUser['google2faEnabled'] || $currentUser['email2faEnabled']) {
+        if (!isset($_SESSION['2fa_verified']) || $_SESSION['2fa_verified'] !== $currentUser['id']) {
+            $_SESSION['2fa_redirect'] = $_SERVER['REQUEST_URI'];
+            header('Location: /2fa-verify');
+            exit;
+        }
+    }
+}
+}
+
+if (!function_exists('verifyFundPassword')) {
+function verifyFundPassword($pdo, $userId, $password) {
+    $stmt = $pdo->prepare("SELECT fundPassword FROM users WHERE id = ?");
+    $stmt->execute([$userId]);
+    $hash = $stmt->fetchColumn();
+    return $hash && password_verify($password, $hash);
+}
+}
+
 if (!function_exists('logTransaction')) {
 function logTransaction($pdo, $userId, $type, $amount, $status, $details, $recipient, $provider = null, $token = null, $apiAmount = 0, $profit = 0) {
     $id = 'TX-' . strtoupper(bin2hex(random_bytes(4)));
     $stmt = $pdo->prepare("INSERT INTO transactions (id, userId, type, amount, status, details, recipient, provider, token, apiAmount, profit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     return $stmt->execute([$id, $userId, $type, $amount, $status, $details, $recipient, $provider, $token, $apiAmount, $profit]);
+}
+}
+
+if (!function_exists('sendEmail2fa')) {
+function sendEmail2fa($pdo, $user) {
+    $code = rand(100000, 999999);
+    $_SESSION['email_2fa_code'] = $code;
+    $_SESSION['email_2fa_expiry'] = time() + 300; // 5 mins
+    $subject = "Your 2FA Verification Code";
+    $message = "Your verification code is: <b>$code</b>. It expires in 5 minutes.";
+    return sendMail($pdo, $user['email'], $subject, $message);
 }
 }
 

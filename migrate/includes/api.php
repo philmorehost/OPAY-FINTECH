@@ -69,6 +69,14 @@ function callApi($url, $method = 'GET', $data = [], $headers = []) {
 }
 }
 
+if (!function_exists('testJuicywayConnection')) {
+function testJuicywayConnection($pdo) {
+    $res = juicywayGetWallets($pdo);
+    if (isset($res['wallets'])) return ['status' => 'success', 'message' => 'Connection successful! Found ' . count($res['wallets']) . ' wallets.'];
+    return ['status' => 'error', 'message' => $res['message'] ?? 'Connection failed. Check API key and mode.'];
+}
+}
+
 /**
  * Helper: Network Code Mapping
  */
@@ -124,6 +132,10 @@ function purchaseData($pdo, $network, $planId, $phone) {
             $res = callApi("https://nellobytesystems.com/api/data?userid=" . ($creds['userId'] ?? '') . "&apikey=" . ($creds['apiKey'] ?? '') . "&network=$netCode&plan=$planId&phone=$phone");
             if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
             return ['status' => 'failed', 'message' => $res['msg'] ?? 'Provider Error'];
+        case 'hdkdata':
+            $res = callApi("https://hdkdata.com/api/data?api_key=" . ($creds['apiKey'] ?? '') . "&network=$netCode&plan=$planId&phone=$phone");
+            if (isset($res['status']) && ($res['status'] === 'success' || $res['status'] === true)) return ['status' => 'success', 'message' => $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
+            return ['status' => 'failed', 'message' => $res['msg'] ?? 'Provider Error'];
     }
     return ['status' => 'failed', 'message' => 'No provider'];
 }
@@ -146,6 +158,82 @@ function callVtpass($pdo, $serviceId, $data) {
         $headers[] = "Authorization: Basic " . base64_encode($creds['username'] . ":" . $creds['password']);
     }
     return callApi("https://vtpass.com/api/pay", 'POST', $data, $headers);
+}
+}
+
+/**
+ * BYBIT API (V5)
+ */
+if (!function_exists('callBybit')) {
+function callBybit($pdo, $endpoint, $method = 'GET', $params = []) {
+    $settings = fetchSettings($pdo);
+    $creds = $settings['financialSettings']['bybit'] ?? [];
+    $apiKey = $creds['apiKey'] ?? '';
+    $secret = $creds['apiSecret'] ?? '';
+    $baseUrl = !empty($creds['testnet']) ? "https://api-testnet.bybit.com" : "https://api.bybit.com";
+
+    $timestamp = round(microtime(true) * 1000);
+    $recvWindow = 5000;
+
+    $queryString = "";
+    if ($method === 'GET') {
+        $queryString = http_build_query($params);
+        $fullUrl = $baseUrl . $endpoint . "?" . $queryString;
+        $signData = $timestamp . $apiKey . $recvWindow . $queryString;
+    } else {
+        $fullUrl = $baseUrl . $endpoint;
+        $signData = $timestamp . $apiKey . $recvWindow . json_encode($params);
+    }
+
+    $signature = hash_hmac('sha256', $signData, $secret);
+
+    $headers = [
+        "X-BAPI-API-KEY: $apiKey",
+        "X-BAPI-SIGN: $signature",
+        "X-BAPI-TIMESTAMP: $timestamp",
+        "X-BAPI-RECV-WINDOW: $recvWindow",
+        "Content-Type: application/json"
+    ];
+
+    return callApi($fullUrl, $method, $method === 'GET' ? [] : $params, $headers);
+}
+}
+
+if (!function_exists('testBybitConnection')) {
+function testBybitConnection($pdo) {
+    $res = callBybit($pdo, '/v5/user/query-api', 'GET');
+    if (isset($res['retCode']) && $res['retCode'] == 0) return ['status' => 'success', 'message' => 'Bybit Connection Successful!'];
+    return ['status' => 'error', 'message' => 'Bybit Failed: ' . ($res['retMsg'] ?? 'Unknown Error')];
+}
+}
+
+if (!function_exists('bybitGetMarketPrice')) {
+function bybitGetMarketPrice($pdo, $symbol = 'BTCUSDT') {
+    $res = callBybit($pdo, '/v5/market/tickers', 'GET', ['category' => 'spot', 'symbol' => $symbol]);
+    if (isset($res['result']['list'][0]['lastPrice'])) {
+        return (float)$res['result']['list'][0]['lastPrice'];
+    }
+    return 0;
+}
+}
+
+if (!function_exists('bybitGetBalances')) {
+function bybitGetBalances($pdo) {
+    return callBybit($pdo, '/v5/account/wallet-balance', 'GET', ['accountType' => 'UNIFIED']);
+}
+}
+
+if (!function_exists('bybitWithdraw')) {
+function bybitWithdraw($pdo, $coin, $amount, $address, $tag = '') {
+    $params = [
+        'coin' => strtoupper($coin),
+        'chain' => 'TRX', // Default to TRC20 for USDT/USDC if not specified
+        'address' => $address,
+        'amount' => (string)$amount,
+        'timestamp' => round(microtime(true) * 1000)
+    ];
+    if ($tag) $params['tag'] = $tag;
+    return callBybit($pdo, '/v5/asset/withdraw/create', 'POST', $params);
 }
 }
 
@@ -179,17 +267,22 @@ function juicywayGetBanks($pdo, $country = 'NG') {
 
 if (!function_exists('juicywayGetQuote')) {
 function juicywayGetQuote($pdo, $amount, $from, $to) {
-    return callJuicyWay($pdo, "exchange/quotes", 'POST', [
-        'amount' => $amount,
-        'source_currency' => strtoupper($from),
-        'target_currency' => strtoupper($to)
-    ]);
+    $minorAmount = (int)($amount * 100);
+    $from = strtoupper($from);
+    $to = strtoupper($to);
+    // GET request to singular endpoint with query params
+    return callJuicyWay($pdo, "exchange/quote?source_currency=$from&target_currency=$to&amount=$minorAmount", 'GET');
 }
 }
 
 if (!function_exists('juicywaySwap')) {
 function juicywaySwap($pdo, $amount, $from, $to, $quoteId = null) {
-    $data = ['amount' => $amount, 'source_currency' => strtoupper($from), 'target_currency' => strtoupper($to)];
+    $minorAmount = (int)($amount * 100);
+    $data = [
+        'amount' => $minorAmount,
+        'source_currency' => strtoupper($from),
+        'target_currency' => strtoupper($to)
+    ];
     if ($quoteId) $data['quote_id'] = $quoteId;
     return callJuicyWay($pdo, "exchange/swap", 'POST', $data);
 }
@@ -197,19 +290,35 @@ function juicywaySwap($pdo, $amount, $from, $to, $quoteId = null) {
 
 if (!function_exists('juicywayInitiatePayout')) {
 function juicywayInitiatePayout($pdo, $data) {
+    // Ensure amount is in minor units (kobo/cents)
+    if (isset($data['amount'])) $data['amount'] = (int)($data['amount'] * 100);
     // Unified endpoint for Bank, Crypto, Internal, Interac
     return callJuicyWay($pdo, "payouts", 'POST', $data);
 }
 }
 
 if (!function_exists('juicywayCreatePaymentLink')) {
-function juicywayCreatePaymentLink($pdo, $amount, $currency, $description) {
-    return callJuicyWay($pdo, "payment-links", 'POST', [
-        'amount' => $amount,
+function juicywayCreatePaymentLink($pdo, $amount, $currency, $description, $user = null) {
+    $minorAmount = (int)($amount * 100);
+    $payload = [
+        'amount' => $minorAmount,
         'currency' => strtoupper($currency),
         'description' => $description,
-        'redirect_url' => 'https://' . $_SERVER['HTTP_HOST'] . '/finance'
-    ]);
+        'redirect_url' => 'https://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . '/finance'
+    ];
+
+    // Include customer data to avoid "Unprocessable entity"
+    if ($user) {
+        $names = explode(' ', $user['fullName'] ?? 'Customer User');
+        $payload['customer'] = [
+            'email' => $user['email'] ?? 'customer@example.com',
+            'first_name' => $names[0] ?: 'Customer',
+            'last_name' => $names[1] ?? 'User',
+            'phone_number' => $user['phone'] ?? '+2348000000000'
+        ];
+    }
+
+    return callJuicyWay($pdo, "payment-links", 'POST', $payload);
 }
 }
 
@@ -229,6 +338,17 @@ function createPaystackDedicatedAccount($pdo, $customerCode) {
     $settings = fetchSettings($pdo);
     $creds = $settings['financialSettings']['paystack'] ?? [];
     return callApi("https://api.paystack.co/dedicated_account", 'POST', ['customer' => $customerCode, 'preferred_bank' => 'wema-bank'], ["Authorization: Bearer " . ($creds['secretKey'] ?? ''), "Content-Type: application/json"]);
+}
+}
+
+if (!function_exists('sendKudiSms')) {
+function sendKudiSms($pdo, $senderId, $message, $to) {
+    $settings = fetchSettings($pdo);
+    $creds = $settings['otherApiSettings']['kudisms'] ?? [];
+    $token = $creds['token'] ?? '';
+    if (empty($senderId)) $senderId = $creds['senderId'] ?? 'BillPay';
+    $url = "https://kudisms.net/api/?token=$token&senderID=$senderId&recipients=$to&message=" . urlencode($message);
+    return callApi($url);
 }
 }
 

@@ -42,6 +42,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $action = $_POST['action'];
     $description = sanitize($_POST['description'] ?? '');
 
+    // Security Verification (Mandatory for all financial operations)
+    if (!verifyFundPassword($pdo, $currentUser['id'], $_POST['fund_password'] ?? '')) {
+        $error = "Incorrect Fund Password. Action denied.";
+    } else {
     try {
         if ($action === 'transfer_bank') {
             $currency = sanitize($_POST['currency']);
@@ -120,7 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         elseif ($action === 'request') {
             $amount = (float)$_POST['amount'];
             $currency = sanitize($_POST['currency']);
-            $res = juicywayCreatePaymentLink($pdo, $amount, $currency, $description);
+            $res = juicywayCreatePaymentLink($pdo, $amount, $currency, $description, $currentUser);
             if (!isset($res['status']) || ($res['status'] !== 'success' && $res['status'] !== true)) throw new Exception($res['message'] ?? 'Failed to generate request link');
 
             $linkId = $res['data']['id'] ?? uniqid();
@@ -145,6 +149,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $wallets = $walletsRes['data'] ?? [];
 
     } catch (Exception $e) { $error = $e->getMessage(); }
+    }
 }
 
 // Fetch Local Transactions
@@ -326,10 +331,15 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
                         </div>
 
-                        <!-- Description (Mandatory) -->
-                        <div>
-                            <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Description (Required)</label>
-                            <textarea name="description" rows="2" placeholder="What is this for?" class="w-full p-5 bg-gray-50 rounded-[24px] font-bold text-sm outline-none" required></textarea>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Description (Required)</label>
+                                <input type="text" name="description" placeholder="What is this for?" class="w-full p-5 bg-gray-50 rounded-[24px] font-bold text-sm outline-none" required>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Fund Password</label>
+                                <input type="password" name="fund_password" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none" required>
+                            </div>
                         </div>
 
                         <div class="flex items-center gap-4">
@@ -352,6 +362,11 @@ require_once __DIR__ . '/includes/header.php';
                     <div class="flex items-center justify-between mb-10">
                         <h2 class="text-2xl font-black uppercase tracking-tighter">Swap Currencies</h2>
                         <button onclick="hideSections()" class="text-gray-400 hover:text-gray-900"><i data-lucide="x" class="w-6 h-6"></i></button>
+                    </div>
+
+                    <div class="bg-blue-50 p-4 rounded-2xl flex items-center gap-3 mb-8">
+                        <i data-lucide="info" class="w-5 h-5 text-blue-500"></i>
+                        <p class="text-[10px] font-black uppercase text-blue-600 tracking-tight">Convert instantly: Rates update at 10 seconds interval</p>
                     </div>
 
                     <form method="POST" id="convertForm" class="space-y-8">
@@ -393,12 +408,23 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
                         </div>
 
-                        <div id="quoteInfo" class="hidden p-6 bg-amber-50 rounded-[24px] border border-amber-100 text-center space-y-2">
-                            <div class="text-[10px] font-black uppercase text-amber-600 tracking-widest">Rate Guaranteed For</div>
-                            <div class="text-3xl font-black text-amber-800" id="quoteTimer">30s</div>
+                        <button type="button" onclick="getQuote()" id="btnGetQuote" class="w-full bg-gray-100 text-gray-900 font-black py-6 rounded-[32px] uppercase tracking-widest transition-all">Preview Conversion</button>
+
+                        <div id="rateDisplay" class="hidden text-center py-4">
+                            <span class="text-xs font-black text-indigo-500" id="liveRateText">Rate: 1 [FROM] ~ [RATE] [TO]</span>
                         </div>
 
-                        <button type="button" onclick="getQuote()" id="btnGetQuote" class="w-full bg-gray-100 text-gray-900 font-black py-6 rounded-[32px] uppercase tracking-widest transition-all">Preview Conversion</button>
+                        <div id="quoteInfo" class="hidden space-y-6">
+                            <div class="p-6 bg-amber-50 rounded-[24px] border border-amber-100 text-center space-y-2">
+                                <div class="text-[10px] font-black uppercase text-amber-600 tracking-widest">Quote expires in</div>
+                                <div class="text-3xl font-black text-amber-800" id="quoteTimer">30s</div>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Fund Password</label>
+                                <input type="password" name="fund_password" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none">
+                            </div>
+                        </div>
+
                         <button type="submit" id="btnSwapSubmit" class="w-full bg-billpay-green text-white font-black py-6 rounded-[32px] shadow-xl uppercase tracking-widest hidden">Confirm Swap</button>
                     </form>
                 </div>
@@ -425,9 +451,15 @@ require_once __DIR__ . '/includes/header.php';
                                 <input type="number" name="amount" placeholder="0.00" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-lg outline-none" required>
                             </div>
                         </div>
-                        <div>
-                            <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Description (Internal Memo)</label>
-                            <textarea name="description" rows="3" placeholder="e.g. Invoice for Graphic Design" class="w-full p-5 bg-gray-50 rounded-[24px] font-bold text-sm outline-none" required></textarea>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Description</label>
+                                <input type="text" name="description" placeholder="Internal Memo" class="w-full p-5 bg-gray-50 rounded-[24px] font-bold text-sm outline-none" required>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Fund Password</label>
+                                <input type="password" name="fund_password" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none" required>
+                            </div>
                         </div>
                         <button type="submit" class="w-full bg-gray-900 text-white font-black py-6 rounded-[32px] shadow-xl uppercase tracking-widest">Generate Link</button>
                     </form>
@@ -626,40 +658,84 @@ require_once __DIR__ . '/includes/header.php';
         form.scrollIntoView({ behavior: 'smooth' });
     }
 
-    let quoteInterval;
+    let quoteInterval, rateInterval;
+    let isCountingDown = false;
+
     function getQuote() {
         const amount = document.getElementById('convertAmount').value;
         const from = document.getElementById('fromCurrency').value;
         const to = document.getElementById('toCurrency').value;
-        if (!amount || amount <= 0) return alert('Enter amount');
+        if (!amount || amount <= 0) return alert('Please enter an amount to preview conversion.');
 
-        document.getElementById('btnGetQuote').innerText = 'Getting Quote...';
+        const btn = document.getElementById('btnGetQuote');
+        btn.disabled = true;
+        btn.innerText = 'Fetching Rate...';
+
         fetch(`?ajax=getQuote&amount=${amount}&from=${from}&to=${to}`)
             .then(r => r.json())
             .then(res => {
-                document.getElementById('btnGetQuote').innerText = 'Preview Conversion';
-                if (res.status === 'success' || res.status === true) {
-                    document.getElementById('toAmountDisplay').innerText = res.data.target_amount.toLocaleString();
-                    document.getElementById('quoteId').value = res.data.id;
+                btn.disabled = false;
+                if (res.status === 'success' || res.status === true || res.id || res.data) {
+                    const data = res.data || res;
+                    const targetAmount = data.target_amount || (amount * (data.rate || 1));
+                    document.getElementById('toAmountDisplay').innerText = targetAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    document.getElementById('quoteId').value = data.id;
+
+                    // Display Rate
+                    const rate = data.rate || (targetAmount / amount);
+                    document.getElementById('liveRateText').innerText = `Rate: 1 ${from} ~ ${rate.toFixed(4)} ${to}`;
+                    document.getElementById('rateDisplay').classList.remove('hidden');
+
                     document.getElementById('quoteInfo').classList.remove('hidden');
                     document.getElementById('btnSwapSubmit').classList.remove('hidden');
-                    document.getElementById('btnGetQuote').classList.add('hidden');
 
                     let seconds = 30;
+                    isCountingDown = true;
                     clearInterval(quoteInterval);
+                    btn.innerText = `Preview Conversion (00:${seconds.toString().padStart(2, '0')})`;
+
                     quoteInterval = setInterval(() => {
                         seconds--;
                         document.getElementById('quoteTimer').innerText = seconds + 's';
+                        btn.innerText = `Preview Conversion (00:${seconds.toString().padStart(2, '0')})`;
+
                         if (seconds <= 0) {
                             clearInterval(quoteInterval);
+                            clearInterval(rateInterval);
+                            isCountingDown = false;
                             document.getElementById('quoteInfo').classList.add('hidden');
                             document.getElementById('btnSwapSubmit').classList.add('hidden');
-                            document.getElementById('btnGetQuote').classList.remove('hidden');
+                            document.getElementById('rateDisplay').classList.add('hidden');
+                            btn.innerText = 'Preview Conversion';
                         }
                     }, 1000);
+
+                    // 10-second auto-refresh of rate if active
+                    clearInterval(rateInterval);
+                    rateInterval = setInterval(() => {
+                        if (isCountingDown && seconds > 5) {
+                             // Silently refresh rate
+                             fetch(`?ajax=getQuote&amount=${amount}&from=${from}&to=${to}`)
+                                .then(r => r.json())
+                                .then(refresh => {
+                                    const rData = refresh.data || refresh;
+                                    const rRate = rData.rate || ((rData.target_amount || targetAmount) / amount);
+                                    document.getElementById('liveRateText').innerText = `Rate: 1 ${from} ~ ${rRate.toFixed(4)} ${to}`;
+                                    // Update target display if quote didn't change ID but rate did (though locked usually doesn't)
+                                    if (rData.target_amount) document.getElementById('toAmountDisplay').innerText = rData.target_amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                                });
+                        }
+                    }, 10000);
+
                 } else {
-                    alert(res.message || 'Failed to get quote');
+                    btn.innerText = 'Preview Conversion';
+                    alert(res.message || 'Conversion Not Found. Please check currencies.');
                 }
+            })
+            .catch(err => {
+                btn.disabled = false;
+                btn.innerText = 'Preview Conversion';
+                alert('Connection Error. Please try again.');
             });
     }
 </script>

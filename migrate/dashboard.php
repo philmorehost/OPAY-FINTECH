@@ -6,18 +6,14 @@ $pageTitle = 'Home';
 require_once __DIR__ . '/includes/header.php';
 
 $services = [
-    ['icon' => 'phone', 'label' => 'Airtime', 'path' => '/airtime', 'color' => 'text-blue-500'],
-    ['icon' => 'wifi', 'label' => 'Data', 'path' => '/data', 'color' => 'text-orange-500'],
-    ['icon' => 'message-circle', 'label' => 'Bulk SMS', 'path' => '/sms', 'color' => 'text-emerald-500'],
-    ['icon' => 'tv', 'label' => 'Cable TV', 'path' => '/cable', 'color' => 'text-red-500'],
-    ['icon' => 'zap', 'label' => 'Electricity', 'path' => '/electric', 'color' => 'text-yellow-500'],
-    ['icon' => 'trending-up', 'label' => 'Betting', 'path' => '/betting', 'color' => 'text-green-500'],
-    ['icon' => 'bitcoin', 'label' => 'Crypto', 'path' => '/crypto', 'color' => 'text-orange-600'],
-    ['icon' => 'arrow-right-left', 'label' => 'Transfer', 'path' => '/transfer', 'color' => 'text-indigo-500'],
+    ['icon' => 'layout-grid', 'label' => 'Pay Hub', 'path' => '/pay-hub', 'color' => 'text-billpay-green'],
+    ['icon' => 'crown', 'label' => 'Finance', 'path' => '/finance', 'color' => 'text-amber-500'],
+    ['icon' => 'bar-chart-3', 'label' => 'Crypto', 'path' => '/crypto', 'color' => 'text-orange-500'],
     ['icon' => 'credit-card', 'label' => 'Card', 'path' => '/vcard', 'color' => 'text-pink-500'],
-    ['icon' => 'shield-check', 'label' => 'Exam PIN', 'path' => '/exam', 'color' => 'text-purple-500'],
-    ['icon' => 'bar-chart-3', 'label' => 'Referrals', 'path' => '/referrals', 'color' => 'text-cyan-600'],
+    ['icon' => 'arrow-right-left', 'label' => 'Transfer', 'path' => '/transfer', 'color' => 'text-indigo-500'],
+    ['icon' => 'bar-chart-2', 'label' => 'Referrals', 'path' => '/referrals', 'color' => 'text-cyan-600'],
     ['icon' => 'gift', 'label' => 'Gift Cards', 'path' => '/giftcards', 'color' => 'text-pink-600'],
+    ['icon' => 'more-horizontal', 'label' => 'More', 'path' => '/services', 'color' => 'text-gray-400'],
 ];
 
 $offers = fetchActiveOffers($pdo);
