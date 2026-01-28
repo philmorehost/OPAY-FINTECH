@@ -23,6 +23,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $success = $testRes['message'];
         } else {
             $error = $testRes['message'];
+            if (!empty($testRes['debug'])) {
+                $error .= "<br><div class='mt-2 p-2 bg-black/10 rounded text-[8px] lowercase text-left overflow-auto max-h-40 font-mono'>" . print_r($testRes['debug'], true) . "</div>";
+            }
         }
     } else {
         $finSettings = [

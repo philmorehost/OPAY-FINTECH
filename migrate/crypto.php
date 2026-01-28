@@ -53,10 +53,50 @@ if (!$error && isset($_POST['sell_amount'])) {
     }
 }
 
-// Handle Swap
-if (!$error && isset($_POST['swap_from'])) {
-    // Logic for swapping between crypto pairs via Bybit
-    $success = "Swap executed successfully.";
+// Handle Convert (Bybit Convert API)
+if (!$error && isset($_POST['convert_from'])) {
+    $from = $_POST['convert_from'];
+    $to = $_POST['convert_to'];
+    $amount = (float)$_POST['convert_amount'];
+
+    // In a real integration, we'd check if user has enough of $from in their "Crypto Wallet"
+    // For this implementation, we execute via Bybit and log it
+    $res = bybitConvert($pdo, $from, $to, $amount);
+    if (isset($res['retCode']) && $res['retCode'] == 0) {
+        logTransaction($pdo, $currentUser['id'], "Crypto Convert", 0, 'successful', "Converted $amount $from to $to", "Bybit Hub");
+        $success = "Conversion successful!";
+    } else {
+        $error = "Conversion failed: " . ($res['retMsg'] ?? 'Unknown Error');
+    }
+}
+
+// Handle Transfer
+if (!$error && isset($_POST['transfer_coin'])) {
+    $coin = $_POST['transfer_coin'];
+    $amount = (float)$_POST['transfer_amount'];
+    $from = $_POST['transfer_from'];
+    $to = $_POST['transfer_to'];
+
+    $res = bybitTransfer($pdo, $coin, $amount, $from, $to);
+    if (isset($res['retCode']) && $res['retCode'] == 0) {
+        $success = "Transfer successful!";
+    } else {
+        $error = "Transfer failed: " . ($res['retMsg'] ?? 'Unknown Error');
+    }
+}
+
+// Handle Earn (Savings)
+if (!$error && isset($_POST['earn_product_id'])) {
+    $productId = $_POST['earn_product_id'];
+    $amount = (float)$_POST['earn_amount'];
+
+    $res = bybitEarnPurchase($pdo, $productId, $amount);
+    if (isset($res['retCode']) && $res['retCode'] == 0) {
+        logTransaction($pdo, $currentUser['id'], "Crypto Earn", 0, 'successful', "Subscribed $amount to Savings", "Bybit Hub");
+        $success = "Subscription successful! Your assets are now earning interest.";
+    } else {
+        $error = "Subscription failed: " . ($res['retMsg'] ?? 'Unknown Error');
+    }
 }
 
 // Handle Withdrawal (P2P)
@@ -92,6 +132,10 @@ $prices = [
     'SOL' => bybitGetMarketPrice($pdo, 'SOLUSDT'),
     'USDT' => 1.00
 ];
+
+// Fetch Positions & Savings (Optional/Live)
+$positions = bybitGetPositions($pdo, 'linear'); // Example: USDT Perpetuals
+$savings = bybitGetEarnProducts($pdo);
 
 require_once __DIR__ . '/includes/header.php';
 ?>
@@ -136,10 +180,12 @@ require_once __DIR__ . '/includes/header.php';
             <div class="lg:col-span-2 space-y-8">
                 <div class="bg-white/5 p-10 rounded-[40px] border border-white/10 shadow-2xl relative">
                     <div class="flex gap-4 mb-10 overflow-x-auto pb-2 scrollbar-hide">
-                        <button onclick="setTab('buy')" id="buyTab" class="px-8 py-3 rounded-full text-[10px] font-black uppercase bg-white text-gray-900 active-tab shadow-xl">Buy</button>
-                        <button onclick="setTab('sell')" id="sellTab" class="px-8 py-3 rounded-full text-[10px] font-black uppercase text-white/40 hover:bg-white/5 transition-all">Sell</button>
-                        <button onclick="setTab('swap')" id="swapTab" class="px-8 py-3 rounded-full text-[10px] font-black uppercase text-white/40 hover:bg-white/5 transition-all">Swap</button>
-                        <button onclick="setTab('p2p')" id="p2pTab" class="px-8 py-3 rounded-full text-[10px] font-black uppercase text-white/40 hover:bg-white/5 transition-all">Withdraw (P2P)</button>
+                        <button onclick="setTab('buy')" id="buyTab" class="whitespace-nowrap px-8 py-3 rounded-full text-[10px] font-black uppercase bg-white text-gray-900 active-tab shadow-xl">Buy</button>
+                        <button onclick="setTab('sell')" id="sellTab" class="whitespace-nowrap px-8 py-3 rounded-full text-[10px] font-black uppercase text-white/40 hover:bg-white/5 transition-all">Sell</button>
+                        <button onclick="setTab('convert')" id="convertTab" class="whitespace-nowrap px-8 py-3 rounded-full text-[10px] font-black uppercase text-white/40 hover:bg-white/5 transition-all">Convert</button>
+                        <button onclick="setTab('earn')" id="earnTab" class="whitespace-nowrap px-8 py-3 rounded-full text-[10px] font-black uppercase text-white/40 hover:bg-white/5 transition-all">Earn</button>
+                        <button onclick="setTab('transfer')" id="transferTab" class="whitespace-nowrap px-8 py-3 rounded-full text-[10px] font-black uppercase text-white/40 hover:bg-white/5 transition-all">Transfer</button>
+                        <button onclick="setTab('p2p')" id="p2pTab" class="whitespace-nowrap px-8 py-3 rounded-full text-[10px] font-black uppercase text-white/40 hover:bg-white/5 transition-all">Withdraw (P2P)</button>
                     </div>
 
                     <!-- Buy Form -->
@@ -194,6 +240,105 @@ require_once __DIR__ . '/includes/header.php';
                         <button type="submit" class="w-full bg-red-500 text-white py-6 rounded-[32px] font-black uppercase tracking-widest shadow-xl shadow-red-500/20 hover:scale-[1.02] active:scale-95 transition-all">Execute Sell Order</button>
                     </form>
 
+                    <!-- Convert Section -->
+                    <form id="convert-section" method="POST" class="crypto-section hidden space-y-8">
+                        <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                        <div class="grid grid-cols-2 gap-6">
+                            <div>
+                                <label class="text-[9px] font-black text-white/40 uppercase tracking-widest mb-3 block ml-4">From</label>
+                                <select name="convert_from" class="w-full bg-white/5 border-none rounded-2xl p-5 text-sm font-black focus:ring-2 focus:ring-amber-500">
+                                    <option value="USDT" class="bg-gray-900">USDT</option>
+                                    <option value="BTC" class="bg-gray-900">BTC</option>
+                                    <option value="ETH" class="bg-gray-900">ETH</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[9px] font-black text-white/40 uppercase tracking-widest mb-3 block ml-4">To</label>
+                                <select name="convert_to" class="w-full bg-white/5 border-none rounded-2xl p-5 text-sm font-black focus:ring-2 focus:ring-amber-500">
+                                    <option value="BTC" class="bg-gray-900">BTC</option>
+                                    <option value="ETH" class="bg-gray-900">ETH</option>
+                                    <option value="USDT" class="bg-gray-900">USDT</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-[9px] font-black text-white/40 uppercase tracking-widest mb-3 block ml-4">Amount</label>
+                            <input type="number" step="any" name="convert_amount" placeholder="0.00" class="w-full bg-white/5 border-none rounded-2xl p-5 text-sm font-black focus:ring-2 focus:ring-amber-500">
+                        </div>
+                        <div>
+                            <label class="text-[9px] font-black text-white/40 uppercase tracking-widest mb-3 block ml-4">Fund Password</label>
+                            <input type="password" name="fund_password" placeholder="••••••" class="w-full bg-white/5 border-none rounded-2xl p-5 text-sm font-black focus:ring-2 focus:ring-amber-500">
+                        </div>
+                        <button type="submit" class="w-full bg-amber-500 text-white py-6 rounded-[32px] font-black uppercase tracking-widest shadow-xl shadow-amber-500/20 hover:scale-[1.02] active:scale-95 transition-all">Execute Conversion</button>
+                    </form>
+
+                    <!-- Earn Section -->
+                    <form id="earn-section" method="POST" class="crypto-section hidden space-y-8">
+                        <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                        <div>
+                            <label class="text-[9px] font-black text-white/40 uppercase tracking-widest mb-3 block ml-4">Select Savings Product</label>
+                            <select name="earn_product_id" class="w-full bg-white/5 border-none rounded-2xl p-5 text-sm font-black focus:ring-2 focus:ring-amber-500">
+                                <?php if (!empty($savings['result']['list'])): ?>
+                                    <?php foreach ($savings['result']['list'] as $p): ?>
+                                        <option value="<?php echo $p['productId']; ?>" class="bg-gray-900"><?php echo $p['coin']; ?> - <?php echo $p['estimateApr']; ?>% APR (<?php echo $p['productName']; ?>)</option>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <option value="" disabled class="bg-gray-900">No products available</option>
+                                <?php endif; ?>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[9px] font-black text-white/40 uppercase tracking-widest mb-3 block ml-4">Subscription Amount</label>
+                            <input type="number" step="any" name="earn_amount" placeholder="0.00" class="w-full bg-white/5 border-none rounded-2xl p-5 text-sm font-black focus:ring-2 focus:ring-amber-500">
+                        </div>
+                        <div>
+                            <label class="text-[9px] font-black text-white/40 uppercase tracking-widest mb-3 block ml-4">Fund Password</label>
+                            <input type="password" name="fund_password" placeholder="••••••" class="w-full bg-white/5 border-none rounded-2xl p-5 text-sm font-black focus:ring-2 focus:ring-amber-500">
+                        </div>
+                        <button type="submit" class="w-full bg-emerald-500 text-white py-6 rounded-[32px] font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all">Subscribe to Earn</button>
+                    </form>
+
+                    <!-- Transfer Section -->
+                    <form id="transfer-section" method="POST" class="crypto-section hidden space-y-8">
+                        <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                        <div class="grid grid-cols-2 gap-6">
+                            <div>
+                                <label class="text-[9px] font-black text-white/40 uppercase tracking-widest mb-3 block ml-4">From Account</label>
+                                <select name="transfer_from" class="w-full bg-white/5 border-none rounded-2xl p-5 text-sm font-black focus:ring-2 focus:ring-amber-500">
+                                    <option value="UNIFIED" class="bg-gray-900">Unified Account</option>
+                                    <option value="FUND" class="bg-gray-900">Funding Account</option>
+                                    <option value="CONTRACT" class="bg-gray-900">Contract Account</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[9px] font-black text-white/40 uppercase tracking-widest mb-3 block ml-4">To Account</label>
+                                <select name="transfer_to" class="w-full bg-white/5 border-none rounded-2xl p-5 text-sm font-black focus:ring-2 focus:ring-amber-500">
+                                    <option value="FUND" class="bg-gray-900">Funding Account</option>
+                                    <option value="UNIFIED" class="bg-gray-900">Unified Account</option>
+                                    <option value="CONTRACT" class="bg-gray-900">Contract Account</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-6">
+                            <div>
+                                <label class="text-[9px] font-black text-white/40 uppercase tracking-widest mb-3 block ml-4">Coin</label>
+                                <select name="transfer_coin" class="w-full bg-white/5 border-none rounded-2xl p-5 text-sm font-black focus:ring-2 focus:ring-amber-500">
+                                    <option value="USDT" class="bg-gray-900">USDT</option>
+                                    <option value="BTC" class="bg-gray-900">BTC</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[9px] font-black text-white/40 uppercase tracking-widest mb-3 block ml-4">Amount</label>
+                                <input type="number" step="any" name="transfer_amount" placeholder="0.00" class="w-full bg-white/5 border-none rounded-2xl p-5 text-sm font-black focus:ring-2 focus:ring-amber-500">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-[9px] font-black text-white/40 uppercase tracking-widest mb-3 block ml-4">Fund Password</label>
+                            <input type="password" name="fund_password" placeholder="••••••" class="w-full bg-white/5 border-none rounded-2xl p-5 text-sm font-black focus:ring-2 focus:ring-amber-500">
+                        </div>
+                        <button type="submit" class="w-full bg-white text-gray-900 py-6 rounded-[32px] font-black uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all">Execute Transfer</button>
+                    </form>
+
                     <!-- Withdraw Section (P2P) -->
                     <form id="p2p-section" method="POST" class="crypto-section hidden space-y-8">
                         <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
@@ -233,6 +378,32 @@ require_once __DIR__ . '/includes/header.php';
 
             <!-- Right: Account Overview -->
             <div class="space-y-6">
+                <!-- Live Positions -->
+                <?php if (!empty($positions['result']['list'])): ?>
+                <div class="bg-white/5 p-8 rounded-[40px] border border-white/10">
+                    <h4 class="text-[10px] font-black text-white/40 uppercase tracking-widest mb-6 flex justify-between items-center">
+                        Active Positions
+                        <span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 rounded text-[7px]">Live</span>
+                    </h4>
+                    <div class="space-y-4">
+                        <?php foreach ($positions['result']['list'] as $pos): if ($pos['size'] == 0) continue; ?>
+                        <div class="p-4 bg-white/5 rounded-2xl border border-white/5">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-[10px] font-black"><?php echo $pos['symbol']; ?></span>
+                                <span class="text-[10px] font-black <?php echo $pos['unrealisedPnl'] >= 0 ? 'text-emerald-500' : 'text-red-500'; ?>">
+                                    <?php echo $pos['unrealisedPnl'] >= 0 ? '+' : ''; ?><?php echo number_format($pos['unrealisedPnl'], 2); ?>
+                                </span>
+                            </div>
+                            <div class="flex justify-between items-center text-[8px] font-bold text-white/40">
+                                <span>Size: <?php echo $pos['size']; ?></span>
+                                <span>Entry: <?php echo number_format($pos['avgPrice'], 2); ?></span>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+
                 <div class="bg-white/5 p-8 rounded-[40px] border border-white/10">
                     <h4 class="text-[10px] font-black text-white/40 uppercase tracking-widest mb-6">Asset Security</h4>
                     <div class="space-y-6">
