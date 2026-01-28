@@ -473,13 +473,17 @@ function callJuicyWay($pdo, $endpoint, $method = 'POST', $data = []) {
     $apiKey = $creds['apiKey'] ?? '';
     $baseUrl = !empty($creds['liveMode']) ? "https://api.spendjuice.com" : "https://api-sandbox.spendjuice.com";
 
-    // Ensure API Key has Bearer prefix if not already present
-    $auth = (stripos($apiKey, 'Bearer ') === 0) ? $apiKey : "Bearer " . $apiKey;
-
-    return callApi("$baseUrl/$endpoint", $method, $data, [
-        "Authorization: " . $auth,
+    $res = callApi("$baseUrl/$endpoint", $method, $data, [
+        "Authorization: " . $apiKey,
         "Content-Type: application/json"
     ]);
+
+    // If we get a raw string (error), wrap it with more debug info
+    if (is_string($res) && !empty($res)) {
+        return ['status' => 'error', 'message' => 'JuicyWay Raw Response: ' . substr(strip_tags($res), 0, 200), 'debug' => $res];
+    }
+
+    return $res;
 }
 }
 
@@ -518,21 +522,16 @@ function juicywaySwap($pdo, $amount, $from, $to, $quoteId = null) {
     $to = strtoupper($to);
     $minorAmount = (int)($amount * 100);
 
-    // Provide a broad payload with redundant keys to satisfy different validation schemas
+    // Minimal payload as per docs to avoid conflicts
     $data = [
         'amount' => $minorAmount,
-        'source_amount' => (float)$amount,
-        'from' => $from,
-        'to' => $to,
         'source_currency' => $from,
         'target_currency' => $to,
-        'reference' => 'SW-' . time() . '-' . rand(1000, 9999),
-        'correlation_id' => uniqid('COR-')
+        'reference' => 'SW-' . time() . '-' . rand(1000, 9999)
     ];
 
     if (!empty($quoteId)) {
         $data['quote_id'] = $quoteId;
-        $data['rate_id'] = $quoteId;
     }
 
     return callJuicyWay($pdo, "exchange/swap", 'POST', $data);
