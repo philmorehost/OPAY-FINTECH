@@ -446,20 +446,30 @@ if (!function_exists('juicywayGetQuote')) {
 function juicywayGetQuote($pdo, $amount, $from, $to) {
     $from = strtoupper($from);
     $to = strtoupper($to);
-    // SpendJuice GET quote typically uses major units in query string and 'source_amount'
-    return callJuicyWay($pdo, "exchange/quote?source_currency=$from&target_currency=$to&source_amount=$amount&lock=true", 'GET');
+    $minorAmount = (int)($amount * 100);
+    // JuicyWay GET quote uses minor units for 'amount'
+    return callJuicyWay($pdo, "exchange/quote?source_currency=$from&target_currency=$to&amount=$minorAmount&lock=true", 'GET');
 }
 }
 
 if (!function_exists('juicywaySwap')) {
 function juicywaySwap($pdo, $amount, $from, $to, $quoteId = null) {
+    $from = strtoupper($from);
+    $to = strtoupper($to);
     $minorAmount = (int)($amount * 100);
+
+    // Exact payload as per documentation to avoid 422 Unprocessable Entity
     $data = [
         'amount' => $minorAmount,
-        'source_currency' => strtoupper($from),
-        'target_currency' => strtoupper($to)
+        'source_currency' => $from,
+        'target_currency' => $to,
+        'reference' => 'SW-' . time() . '-' . rand(1000, 9999)
     ];
-    if ($quoteId) $data['quote_id'] = $quoteId;
+
+    if (!empty($quoteId)) {
+        $data['quote_id'] = $quoteId;
+    }
+
     return callJuicyWay($pdo, "exchange/swap", 'POST', $data);
 }
 }
