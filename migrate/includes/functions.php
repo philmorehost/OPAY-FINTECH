@@ -119,9 +119,9 @@ function fetchSettings($pdo) {
     $stmt = $pdo->query("SELECT * FROM settings WHERE id = 1");
     $settings = $stmt->fetch(PDO::FETCH_ASSOC);
     if ($settings) {
-        $json_fields = ['dataNetworks', 'cableProviders', 'electricProviders', 'bettingProviders', 'airtimeDiscounts', 'dataProducts', 'airtimeSettings', 'dataSettings', 'utilitySettings', 'financialSettings', 'otherApiSettings'];
+        $json_fields = ['dataNetworks', 'cableProviders', 'electricProviders', 'bettingProviders', 'airtimeDiscounts', 'dataProducts', 'airtimeSettings', 'dataSettings', 'utilitySettings', 'financialSettings', 'otherApiSettings', 'loginSecuritySettings'];
         foreach($json_fields as $f) {
-            if(isset($settings[$f])) {
+            if(isset($settings[$f]) && !empty($settings[$f])) {
                 $val = json_decode($settings[$f], true) ?: [];
                 $settings[$f] = $val;
 
@@ -142,7 +142,11 @@ if (!function_exists('fetchUser')) {
 function fetchUser($pdo, $userId) {
     $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
     $stmt->execute([$userId]);
-    return $stmt->fetch(PDO::FETCH_ASSOC);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($user && isset($user['configuredSecurityMethods'])) {
+        $user['configuredSecurityMethods'] = json_decode($user['configuredSecurityMethods'], true) ?: [];
+    }
+    return $user;
 }
 }
 
@@ -226,12 +230,40 @@ function sendEmail2fa($pdo, $user) {
 }
 
 if (!function_exists('sendMail')) {
-function sendMail($pdo, $to, $subject, $message) {
-    $settings = $pdo->query("SELECT senderName, fromEmail FROM settings WHERE id = 1")->fetch(PDO::FETCH_ASSOC);
+function sendMail($pdo, $to, $subject, $message, $status = 'successful') {
+    $settings = $pdo->query("SELECT senderName, fromEmail, primaryColor FROM settings WHERE id = 1")->fetch(PDO::FETCH_ASSOC);
     $name = $settings['senderName'] ?? 'Billpay Support';
     $from = $settings['fromEmail'] ?? 'no-reply@' . $_SERVER['HTTP_HOST'];
+    $color = $settings['primaryColor'] ?? '#00c689';
+
+    $statusColor = ($status === 'failed') ? '#ef4444' : (($status === 'pending') ? '#f59e0b' : $color);
+    $statusLabel = strtoupper($status);
+
     $headers = "MIME-Version: 1.0\r\nContent-type:text/html;charset=UTF-8\r\nFrom: $name <$from>";
-    $body = "<html><body style='font-family:sans-serif;background:#f6f9fc;padding:40px;'><div style='background:#fff;border-radius:20px;padding:40px;box-shadow:0 10px 30px rgba(0,0,0,0.05);'><h2 style='color:#00c689;margin-top:0;'>$subject</h2><p>$message</p><hr style='border:none;border-top:1px solid #eee;margin:30px 0;'><p style='font-size:12px;color:#a0aec0;'>&copy; ".date('Y')." $name</p></div></body></html>";
+    $body = "
+    <html>
+    <body style='font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif;background-color:#f8fafc;margin:0;padding:40px;'>
+        <div style='max-width:600px;margin:0 auto;background-color:#ffffff;border-radius:32px;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,0.03);'>
+            <div style='background-color:$color;padding:40px;text-align:center;'>
+                <div style='background-color:rgba(255,255,255,0.2);display:inline-block;padding:12px;border-radius:16px;margin-bottom:20px;'>
+                    <span style='color:#ffffff;font-weight:900;font-size:24px;text-transform:uppercase;'>B</span>
+                </div>
+                <h2 style='color:#ffffff;margin:0;font-size:20px;font-weight:900;text-transform:uppercase;letter-spacing:1px;'>$subject</h2>
+            </div>
+            <div style='padding:40px;'>
+                <div style='margin-bottom:30px;text-align:center;'>
+                    <span style='background-color:{$statusColor}15;color:$statusColor;padding:8px 16px;border-radius:100px;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:1px;border:1px solid {$statusColor}30;'>$statusLabel</span>
+                </div>
+                <div style='color:#4b5563;font-size:14px;line-height:1.6;font-weight:500;'>$message</div>
+                <hr style='border:none;border-top:1px solid #f1f5f9;margin:40px 0;'>
+                <div style='text-align:center;'>
+                    <p style='font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:1px;'>&copy; ".date('Y')." $name. All rights reserved.</p>
+                    <p style='font-size:9px;color:#cbd5e1;font-weight:600;margin-top:10px;'>This is an automated security notification. If you did not expect this, please contact support immediately.</p>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>";
     return @mail($to, $subject, $body, $headers);
 }
 }

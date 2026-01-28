@@ -26,14 +26,20 @@ require_once __DIR__ . '/includes/header.php';
             <h1 class="text-2xl font-black uppercase tracking-tighter text-gray-900"><?php echo $settings['senderName'] ?? 'Billpay'; ?></h1>
         </div>
         <!-- Modern Receipt Design -->
+        <?php
+            $status = $tx['status'] ?? 'successful';
+            $statusColor = ($status === 'failed') ? 'bg-red-500' : (($status === 'pending') ? 'bg-amber-500' : 'bg-billpay-green');
+            $statusIcon = ($status === 'failed') ? 'x-circle' : (($status === 'pending') ? 'clock' : 'check-circle-2');
+            $statusLabel = ($status === 'failed') ? 'Failed' : (($status === 'pending') ? 'Pending' : 'Success');
+        ?>
         <div class="bg-white rounded-[50px] shadow-2xl overflow-hidden border border-gray-100 relative">
-            <div class="bg-billpay-green p-12 text-white text-center relative">
+            <div class="<?php echo $statusColor; ?> p-12 text-white text-center relative">
                 <div class="text-[10px] font-black uppercase tracking-[0.3em] mb-4 opacity-60 lg:block hidden"><?php echo $settings['senderName'] ?? 'Billpay'; ?></div>
                 <div class="w-20 h-20 bg-white/20 backdrop-blur-md rounded-[30px] flex items-center justify-center mx-auto mb-6 border border-white/30">
-                    <i data-lucide="check-circle-2" class="w-10 h-10"></i>
+                    <i data-lucide="<?php echo $statusIcon; ?>" class="w-10 h-10"></i>
                 </div>
-                <h2 class="text-3xl font-black uppercase tracking-tighter mb-2">Success</h2>
-                <div class="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Transaction Confirmed</div>
+                <h2 class="text-3xl font-black uppercase tracking-tighter mb-2"><?php echo $statusLabel; ?></h2>
+                <div class="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Transaction <?php echo $statusLabel; ?></div>
 
                 <!-- Decorative Circles -->
                 <div class="absolute -left-4 -bottom-4 w-8 h-8 bg-gray-50 rounded-full"></div>

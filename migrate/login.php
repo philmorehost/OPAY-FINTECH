@@ -44,10 +44,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($user['isSuspended']) {
                 $error = 'ACCOUNT SUSPENDED. CONTACT SUPPORT.';
             } else {
-                $_SESSION['user_id'] = $user['id'];
-                $_SESSION['username'] = $user['username'];
-                $_SESSION['role'] = $user['role'];
-                redirect('/dashboard');
+                $_SESSION['pending_login_id'] = $user['id'];
+                redirect('/login-verify');
             }
         } else {
             $error = 'Biometric authentication failed or feature disabled.';
@@ -66,9 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($user['isSuspended']) {
             $error = 'ACCOUNT SUSPENDED. CONTACT SUPPORT.';
         } else {
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['username'] = $user['username'];
-            $_SESSION['role'] = $user['role'];
+            $_SESSION['pending_login_id'] = $user['id'];
 
             // Store user info in script for JS to save to localStorage
             $jsUser = [
@@ -77,18 +73,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'hasBiometrics' => !empty($user['biometricCredentialId'])
             ];
 
-            if ($user['role'] === 'admin') {
-                $target = '/admin/';
-            } else {
-                $target = '/dashboard';
-                // If biometric enabled in settings but not set up, take them to setup
-                if ($user['biometricEnabled'] && empty($user['biometricCredentialId'])) {
-                    $target = '/login-settings?setup=biometric';
-                }
-            }
             echo "<script>
                 localStorage.setItem('lastUser', '".json_encode($jsUser)."');
-                window.location.href = '$target';
+                window.location.href = '/login-verify';
             </script>";
             exit;
         }

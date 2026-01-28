@@ -86,9 +86,10 @@ function getNetworkCode($provider, $network) {
     $map = [
         'nellobyte' => ['MTN' => '01', 'GLO' => '02', '9MOBILE' => '03', 'AIRTEL' => '04'],
         'datagifting' => ['MTN' => '1', 'AIRTEL' => '2', 'GLO' => '3', '9MOBILE' => '4'],
-        'hdkdata' => ['MTN' => '1', 'AIRTEL' => '2', 'GLO' => '3', '9MOBILE' => '4']
+        'hdkdata' => ['MTN' => '1', 'AIRTEL' => '2', 'GLO' => '3', '9MOBILE' => '4'],
+        'vtpass' => ['MTN' => 'mtn', 'AIRTEL' => 'airtel', 'GLO' => 'glo', '9MOBILE' => 'etisalat']
     ];
-    return $map[$provider][$network] ?? $network;
+    return $map[$provider][$network] ?? strtolower($network);
 }
 }
 
@@ -102,6 +103,7 @@ function purchaseAirtime($pdo, $network, $amount, $phone) {
     $provider = $as['routing'][$network] ?? 'datagifting';
     $creds = $as['providers'][$provider] ?? [];
     $netCode = getNetworkCode($provider, $network);
+
     switch ($provider) {
         case 'datagifting':
             $res = callApi("https://v6.datagifting.com.ng/web/api/airtime.php?api_key=" . ($creds['apiKey'] ?? '') . "&network=$netCode&amount=$amount&phone_number=$phone");
@@ -111,8 +113,55 @@ function purchaseAirtime($pdo, $network, $amount, $phone) {
             $res = callApi("https://nellobytesystems.com/api/airtime?userid=" . ($creds['userId'] ?? '') . "&apikey=" . ($creds['apiKey'] ?? '') . "&network=$netCode&amount=$amount&phone=$phone");
             if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
             return ['status' => 'failed', 'message' => $res['msg'] ?? 'Provider Error'];
+        case 'hdkdata':
+             $res = callApi("https://hdkdata.com/api/airtime?api_key=" . ($creds['apiKey'] ?? '') . "&network=$netCode&amount=$amount&phone=$phone");
+             if (isset($res['status']) && ($res['status'] === 'success' || $res['status'] === true)) return ['status' => 'success', 'message' => $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
+             return ['status' => 'failed', 'message' => $res['msg'] ?? 'Provider Error'];
+        case 'vtpass':
+            $requestId = date('YmdHi') . bin2hex(random_bytes(4));
+            $payload = ['request_id' => $requestId, 'serviceID' => $netCode, 'amount' => $amount, 'phone' => $phone];
+            $res = callVtpass($pdo, $netCode, $payload);
+            if (isset($res['code']) && $res['code'] === '000') {
+                $status = $res['content']['transactions']['status'] ?? 'pending';
+                if ($status === 'delivered') return ['status' => 'success', 'message' => 'Successful', 'ref' => $res['requestId'] ?? $requestId];
+                return ['status' => 'pending', 'message' => 'Processing', 'ref' => $res['requestId'] ?? $requestId];
+            }
+            return ['status' => 'failed', 'message' => $res['response_description'] ?? 'Provider Error'];
     }
     return ['status' => 'failed', 'message' => 'No provider'];
+}
+}
+
+if (!function_exists('testAirtimeConnection')) {
+function testAirtimeConnection($pdo, $provider) {
+    $settings = fetchSettings($pdo);
+    $as = $settings['airtimeSettings'] ?? [];
+    $creds = $as['providers'][$provider] ?? [];
+    if (empty($creds)) return ['status' => 'error', 'message' => 'Credentials not set'];
+
+    switch ($provider) {
+        case 'datagifting':
+            $res = callApi("https://v6.datagifting.com.ng/web/api/user.php?api_key=" . ($creds['apiKey'] ?? ''));
+            if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => 'Connected! Balance: ' . ($res['balance'] ?? 'N/A')];
+            break;
+        case 'nellobyte':
+            $res = callApi("https://nellobytesystems.com/api/wallet?userid=" . ($creds['userId'] ?? '') . "&apikey=" . ($creds['apiKey'] ?? ''));
+            if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => 'Connected! Balance: ' . ($res['balance'] ?? 'N/A')];
+            break;
+        case 'hdkdata':
+            $res = callApi("https://hdkdata.com/api/user?api_key=" . ($creds['apiKey'] ?? ''));
+            if (isset($res['status']) && ($res['status'] === 'success' || $res['status'] === true)) return ['status' => 'success', 'message' => 'Connected! Balance: ' . ($res['balance'] ?? 'N/A')];
+            break;
+        case 'vtpass':
+            // Using a simple balance check or similar if available, or just testing auth
+            $res = callApi("https://vtpass.com/api/balance", 'GET', [], [
+                "api-key: " . ($creds['apiKey'] ?? ''),
+                "public-key: " . ($creds['publicKey'] ?? '')
+            ]);
+            if (isset($res['code']) && $res['code'] === '000') return ['status' => 'success', 'message' => 'Connected! Balance: ' . ($res['contents']['balance'] ?? 'N/A')];
+            return ['status' => 'error', 'message' => $res['response_description'] ?? 'Auth Failed'];
+    }
+    return ['status' => 'error', 'message' => 'Connection failed or provider not supported for test'];
 }
 }
 
@@ -261,7 +310,7 @@ function juicywayGetWallets($pdo) {
 
 if (!function_exists('juicywayGetBanks')) {
 function juicywayGetBanks($pdo, $country = 'NG') {
-    return callJuicyWay($pdo, "payment-methods/banks", 'GET');
+    return callJuicyWay($pdo, "payment-methods/banks?country=$country", 'GET');
 }
 }
 
@@ -269,8 +318,9 @@ if (!function_exists('juicywayGetQuote')) {
 function juicywayGetQuote($pdo, $amount, $from, $to) {
     $from = strtoupper($from);
     $to = strtoupper($to);
+    $minorAmount = (int)($amount * 100);
     // GET request to singular endpoint with query params
-    return callJuicyWay($pdo, "exchange/quote?source_currency=$from&target_currency=$to&lock=true", 'GET');
+    return callJuicyWay($pdo, "exchange/quote?source_currency=$from&target_currency=$to&amount=$minorAmount&lock=true", 'GET');
 }
 }
 

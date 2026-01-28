@@ -74,8 +74,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     $stmt = $pdo->prepare("SELECT walletBalance FROM users WHERE id = ?"); $stmt->execute([$currentUser['id']]);
                     $currentUser['walletBalance'] = $stmt->fetchColumn();
 
-                    sendMail($pdo, $currentUser['email'], "Data Receipt", "Request processed for $networkName. Total: " . formatCurrency($totalCost));
-                    claimDailyRewardIfEligible($pdo, $currentUser['id']);
+                    $status = ($successCount > 0) ? 'successful' : 'failed';
+                    sendMail($pdo, $currentUser['email'], "Data Receipt", "Data request processed for $networkName.<br>Total: " . formatCurrency($totalCost) . "<br>Status: " . strtoupper($status), $status);
+                    if ($successCount > 0) claimDailyRewardIfEligible($pdo, $currentUser['id']);
                     $pdo->commit();
 
                     $statusDetails = ['status' => $successCount > 0 ? 'success' : 'failed', 'amount' => $totalCost, 'count' => $successCount, 'total' => count($recipients), 'msg' => $successCount > 0 ? "Processed $successCount/" . count($recipients) . " successfully." : "Purchase failed."];

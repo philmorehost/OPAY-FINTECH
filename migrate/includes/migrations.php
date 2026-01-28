@@ -29,11 +29,13 @@ try {
     addColumnIfNotExists($pdo, 'settings', 'pwaSplash', "VARCHAR(255)");
     addColumnIfNotExists($pdo, 'settings', 'siteDescription', "TEXT");
     addColumnIfNotExists($pdo, 'settings', 'isBiometricEnforced', "TINYINT(1) DEFAULT 0");
+    addColumnIfNotExists($pdo, 'settings', 'loginSecuritySettings', "TEXT");
     addColumnIfNotExists($pdo, 'settings', 'siteVersion', "VARCHAR(50) DEFAULT '1.0.0'");
     addColumnIfNotExists($pdo, 'settings', 'vcardIssuanceFee', "DECIMAL(15, 2) DEFAULT 1500.00");
 
     // API Hub Restructured Settings
     addColumnIfNotExists($pdo, 'settings', 'airtimeSettings', "TEXT");
+    addColumnIfNotExists($pdo, 'settings', 'dataProducts', "TEXT");
     addColumnIfNotExists($pdo, 'settings', 'dataSettings', "TEXT");
     addColumnIfNotExists($pdo, 'settings', 'utilitySettings', "TEXT");
     addColumnIfNotExists($pdo, 'settings', 'financialSettings', "TEXT");
@@ -57,6 +59,8 @@ try {
     addColumnIfNotExists($pdo, 'users', 'google2faSecret', "VARCHAR(100)");
     addColumnIfNotExists($pdo, 'users', 'google2faEnabled', "TINYINT(1) DEFAULT 0");
     addColumnIfNotExists($pdo, 'users', 'email2faEnabled', "TINYINT(1) DEFAULT 0");
+    addColumnIfNotExists($pdo, 'users', 'loginSecurityPin', "VARCHAR(10)");
+    addColumnIfNotExists($pdo, 'users', 'configuredSecurityMethods', "TEXT");
 
     // Virtual Cards Table
     $pdo->exec("CREATE TABLE IF NOT EXISTS virtual_cards (

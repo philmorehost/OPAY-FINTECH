@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     // API Info for Profit
     $as = $settings['airtimeSettings'] ?? [];
     $provider = $as['routing'][$network] ?? 'datagifting';
-    $apiDiscount = (float)($as['providers'][$provider]['discount'] ?? 0);
+    $apiDiscount = (float)($as['networkDiscounts'][$network] ?? 0);
     $unitApiCost = $amount * (1 - $apiDiscount / 100);
     $unitProfit = $unitCost - $unitApiCost;
 
@@ -75,9 +75,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $stmt = $pdo->prepare("SELECT walletBalance FROM users WHERE id = ?"); $stmt->execute([$currentUser['id']]);
                 $currentUser['walletBalance'] = $stmt->fetchColumn();
 
-                $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Airtime purchase processed.<br>Network: $network<br>Total: " . formatCurrency($totalCost);
-                sendMail($pdo, $currentUser['email'], "Airtime Receipt", $receiptMsg);
-                claimDailyRewardIfEligible($pdo, $currentUser['id']);
+                $status = ($successCount > 0) ? 'successful' : 'failed';
+                $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Airtime purchase processed.<br>Network: $network<br>Total: " . formatCurrency($totalCost) . "<br>Status: " . strtoupper($status);
+                sendMail($pdo, $currentUser['email'], "Airtime Receipt", $receiptMsg, $status);
+                if ($successCount > 0) claimDailyRewardIfEligible($pdo, $currentUser['id']);
                 $pdo->commit();
 
                 $statusDetails = ['status' => $successCount > 0 ? 'success' : 'failed', 'amount' => $totalCost, 'count' => $successCount, 'total' => count($recipients), 'msg' => $successCount > 0 ? "Processed $successCount/" . count($recipients) . " successfully." : "Purchase failed."];

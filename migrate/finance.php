@@ -347,6 +347,21 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
                         </div>
 
+                        <div id="transferSummary" class="hidden p-6 bg-gray-50 rounded-[32px] border border-gray-100 space-y-4">
+                            <div class="flex justify-between items-center text-[10px] font-black uppercase text-gray-400">
+                                <span>Service Fee</span>
+                                <span id="summaryFee">₦0.00</span>
+                            </div>
+                            <div class="flex justify-between items-center text-[10px] font-black uppercase text-gray-400">
+                                <span>Receiver Gets</span>
+                                <span id="summaryReceiver" class="text-gray-900">0.00</span>
+                            </div>
+                            <div class="pt-4 border-t border-gray-200 flex justify-between items-center text-xs font-black uppercase text-gray-900">
+                                <span>Total Wallet Charge</span>
+                                <span id="summaryTotal" class="text-billpay-green text-lg">0.00</span>
+                            </div>
+                        </div>
+
                         <div class="flex items-center gap-4">
                             <input type="checkbox" name="save_beneficiary" id="saveBen" class="w-5 h-5 accent-billpay-green">
                             <label for="saveBen" class="text-[10px] font-black uppercase text-gray-500">Save to Beneficiaries</label>
@@ -589,6 +604,30 @@ require_once __DIR__ . '/includes/header.php';
         loadBeneficiaries(type);
     }
 
+    let transferInterval;
+    function updateTransferSummary() {
+        const curr = document.getElementById('transferCurrency').value;
+        const amount = parseFloat(document.querySelector('input[name="amount"]').value) || 0;
+        const fee = amount > 0 ? (curr === 'NGN' ? 10 : 0) : 0;
+
+        const summary = document.getElementById('transferSummary');
+        if (amount > 0) {
+            summary.classList.remove('hidden');
+            document.getElementById('summaryFee').innerText = fee.toLocaleString(undefined, {style: 'currency', currency: curr});
+            document.getElementById('summaryReceiver').innerText = amount.toLocaleString(undefined, {minimumFractionDigits: 2}) + ' ' + curr;
+            document.getElementById('summaryTotal').innerText = (amount + fee).toLocaleString(undefined, {minimumFractionDigits: 2}) + ' ' + curr;
+
+            // Auto-refresh every 30s
+            clearInterval(transferInterval);
+            transferInterval = setInterval(updateTransferSummary, 30000);
+        } else {
+            summary.classList.add('hidden');
+            clearInterval(transferInterval);
+        }
+    }
+
+    document.querySelector('input[name="amount"]').addEventListener('input', updateTransferSummary);
+
     function onTransferCurrencyChange() {
         const curr = document.getElementById('transferCurrency').value;
         const bankFields = document.getElementById('bankFields');
@@ -602,14 +641,17 @@ require_once __DIR__ . '/includes/header.php';
             setTransferType('crypto');
         } else if (curr === 'CAD') {
             setTransferType('interac');
-            document.getElementById('internalFields').classList.remove('hidden'); // CAD often uses internal-like interac email
+            document.getElementById('internalFields').classList.remove('hidden');
         } else {
             setTransferType('bank');
             document.getElementById('bankFields').classList.remove('hidden');
             document.getElementById('bankSelectGroup').classList.toggle('hidden', !['NGN'].includes(curr));
             document.getElementById('bankNameGroup').classList.toggle('hidden', !['GBP', 'EUR', 'USD'].includes(curr));
             document.getElementById('usdFields').classList.toggle('hidden', curr !== 'USD');
-            if (curr === 'NGN') fetchBanks('NG');
+
+            // Map currency to country for bank fetching
+            const countryMap = { 'NGN': 'NG', 'USD': 'US', 'GBP': 'GB', 'EUR': 'EU', 'CAD': 'CA' };
+            if (countryMap[curr]) fetchBanks(countryMap[curr]);
         }
     }
 
@@ -682,7 +724,10 @@ require_once __DIR__ . '/includes/header.php';
                 btn.disabled = false;
                 if (res.status === 'success' || res.status === true || res.id || res.data) {
                     const data = res.data || res;
-                    const targetAmount = data.target_amount || (amount * (data.rate || 1));
+                    // Handle minor units if returned as such (usually 100x larger than input)
+                    let targetAmount = data.target_amount || (amount * (data.rate || 1));
+                    if (targetAmount > (amount * (data.rate || 1)) * 50) targetAmount /= 100; // Heuristic fix for minor units
+
                     document.getElementById('toAmountDisplay').innerText = targetAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
                     document.getElementById('quoteId').value = data.id;
 
@@ -715,7 +760,7 @@ require_once __DIR__ . '/includes/header.php';
                         }
                     }, 1000);
 
-                    // 10-second auto-refresh of rate if active
+                    // 30-second auto-refresh of rate if active (as requested)
                     clearInterval(rateInterval);
                     rateInterval = setInterval(() => {
                         if (isCountingDown && seconds > 5) {
@@ -724,13 +769,15 @@ require_once __DIR__ . '/includes/header.php';
                                 .then(r => r.json())
                                 .then(refresh => {
                                     const rData = refresh.data || refresh;
-                                    const rRate = rData.rate || ((rData.target_amount || targetAmount) / amount);
+                                    let rTarget = rData.target_amount || (amount * (rData.rate || 1));
+                                    if (rTarget > (amount * (rData.rate || 1)) * 50) rTarget /= 100;
+
+                                    const rRate = rData.rate || (rTarget / amount);
                                     document.getElementById('liveRateText').innerText = `Rate: 1 ${from} ~ ${rRate.toFixed(4)} ${to}`;
-                                    // Update target display if quote didn't change ID but rate did (though locked usually doesn't)
-                                    if (rData.target_amount) document.getElementById('toAmountDisplay').innerText = rData.target_amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                                    document.getElementById('toAmountDisplay').innerText = rTarget.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
                                 });
                         }
-                    }, 10000);
+                    }, 30000);
 
                 } else {
                     btn.innerText = 'Preview Conversion';

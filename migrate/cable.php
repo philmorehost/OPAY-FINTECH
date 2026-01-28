@@ -42,8 +42,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $apiAmount = $amount - $profit;
                 logTransaction($pdo, $currentUser['id'], 'Cable TV', $amount, 'successful', "Cable Subscription ($providerId) for $iucNumber", $iucNumber, $providerId, null, $apiAmount, $profit);
                 // Receipt Email
-                $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Your cable subscription was successful.<br><br>Provider: $providerId<br>IUC: $iucNumber<br>Amount: " . formatCurrency($amount);
-                sendMail($pdo, $currentUser['email'], "Cable TV Receipt", $receiptMsg);
+                $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Your cable subscription request was processed.<br><br>Provider: $providerId<br>IUC: $iucNumber<br>Amount: " . formatCurrency($amount) . "<br>Status: Successful";
+                sendMail($pdo, $currentUser['email'], "Cable TV Receipt", $receiptMsg, 'successful');
                 claimDailyRewardIfEligible($pdo, $currentUser['id']);
                 $success = true;
             } else {
@@ -51,6 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 updateWallet($pdo, $currentUser['id'], $amount, 'credit');
                 logTransaction($pdo, $currentUser['id'], 'Cable TV', $amount, 'failed', "Cable failed: " . ($vtRes['response_description'] ?? 'API Error'), $iucNumber, $providerId);
                 $error = 'Transaction failed: ' . ($vtRes['response_description'] ?? 'Provider Error');
+                sendMail($pdo, $currentUser['email'], "Cable TV Failed", "Your cable subscription for $iucNumber failed and has been refunded.", 'failed');
             }
 
             $pdo->commit();
