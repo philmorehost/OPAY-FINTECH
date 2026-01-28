@@ -682,12 +682,20 @@ require_once __DIR__ . '/includes/header.php';
                 btn.disabled = false;
                 if (res.status === 'success' || res.status === true || res.id || res.data) {
                     const data = res.data || res;
-                    const targetAmount = data.target_amount || (amount * (data.rate || 1));
-                    document.getElementById('toAmountDisplay').innerText = targetAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    // JuicyWay returns target_amount in minor units.
+                    // If target_amount is not present, calculate via rate.
+                    let targetVal = 0;
+                    if (data.target_amount) {
+                        targetVal = data.target_amount / 100;
+                    } else if (data.rate) {
+                        targetVal = amount * data.rate;
+                    }
+
+                    document.getElementById('toAmountDisplay').innerText = targetVal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
                     document.getElementById('quoteId').value = data.id;
 
-                    // Display Rate
-                    const rate = data.rate || (targetAmount / amount);
+                    // Display Rate (Normalize to 1 unit)
+                    const rate = data.rate || (targetVal / amount);
                     document.getElementById('liveRateText').innerText = `Rate: 1 ${from} ~ ${rate.toFixed(4)} ${to}`;
                     document.getElementById('rateDisplay').classList.remove('hidden');
 

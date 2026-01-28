@@ -440,8 +440,9 @@ if (!function_exists('juicywayGetQuote')) {
 function juicywayGetQuote($pdo, $amount, $from, $to) {
     $from = strtoupper($from);
     $to = strtoupper($to);
+    $minorAmount = (int)($amount * 100);
     // GET request to singular endpoint with query params
-    return callJuicyWay($pdo, "exchange/quote?source_currency=$from&target_currency=$to&lock=true", 'GET');
+    return callJuicyWay($pdo, "exchange/quote?source_currency=$from&target_currency=$to&amount=$minorAmount&lock=true", 'GET');
 }
 }
 

@@ -73,6 +73,17 @@ require_once __DIR__ . '/includes/header.php';
 
     <div class="p-6 space-y-6 flex-1">
         <?php if (isset($success)): ?><div class="p-4 bg-green-50 text-green-800 rounded-2xl text-xs font-black border border-green-100 uppercase text-center"><?php echo $success; ?></div><?php endif; ?>
+        <?php if (isset($_GET['error']) && $_GET['error'] === 'security_required'): ?>
+            <div class="p-6 bg-red-500 rounded-3xl text-white shadow-lg animate-slide-up mb-6">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center"><i data-lucide="shield-alert" class="w-6 h-6"></i></div>
+                    <div>
+                        <h4 class="text-sm font-black uppercase tracking-tight">Configuration Required</h4>
+                        <p class="text-[10px] font-bold text-white/80 uppercase mt-1">Please complete your security setup to access all services.</p>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
 
         <form method="POST" class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100 space-y-8">
             <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
