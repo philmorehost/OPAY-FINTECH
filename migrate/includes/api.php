@@ -278,10 +278,15 @@ function bybitGetBalances($pdo, $accountType = 'UNIFIED') {
 }
 
 if (!function_exists('bybitWithdraw')) {
-function bybitWithdraw($pdo, $coin, $amount, $address, $tag = '') {
+function bybitWithdraw($pdo, $coin, $amount, $address, $chain = 'TRC20', $tag = '') {
+    // Normalize chain name for Bybit (they often use TRX for TRC20)
+    $network = strtoupper($chain);
+    if ($network === 'TRC20') $network = 'TRX';
+    if ($network === 'ERC20') $network = 'ETH';
+
     $params = [
         'coin' => strtoupper($coin),
-        'chain' => 'TRX', // Default to TRC20 for USDT/USDC if not specified
+        'chain' => $network,
         'address' => $address,
         'amount' => (string)$amount,
         'timestamp' => round(microtime(true) * 1000)
@@ -359,16 +364,6 @@ function bybitSubAccountTransfer($pdo, $coin, $amount, $subMemberId, $type = 'OU
     return callBybit($pdo, '/v5/asset/transfer/save-transfer', 'POST', $params);
 }
 
-function bybitWithdraw($pdo, $coin, $amount, $address, $chain = 'TRC20') {
-    $data = [
-        'coin' => strtoupper($coin),
-        'chain' => strtoupper($chain),
-        'address' => $address,
-        'amount' => (string)$amount,
-        'timestamp' => time() * 1000
-    ];
-    return callBybit($pdo, "v5/asset/withdraw/create", 'POST', $data);
-}
 }
 
 /**
