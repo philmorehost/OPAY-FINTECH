@@ -49,4 +49,26 @@ if (isLoggedIn()) {
         header("Location: $loginPath");
         exit;
     }
+
+    // Login Security Compliance Enforcement
+    if ($currentUser['role'] !== 'admin' && !isset($_SESSION['original_admin_id'])) {
+        $missing = getMissingLoginSecurity($settings, $currentUser);
+        if (!empty($missing)) {
+            $allowedPaths = ['/dashboard', '/login-settings', '/logout', '/login-verify', '/maintenance', '/2fa-verify', '/kyc', '/security'];
+            $currentPath = explode('?', $_SERVER['REQUEST_URI'])[0];
+
+            $isAllowed = false;
+            foreach ($allowedPaths as $ap) {
+                if ($currentPath === $ap) {
+                    $isAllowed = true;
+                    break;
+                }
+            }
+
+            if (!$isAllowed) {
+                header("Location: /dashboard");
+                exit;
+            }
+        }
+    }
 }
