@@ -47,7 +47,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
                 if ($isSuccess) {
                     logTransaction($pdo, $currentUser['id'], 'Exam PIN', $totalCost, 'successful', "Purchase of $qty " . $selectedProv['name'] . " PIN(s)", 'Self', $selectedProv['name'], $tokenStr);
-                    sendMail($pdo, $currentUser['email'], "Exam PIN Receipt", "Successful purchase of $qty PIN(s). PIN: $tokenStr");
+
+                    $statusBadge = "<span class='status-badge status-success'>Successful</span>";
+                    sendMail($pdo, $currentUser['email'], "Exam PIN Receipt", "$statusBadge<br><br>Successful purchase of $qty PIN(s). PIN: <b style='font-size:18px;'>$tokenStr</b>");
                     claimDailyRewardIfEligible($pdo, $currentUser['id']);
                     $success = true;
                 } else {

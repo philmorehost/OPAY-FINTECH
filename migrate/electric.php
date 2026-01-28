@@ -43,7 +43,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $profit = $amount * 0.01; // Placeholder 1% profit
                 $apiAmount = $amount - $profit;
                 logTransaction($pdo, $currentUser['id'], 'Electricity', $amount, 'successful', "Electric ($serviceId) for $meterNumber", $meterNumber, $serviceId, $token, $apiAmount, $profit);
-                sendMail($pdo, $currentUser['email'], "Electricity Receipt", "Successful recharge for $meterNumber. Token: $token");
+
+                $statusBadge = "<span class='status-badge status-success'>Successful</span>";
+                sendMail($pdo, $currentUser['email'], "Electricity Receipt", "$statusBadge<br><br>Successful recharge for $meterNumber. Token: <b style='font-size:18px;'>$token</b>");
                 claimDailyRewardIfEligible($pdo, $currentUser['id']);
                 $success = true;
             } else {

@@ -32,7 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             logTransaction($pdo, $currentUser['id'], 'Transfer', $amount, 'successful', "Transfer to $accountName ($bank)", $accountNumber, $bank);
 
             // Receipt Email
-            $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Transfer of " . formatCurrency($amount) . " to $accountName ($bank, $accountNumber) was successful.<br><br>Fee: " . formatCurrency($fee);
+            $statusBadge = "<span class='status-badge status-success'>Successful</span>";
+            $receiptMsg = "Hi {$currentUser['fullName']},<br><br>$statusBadge<br><br>Transfer of " . formatCurrency($amount) . " to $accountName ($bank, $accountNumber) was successful.<br><br>Fee: " . formatCurrency($fee);
             sendMail($pdo, $currentUser['email'], "Transfer Receipt", $receiptMsg);
 
             claimDailyRewardIfEligible($pdo, $currentUser['id']);

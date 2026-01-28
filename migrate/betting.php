@@ -39,7 +39,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $profit = $amount * 0.01; // Placeholder 1% profit
                 $apiAmount = $amount - $profit;
                 logTransaction($pdo, $currentUser['id'], 'Betting', $amount, 'successful', "Betting Wallet Fund ($providerId) for ID: $customerId", $customerId, $providerId, null, $apiAmount, $profit);
-                sendMail($pdo, $currentUser['email'], "Betting Funding Receipt", "Successful funding for $customerId. Amount: " . formatCurrency($amount));
+
+                $statusBadge = "<span class='status-badge status-success'>Successful</span>";
+                sendMail($pdo, $currentUser['email'], "Betting Funding Receipt", "$statusBadge<br><br>Successful funding for $customerId. Amount: " . formatCurrency($amount));
                 claimDailyRewardIfEligible($pdo, $currentUser['id']);
                 $success = true;
             } else {

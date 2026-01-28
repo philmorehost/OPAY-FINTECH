@@ -251,11 +251,56 @@ function sendEmail2fa($pdo, $user) {
 
 if (!function_exists('sendMail')) {
 function sendMail($pdo, $to, $subject, $message) {
-    $settings = $pdo->query("SELECT senderName, fromEmail FROM settings WHERE id = 1")->fetch(PDO::FETCH_ASSOC);
-    $name = $settings['senderName'] ?? 'Billpay Support';
-    $from = $settings['fromEmail'] ?? 'no-reply@' . $_SERVER['HTTP_HOST'];
-    $headers = "MIME-Version: 1.0\r\nContent-type:text/html;charset=UTF-8\r\nFrom: $name <$from>";
-    $body = "<html><body style='font-family:sans-serif;background:#f6f9fc;padding:40px;'><div style='background:#fff;border-radius:20px;padding:40px;box-shadow:0 10px 30px rgba(0,0,0,0.05);'><h2 style='color:#00c689;margin-top:0;'>$subject</h2><p>$message</p><hr style='border:none;border-top:1px solid #eee;margin:30px 0;'><p style='font-size:12px;color:#a0aec0;'>&copy; ".date('Y')." $name</p></div></body></html>";
+    $settings = $pdo->query("SELECT senderName, fromEmail, primaryColor FROM settings WHERE id = 1")->fetch(PDO::FETCH_ASSOC);
+    $name = $settings['senderName'] ?? 'Billpay Fintech';
+    $from = $settings['fromEmail'] ?? 'no-reply@' . ($_SERVER['HTTP_HOST'] ?? 'billpay.com');
+    $brandColor = $settings['primaryColor'] ?? '#00c689';
+
+    $headers = "MIME-Version: 1.0\r\n";
+    $headers .= "Content-type:text/html;charset=UTF-8\r\n";
+    $headers .= "From: $name <$from>\r\n";
+    $headers .= "Reply-To: $from\r\n";
+    $headers .= "X-Mailer: PHP/" . phpversion();
+
+    $body = "
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset='utf-8'>
+        <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+        <style>
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8; margin: 0; padding: 0; }
+            .container { max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.05); }
+            .header { background-color: $brandColor; padding: 40px; text-align: center; color: #ffffff; }
+            .header h1 { margin: 0; font-size: 24px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; }
+            .content { padding: 40px; color: #334155; line-height: 1.6; }
+            .content h2 { color: #1e293b; font-size: 20px; font-weight: 700; margin-top: 0; }
+            .footer { padding: 30px; text-align: center; background-color: #f8fafc; border-top: 1px solid #f1f5f9; color: #94a3b8; font-size: 12px; }
+            .btn { display: inline-block; padding: 14px 28px; background-color: $brandColor; color: #ffffff; text-decoration: none; border-radius: 12px; font-weight: 700; margin-top: 20px; }
+            .status-badge { display: inline-block; padding: 4px 12px; border-radius: 99px; font-size: 10px; font-weight: 800; text-transform: uppercase; margin-bottom: 20px; }
+            .status-success { background-color: #dcfce7; color: #15803d; }
+            .status-failed { background-color: #fee2e2; color: #b91c1c; }
+        </style>
+    </head>
+    <body>
+        <div class='container'>
+            <div class='header'>
+                <h1>$name</h1>
+            </div>
+            <div class='content'>
+                <h2>$subject</h2>
+                <div>$message</div>
+                <br>
+                <p>If you have any questions, feel free to contact our support team.</p>
+            </div>
+            <div class='footer'>
+                <p>&copy; " . date('Y') . " $name. All rights reserved.</p>
+                <p>Secure Fintech Solutions</p>
+            </div>
+        </div>
+    </body>
+    </html>";
+
     return @mail($to, $subject, $body, $headers);
 }
 }
