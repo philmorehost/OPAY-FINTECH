@@ -85,7 +85,7 @@ function getNetworkCode($provider, $network) {
     $network = strtoupper($network);
     $map = [
         'nellobyte' => ['MTN' => '01', 'GLO' => '02', '9MOBILE' => '03', 'AIRTEL' => '04'],
-        'datagifting' => ['MTN' => '1', 'AIRTEL' => '2', 'GLO' => '3', '9MOBILE' => '4'],
+        'datagifting' => ['MTN' => 'mtn', 'AIRTEL' => 'airtel', 'GLO' => 'glo', '9MOBILE' => '9mobile'],
         'datastation' => ['MTN' => '1', 'GLO' => '2', 'AIRTEL' => '3', '9MOBILE' => '4'],
         'vtpass' => ['MTN' => 'mtn', 'AIRTEL' => 'airtel', 'GLO' => 'glo', '9MOBILE' => 'etisalat']
     ];
@@ -106,9 +106,14 @@ function purchaseAirtime($pdo, $network, $amount, $phone) {
 
     switch ($provider) {
         case 'datagifting':
-            $res = callApi("https://v6.datagifting.com.ng/web/api/airtime.php?api_key=" . ($creds['apiKey'] ?? '') . "&network=$netCode&amount=$amount&phone_number=$phone");
-            if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
-            return ['status' => 'failed', 'message' => $res['msg'] ?? 'Provider Error'];
+            $res = callApi("https://v6.datagifting.com.ng/web/api/airtime.php", 'POST', [
+                'api_key' => $creds['apiKey'] ?? '',
+                'network' => $netCode,
+                'amount' => $amount,
+                'phone_number' => $phone
+            ]);
+            if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['desc'] ?? $res['response_desc'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
+            return ['status' => 'failed', 'message' => $res['desc'] ?? $res['msg'] ?? 'Provider Error'];
         case 'nellobyte':
             $requestId = date('YmdHi') . bin2hex(random_bytes(4));
             $callbackUrl = (isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST]/webhook-nellobyte.php";
@@ -251,9 +256,15 @@ function purchaseData($pdo, $network, $planId, $phone) {
             $type = $p ? $p['type'] : 'sme';
             $qty = $p ? $p['data_size'] : '1gb';
 
-            $res = callApi("https://v6.datagifting.com.ng/web/api/data.php?api_key=" . ($creds['apiKey'] ?? '') . "&network=$netCode&phone_number=$phone&type=$type&quantity=$qty");
-            if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
-            return ['status' => 'failed', 'message' => $res['msg'] ?? 'Provider Error'];
+            $res = callApi("https://v6.datagifting.com.ng/web/api/data.php", 'POST', [
+                'api_key' => $creds['apiKey'] ?? '',
+                'network' => $netCode,
+                'phone_number' => $phone,
+                'type' => $type,
+                'quantity' => $qty
+            ]);
+            if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['desc'] ?? $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
+            return ['status' => 'failed', 'message' => $res['desc'] ?? $res['msg'] ?? 'Provider Error'];
         case 'nellobyte':
             $res = callApi("https://nellobytesystems.com/api/data?userid=" . ($creds['userId'] ?? '') . "&apikey=" . ($creds['apiKey'] ?? '') . "&network=$netCode&plan=$planId&phone=$phone");
             if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
