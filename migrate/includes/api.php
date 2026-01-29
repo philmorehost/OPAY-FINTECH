@@ -638,6 +638,19 @@ function sendKudiSms($pdo, $senderId, $message, $to) {
 }
 }
 
+if (!function_exists('nellobyteGetDataPlans')) {
+function nellobyteGetDataPlans($pdo, $networkCode) {
+    $settings = fetchSettings($pdo);
+    $ds = $settings['dataSettings'] ?? [];
+    $creds = $ds['providers']['nellobyte'] ?? [];
+    $userId = $creds['userId'] ?? '';
+    $apiKey = $creds['apiKey'] ?? '';
+
+    $url = "https://www.nellobytesystems.com/APIDataPlanV1.asp?UserID=$userId&APIKey=$apiKey&MobileNetwork=$networkCode";
+    return callApi($url);
+}
+}
+
 if (!function_exists('getCryptoPrices')) {
 function getCryptoPrices() {
     return callApi("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,binancecoin,solana,tether&vs_currencies=ngn,usd&include_24hr_change=true");

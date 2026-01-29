@@ -39,6 +39,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             (float)$_POST['plan_userPrice']
         ]);
         $success = "New data plan added!";
+    } elseif (isset($_POST['action']) && $_POST['action'] === 'fetch_vtpass_data') {
+        $network = sanitize($_POST['fetch_network']);
+        $serviceId = strtolower($network) . '-data';
+        $res = vtpassGetVariations($pdo, $serviceId);
+        $vars = (is_array($res) && isset($res['content'])) ? ($res['content']['varations'] ?? $res['content']['variations'] ?? null) : null;
+        if (is_array($vars)) {
+            $count = 0;
+            foreach ($vars as $v) {
+                $stmt = $pdo->prepare("INSERT INTO data_plans (network, plan_id, data_size, type, api_price, user_price) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE data_size = VALUES(data_size), api_price = VALUES(api_price)");
+                $stmt->execute([
+                    $network,
+                    $v['variation_code'] ?? $v['id'] ?? '',
+                    $v['name'] ?? '',
+                    'DataBundle',
+                    (float)($v['variation_amount'] ?? 0),
+                    (float)($v['variation_amount'] ?? 0)
+                ]);
+                $count++;
+            }
+            $success = "Successfully fetched and updated $count plans for $network!";
+        } else {
+            $error = "Failed to fetch from VTpass: " . (is_array($res) ? ($res['response_description'] ?? 'No variations found') : 'Unknown error');
+        }
+    } elseif (isset($_POST['action']) && $_POST['action'] === 'fetch_nb_data') {
+        $network = sanitize($_POST['fetch_network_nb']);
+        $netCode = getNetworkCode('nellobyte', $network);
+        $res = nellobyteGetDataPlans($pdo, $netCode);
+        if (is_array($res) && isset($res['content'])) {
+            $count = 0;
+            foreach ($res['content'] as $v) {
+                $stmt = $pdo->prepare("INSERT INTO data_plans (network, plan_id, data_size, type, api_price, user_price) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE data_size = VALUES(data_size), api_price = VALUES(api_price)");
+                $stmt->execute([
+                    $network,
+                    $v['ID'] ?? '',
+                    $v['Name'] ?? '',
+                    'DataBundle',
+                    (float)($v['Amount'] ?? 0),
+                    (float)($v['Amount'] ?? 0)
+                ]);
+                $count++;
+            }
+            $success = "Successfully fetched $count Nellobyte plans for $network!";
+        } else {
+            $error = "Failed to fetch from Nellobyte: " . (is_string($res) ? $res : 'Unknown error');
+        }
     } elseif (isset($_POST['action']) && $_POST['action'] === 'delete_plan') {
         $stmt = $pdo->prepare("DELETE FROM data_plans WHERE id = ?");
         $stmt->execute([$_POST['plan_id']]);
@@ -168,7 +213,33 @@ require_once __DIR__ . '/header.php';
 
     <!-- Data Package Manager -->
     <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100 mt-10">
-        <h3 class="text-sm font-black uppercase tracking-widest mb-8 flex items-center gap-3"><i data-lucide="package" class="text-orange-500"></i> Data Package Manager</h3>
+        <div class="flex items-center justify-between mb-8">
+            <h3 class="text-sm font-black uppercase tracking-widest flex items-center gap-3"><i data-lucide="package" class="text-orange-500"></i> Data Package Manager</h3>
+
+            <form method="POST" class="flex items-center gap-2">
+                <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                <input type="hidden" name="action" value="fetch_vtpass_data">
+                <select name="fetch_network" class="p-2 bg-gray-50 rounded-lg font-bold outline-none text-[10px] border border-gray-100">
+                    <option value="MTN">MTN</option>
+                    <option value="Airtel">Airtel</option>
+                    <option value="Glo">Glo</option>
+                    <option value="9mobile">9mobile</option>
+                </select>
+                <button type="submit" class="px-4 py-2 bg-billpay-green text-white rounded-lg font-black uppercase text-[8px] whitespace-nowrap">Fetch VTpass</button>
+            </form>
+
+            <form method="POST" class="flex items-center gap-2">
+                <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                <input type="hidden" name="action" value="fetch_nb_data">
+                <select name="fetch_network_nb" class="p-2 bg-gray-50 rounded-lg font-bold outline-none text-[10px] border border-gray-100">
+                    <option value="MTN">MTN</option>
+                    <option value="Airtel">Airtel</option>
+                    <option value="Glo">Glo</option>
+                    <option value="9mobile">9mobile</option>
+                </select>
+                <button type="submit" class="px-4 py-2 bg-orange-500 text-white rounded-lg font-black uppercase text-[8px] whitespace-nowrap">Fetch Nellobyte</button>
+            </form>
+        </div>
 
         <!-- Add Plan Form -->
         <form method="POST" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-12 p-8 bg-gray-50 rounded-[32px] border border-gray-100">
