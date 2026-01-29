@@ -23,7 +23,7 @@ if (isset($_GET['ajax'])) {
     }
     if ($_GET['ajax'] === 'get_packages') {
         $provider = sanitize($_GET['provider']);
-        $stmt = $pdo->prepare("SELECT package_id, name, user_price, user_discount FROM utility_packages WHERE category = 'cable' AND provider = ? AND enabled = 1");
+        $stmt = $pdo->prepare("SELECT package_id, name, user_price, user_discount FROM utility_packages WHERE category = 'cable' AND service_id = ? AND enabled = 1");
         $stmt->execute([$provider]);
         echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
         exit;
@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $iucNumber = sanitize($_POST['iucNumber']);
 
     // Fetch details from DB to prevent tampering
-    $stmt = $pdo->prepare("SELECT * FROM utility_packages WHERE category = 'cable' AND provider = ? AND package_id = ?");
+    $stmt = $pdo->prepare("SELECT * FROM utility_packages WHERE category = 'cable' AND service_id = ? AND package_id = ?");
     $stmt->execute([$providerId, $variationCode]);
     $pkg = $stmt->fetch();
 
@@ -60,14 +60,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             try {
                 updateWallet($pdo, $currentUser['id'], $amount, 'debit');
 
-                $vtRes = callVtpass($pdo, $providerId, [
-                    'billersCode' => $iucNumber,
-                    'variation_code' => $variationCode,
-                    'amount' => $amount,
-                    'phone' => $currentUser['phone']
-                ]);
-
-                $isSuccess = isset($vtRes['code']) && $vtRes['code'] === '000';
+                $gateway = $pkg['provider'] ?: 'vtpass';
+                if ($gateway === 'vtpass') {
+                    $res = callVtpass($pdo, $providerId, [
+                        'billersCode' => $iucNumber,
+                        'variation_code' => $variationCode,
+                        'amount' => $pkg['api_price'],
+                        'phone' => $currentUser['phone']
+                    ]);
+                    $isSuccess = isset($res['code']) && $res['code'] === '000';
+                    $errMsg = $res['response_description'] ?? 'API Error';
+                } else {
+                    // Placeholder for other gateways
+                    $isSuccess = false;
+                    $errMsg = "Gateway $gateway not implemented for Cable";
+                }
 
                 if ($isSuccess) {
                     $profitVal = $amount - $apiCost;
@@ -80,8 +87,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 } else {
                     // Refund
                     updateWallet($pdo, $currentUser['id'], $amount, 'credit');
-                    logTransaction($pdo, $currentUser['id'], 'Cable TV', $amount, 'failed', "Cable failed: " . ($vtRes['response_description'] ?? 'API Error'), $iucNumber, $providerId);
-                    $error = 'Transaction failed: ' . ($vtRes['response_description'] ?? 'Provider Error');
+                    logTransaction($pdo, $currentUser['id'], 'Cable TV', $amount, 'failed', "Cable failed: $errMsg", $iucNumber, $providerId);
+                    $error = 'Transaction failed: ' . $errMsg;
                     sendMail($pdo, $currentUser['email'], "Cable TV Failed", "Your cable subscription for $iucNumber failed and has been refunded.", 'failed');
                 }
 

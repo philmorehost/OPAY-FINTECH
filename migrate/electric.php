@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $type = $_POST['type']; // prepaid/postpaid
 
     // Fetch dynamic discount/profit from utility_packages if available
-    $stmt = $pdo->prepare("SELECT * FROM utility_packages WHERE category = 'electric' AND provider = ? AND (package_id = ? OR package_id = 'electricity') LIMIT 1");
+    $stmt = $pdo->prepare("SELECT * FROM utility_packages WHERE category = 'electric' AND service_id = ? AND (package_id = ? OR package_id = 'electricity') LIMIT 1");
     $stmt->execute([$serviceId, $type]);
     $pkg = $stmt->fetch();
 
@@ -48,18 +48,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         try {
                 updateWallet($pdo, $currentUser['id'], $chargedAmount, 'debit');
 
-            $vtRes = callVtpass($pdo, $serviceId, [
-                'billersCode' => $meterNumber,
-                'variation_code' => $type,
-                'amount' => $amount,
-                'phone' => $currentUser['phone']
-            ]);
-
-            $isSuccess = isset($vtRes['code']) && $vtRes['code'] === '000';
+            $gateway = $pkg['provider'] ?: 'vtpass';
+            if ($gateway === 'vtpass') {
+                $res = callVtpass($pdo, $serviceId, [
+                    'billersCode' => $meterNumber,
+                    'variation_code' => $type,
+                    'amount' => $amount,
+                    'phone' => $currentUser['phone']
+                ]);
+                $isSuccess = isset($res['code']) && $res['code'] === '000';
+                $errMsg = $res['response_description'] ?? 'API Error';
+                $token = $res['mainToken'] ?? $res['token'] ?? ($res['purchased_code'] ?? '');
+            } else {
+                $isSuccess = false;
+                $errMsg = "Gateway $gateway not implemented for Electric";
+            }
 
             if ($isSuccess) {
-                $token = $vtRes['mainToken'] ?? $vtRes['token'] ?? ($vtRes['purchased_code'] ?? '');
-
                 $apiCost = $amount * (1 - ($apiDisc / 100));
                 $profitVal = $chargedAmount - $apiCost;
 
@@ -69,8 +74,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $success = true;
             } else {
                 updateWallet($pdo, $currentUser['id'], $chargedAmount, 'credit');
-                logTransaction($pdo, $currentUser['id'], 'Electricity', $chargedAmount, 'failed', "Electric failed: " . ($vtRes['response_description'] ?? 'API Error'), $meterNumber, $serviceId);
-                $error = 'Transaction failed: ' . ($vtRes['response_description'] ?? 'Provider Error');
+                logTransaction($pdo, $currentUser['id'], 'Electricity', $chargedAmount, 'failed', "Electric failed: $errMsg", $meterNumber, $serviceId);
+                $error = 'Transaction failed: ' . $errMsg;
             }
 
             $pdo->commit();

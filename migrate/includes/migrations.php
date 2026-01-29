@@ -157,6 +157,7 @@ try {
         id INT AUTO_INCREMENT PRIMARY KEY,
         category ENUM('cable', 'electric', 'exam', 'betting') NOT NULL,
         provider VARCHAR(50),
+        service_id VARCHAR(50),
         package_id VARCHAR(100),
         name VARCHAR(255),
         api_price DECIMAL(15, 2) DEFAULT 0.00,
@@ -164,7 +165,8 @@ try {
         api_discount DECIMAL(5, 2) DEFAULT 0.00,
         user_discount DECIMAL(5, 2) DEFAULT 0.00,
         enabled TINYINT(1) DEFAULT 1,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY category_prov_sid_pid (category, provider, service_id, package_id)
     )");
 
 } catch (PDOException $e) {

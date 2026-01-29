@@ -24,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $amount = (float)$_POST['amount'];
 
     // Fetch discounts
-    $stmt = $pdo->prepare("SELECT * FROM utility_packages WHERE category = 'betting' AND provider = 'nellobyte' AND package_id = ?");
+    $stmt = $pdo->prepare("SELECT * FROM utility_packages WHERE category = 'betting' AND service_id = ?");
     $stmt->execute([$providerId]);
     $pkg = $stmt->fetch();
 

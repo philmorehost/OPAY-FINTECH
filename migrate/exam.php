@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $res = null;
                 $isSuccess = false;
                 if ($pkg['provider'] === 'vtpass') {
-                    $res = callVtpass($pdo, strtolower(explode(' - ', $pkg['name'])[0]), [
+                    $res = callVtpass($pdo, $pkg['service_id'], [
                         'variation_code' => $pkg['package_id'],
                         'amount' => $pkg['api_price'] * $qty,
                         'phone' => $currentUser['phone']
