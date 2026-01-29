@@ -639,14 +639,13 @@ function sendKudiSms($pdo, $senderId, $message, $to) {
 }
 
 if (!function_exists('nellobyteGetDataPlans')) {
-function nellobyteGetDataPlans($pdo, $networkCode) {
+function nellobyteGetDataPlans($pdo) {
     $settings = fetchSettings($pdo);
     $ds = $settings['dataSettings'] ?? [];
     $creds = $ds['providers']['nellobyte'] ?? [];
     $userId = $creds['userId'] ?? '';
-    $apiKey = $creds['apiKey'] ?? '';
 
-    $url = "https://www.nellobytesystems.com/APIDataPlanV1.asp?UserID=$userId&APIKey=$apiKey&MobileNetwork=$networkCode";
+    $url = "https://www.nellobytesystems.com/APIDatabundlePlansV2.asp?UserID=$userId";
     return callApi($url);
 }
 }

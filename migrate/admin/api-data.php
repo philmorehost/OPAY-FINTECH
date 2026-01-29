@@ -63,26 +63,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = "Failed to fetch from VTpass: " . (is_array($res) ? ($res['response_description'] ?? 'No variations found') : 'Unknown error');
         }
     } elseif (isset($_POST['action']) && $_POST['action'] === 'fetch_nb_data') {
-        $network = sanitize($_POST['fetch_network_nb']);
-        $netCode = getNetworkCode('nellobyte', $network);
-        $res = nellobyteGetDataPlans($pdo, $netCode);
-        if (is_array($res) && isset($res['content'])) {
+        $res = nellobyteGetDataPlans($pdo);
+        if (is_array($res) && isset($res['MOBILE_NETWORK'])) {
             $count = 0;
-            foreach ($res['content'] as $v) {
-                $stmt = $pdo->prepare("INSERT INTO data_plans (network, plan_id, data_size, type, api_price, user_price) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE data_size = VALUES(data_size), api_price = VALUES(api_price)");
-                $stmt->execute([
-                    $network,
-                    $v['ID'] ?? '',
-                    $v['Name'] ?? '',
-                    'DataBundle',
-                    (float)($v['Amount'] ?? 0),
-                    (float)($v['Amount'] ?? 0)
-                ]);
-                $count++;
+            $networks = ['MTN', 'AIRTEL', 'GLO', '9MOBILE'];
+            foreach ($networks as $net) {
+                if (isset($res['MOBILE_NETWORK'][$net]) && is_array($res['MOBILE_NETWORK'][$net])) {
+                    foreach ($res['MOBILE_NETWORK'][$net] as $cat) {
+                        if (isset($cat['PRODUCT']) && is_array($cat['PRODUCT'])) {
+                            foreach ($cat['PRODUCT'] as $p) {
+                                $stmt = $pdo->prepare("INSERT INTO data_plans (network, plan_id, data_size, type, api_price, user_price) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE data_size = VALUES(data_size), api_price = VALUES(api_price)");
+                                $stmt->execute([
+                                    ucfirst(strtolower($net)),
+                                    $p['PRODUCT_CODE'] ?? '',
+                                    $p['PRODUCT_NAME'] ?? '',
+                                    'DataBundle',
+                                    (float)($p['PRODUCT_AMOUNT'] ?? 0),
+                                    (float)($p['PRODUCT_AMOUNT'] ?? 0)
+                                ]);
+                                $count++;
+                            }
+                        }
+                    }
+                }
             }
-            $success = "Successfully fetched $count Nellobyte plans for $network!";
+            $success = "Successfully fetched and updated $count Nellobyte plans across all networks!";
         } else {
-            $error = "Failed to fetch from Nellobyte: " . (is_string($res) ? $res : 'Unknown error');
+            $desc = is_array($res) ? ($res['status'] ?? 'Invalid Response') : (is_string($res) ? substr($res, 0, 100) : 'Unknown error');
+            $error = "Failed to fetch from Nellobyte: " . $desc;
         }
     } elseif (isset($_POST['action']) && $_POST['action'] === 'delete_plan') {
         $stmt = $pdo->prepare("DELETE FROM data_plans WHERE id = ?");
@@ -231,13 +239,7 @@ require_once __DIR__ . '/header.php';
             <form method="POST" class="flex items-center gap-2">
                 <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                 <input type="hidden" name="action" value="fetch_nb_data">
-                <select name="fetch_network_nb" class="p-2 bg-gray-50 rounded-lg font-bold outline-none text-[10px] border border-gray-100">
-                    <option value="MTN">MTN</option>
-                    <option value="Airtel">Airtel</option>
-                    <option value="Glo">Glo</option>
-                    <option value="9mobile">9mobile</option>
-                </select>
-                <button type="submit" class="px-4 py-2 bg-orange-500 text-white rounded-lg font-black uppercase text-[8px] whitespace-nowrap">Fetch Nellobyte</button>
+                <button type="submit" class="px-4 py-2 bg-orange-500 text-white rounded-lg font-black uppercase text-[8px] whitespace-nowrap">Fetch All Nellobyte</button>
             </form>
         </div>
 
