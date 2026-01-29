@@ -37,8 +37,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (!empty($_POST['loginSecurityPin'])) {
+        $hashedPin = password_hash(sanitize($_POST['loginSecurityPin']), PASSWORD_DEFAULT);
         $stmt = $pdo->prepare("UPDATE users SET loginSecurityPin = ? WHERE id = ?");
-        $stmt->execute([sanitize($_POST['loginSecurityPin']), $currentUser['id']]);
+        $stmt->execute([$hashedPin, $currentUser['id']]);
     }
 
     // Update Configured Methods Cache
@@ -147,10 +148,15 @@ require_once __DIR__ . '/includes/header.php';
                             <span class="text-[8px] font-black text-green-500 uppercase bg-green-50 px-2 py-1 rounded-md">Configured</span>
                         <?php endif; ?>
                         <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" name="google2faEnabled" class="sr-only peer" <?php echo $currentUser['google2faEnabled'] ? 'checked' : ''; ?>>
+                            <input type="checkbox" name="google2faEnabled" onchange="toggle2faVerification(this)" class="sr-only peer" <?php echo $currentUser['google2faEnabled'] ? 'checked' : ''; ?>>
                             <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-billpay-green"></div>
                         </label>
                     </div>
+                </div>
+
+                <div id="2fa-verify-group" class="hidden animate-slide-up bg-gray-50 p-4 rounded-2xl border border-gray-100 space-y-4">
+                    <label class="text-[10px] font-black text-gray-400 uppercase">Enter App Code to Confirm</label>
+                    <input type="text" name="google2faCode" placeholder="000000" maxlength="6" class="w-full p-4 bg-white rounded-xl font-black text-center text-lg tracking-widest outline-none border border-transparent focus:border-billpay-green">
                 </div>
 
                 <div class="flex items-center justify-between">
@@ -170,6 +176,16 @@ require_once __DIR__ . '/includes/header.php';
     </div>
 </div>
 <script>
+    function toggle2faVerification(cb) {
+        const group = document.getElementById('2fa-verify-group');
+        const isEnabled = <?php echo $currentUser['google2faEnabled'] ? 'true' : 'false'; ?>;
+        if (cb.checked && !isEnabled) {
+            group.classList.remove('hidden');
+        } else {
+            group.classList.add('hidden');
+        }
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('setup') === 'biometric') {

@@ -49,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $verified = false;
     if ($currentStep === 'pin') {
-        if ($_POST['pin'] === $pendingUser['loginSecurityPin']) $verified = true;
+        if (password_verify($_POST['pin'], $pendingUser['loginSecurityPin'])) $verified = true;
         else $error = "Invalid Security PIN";
     } elseif ($currentStep === 'email') {
         if (isset($_SESSION['email_2fa_code']) && $_POST['code'] == $_SESSION['email_2fa_code'] && time() < $_SESSION['email_2fa_expiry']) $verified = true;
@@ -59,7 +59,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         else $error = "Invalid Authenticator code";
     } elseif ($currentStep === 'biometric') {
         if ($_POST['action'] === 'biometric_verify') {
-            // Simplified for demo, as in login.php
+            /**
+             * SECURITY WARNING:
+             * This biometric verification is a simplified demonstration.
+             * In a production environment, you MUST use a WebAuthn library
+             * to verify the cryptographic signature against the stored public key.
+             * Simply comparing the credentialId is NOT secure.
+             */
             $credentialId = $_POST['credentialId'];
             if ($credentialId === $pendingUser['biometricCredentialId']) $verified = true;
             else $error = "Biometric verification failed";

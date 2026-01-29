@@ -141,6 +141,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $to = sanitize($_POST['to_currency']);
             $quoteId = sanitize($_POST['quote_id']);
 
+            $chargePct = getApiCharge($pdo, 'crypto_swap');
+            $totalDeduct = $amount * (1 + ($chargePct / 100));
+
             $res = juicywaySwap($pdo, $amount, $from, $to, $quoteId);
             $resData = $res['data'] ?? $res;
 
@@ -158,7 +161,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 throw new Exception($msg);
             }
 
-            logTransaction($pdo, $currentUser['id'], "Currency Conversion", $amount, 'successful', "Converted $from to $to", 'System');
+            $profitVal = $totalDeduct - $amount;
+            logTransaction($pdo, $currentUser['id'], "Currency Conversion", $totalDeduct, 'successful', "Converted $from to $to", 'System', null, null, $amount, $profitVal);
             $success = "Successfully converted $from to $to!";
         }
 
@@ -621,7 +625,16 @@ require_once __DIR__ . '/includes/header.php';
     function updateTransferSummary() {
         const curr = document.getElementById('transferCurrency').value;
         const amount = parseFloat(document.querySelector('input[name="amount"]').value) || 0;
-        const fee = amount > 0 ? (curr === 'NGN' ? 10 : 0) : 0;
+
+        let fee = 0;
+        if (amount > 0) {
+            if (['USDT', 'USDC'].includes(curr)) {
+                const chargePct = <?php echo getApiCharge($pdo, 'crypto_withdraw'); ?>;
+                fee = (amount * chargePct / 100);
+            } else {
+                fee = (curr === 'NGN' ? 10 : 0);
+            }
+        }
 
         const summary = document.getElementById('transferSummary');
         if (amount > 0) {

@@ -45,7 +45,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     if (!$pkg) {
         $error = 'Invalid package selected';
     } else {
-        $amount = (float)$pkg['user_price'] * (1 - ($pkg['user_discount'] / 100));
+        $globalChargePct = getApiCharge($pdo, 'cable');
+        $amount = ((float)$pkg['user_price'] * (1 - ($pkg['user_discount'] / 100))) * (1 + ($globalChargePct / 100));
         $apiCost = (float)$pkg['api_price'] * (1 - ($pkg['api_discount'] / 100));
 
         if (isKycRejected($currentUser)) {

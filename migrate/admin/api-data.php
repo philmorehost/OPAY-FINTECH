@@ -29,29 +29,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ];
 
     if (isset($_POST['action']) && $_POST['action'] === 'add_plan') {
-        $allPlans = $settings['dataProducts'] ?? [];
-        if (is_string($allPlans)) $allPlans = json_decode($allPlans, true) ?: [];
-        $newPlan = [
-            'id' => uniqid(),
-            'network' => sanitize($_POST['plan_network']),
-            'apiCode' => sanitize($_POST['plan_apiCode']),
-            'size' => sanitize($_POST['plan_size']),
-            'type' => sanitize($_POST['plan_type']),
-            'apiPrice' => (float)$_POST['plan_apiPrice'],
-            'userPrice' => (float)$_POST['plan_userPrice'],
-            'enabled' => 1
-        ];
-        $allPlans[] = $newPlan;
-        $stmt = $pdo->prepare("UPDATE settings SET dataProducts = ? WHERE id = 1");
-        $stmt->execute([json_encode($allPlans)]);
+        $stmt = $pdo->prepare("INSERT INTO data_plans (network, plan_id, data_size, type, api_price, user_price) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->execute([
+            sanitize($_POST['plan_network']),
+            sanitize($_POST['plan_apiCode']),
+            sanitize($_POST['plan_size']),
+            sanitize($_POST['plan_type']),
+            (float)$_POST['plan_apiPrice'],
+            (float)$_POST['plan_userPrice']
+        ]);
         $success = "New data plan added!";
     } elseif (isset($_POST['action']) && $_POST['action'] === 'delete_plan') {
-        $allPlans = $settings['dataProducts'] ?? [];
-        if (is_string($allPlans)) $allPlans = json_decode($allPlans, true) ?: [];
-        $planId = $_POST['plan_id'];
-        $allPlans = array_filter($allPlans, fn($p) => $p['id'] !== $planId);
-        $stmt = $pdo->prepare("UPDATE settings SET dataProducts = ? WHERE id = 1");
-        $stmt->execute([json_encode(array_values($allPlans))]);
+        $stmt = $pdo->prepare("DELETE FROM data_plans WHERE id = ?");
+        $stmt->execute([$_POST['plan_id']]);
         $success = "Data plan deleted!";
     } else {
         $dataSettings = [
@@ -234,20 +224,21 @@ require_once __DIR__ . '/header.php';
                 </thead>
                 <tbody class="divide-y divide-gray-50">
                     <?php
-                    $allPlans = $settings['dataProducts'] ?? [];
-                    if (is_string($allPlans)) $allPlans = json_decode($allPlans, true) ?: [];
-                    foreach ($allPlans as $p):
-                        $profit = (float)$p['userPrice'] - (float)$p['apiPrice'];
+                    $stmt = $pdo->query("SELECT * FROM data_plans ORDER BY network ASC, user_price ASC");
+                    $allPlansCount = 0;
+                    while ($p = $stmt->fetch()):
+                        $allPlansCount++;
+                        $profit = (float)$p['user_price'] - (float)$p['api_price'];
                     ?>
                     <tr>
                         <td class="py-6 font-black text-sm uppercase"><?php echo $p['network']; ?></td>
                         <td class="py-6">
-                            <div class="font-black text-xs"><?php echo $p['size']; ?></div>
+                            <div class="font-black text-xs"><?php echo $p['data_size']; ?></div>
                             <div class="text-[8px] font-bold text-gray-400 uppercase"><?php echo $p['type']; ?></div>
                         </td>
-                        <td class="py-6 font-mono text-xs"><?php echo $p['apiCode']; ?></td>
-                        <td class="py-6 text-xs font-bold text-gray-500">₦<?php echo number_format($p['apiPrice'], 2); ?></td>
-                        <td class="py-6 text-xs font-black">₦<?php echo number_format($p['userPrice'], 2); ?></td>
+                        <td class="py-6 font-mono text-xs"><?php echo $p['plan_id']; ?></td>
+                        <td class="py-6 text-xs font-bold text-gray-500">₦<?php echo number_format($p['api_price'], 2); ?></td>
+                        <td class="py-6 text-xs font-black">₦<?php echo number_format($p['user_price'], 2); ?></td>
                         <td class="py-6">
                             <span class="px-2 py-1 bg-green-50 text-green-600 text-[9px] font-black rounded-md">₦<?php echo number_format($profit, 2); ?></span>
                         </td>
@@ -260,7 +251,7 @@ require_once __DIR__ . '/header.php';
                             </form>
                         </td>
                     </tr>
-                    <?php endforeach; if(empty($allPlans)) echo '<tr><td colspan="7" class="py-10 text-center text-[10px] font-black text-gray-300 uppercase">No data plans configured</td></tr>'; ?>
+                    <?php endwhile; if($allPlansCount === 0) echo '<tr><td colspan="7" class="py-10 text-center text-[10px] font-black text-gray-300 uppercase">No data plans configured</td></tr>'; ?>
                 </tbody>
             </table>
         </div>

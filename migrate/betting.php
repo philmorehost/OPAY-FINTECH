@@ -40,7 +40,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     } else {
         $pdo->beginTransaction();
         try {
-            $chargedAmount = $amount * (1 - ($userDisc / 100));
+            $globalChargePct = getApiCharge($pdo, 'betting');
+            $chargedAmount = ($amount * (1 - ($userDisc / 100))) * (1 + ($globalChargePct / 100));
             $apiCost = $amount * (1 - ($apiDisc / 100));
 
             if ($currentUser['walletBalance'] < $chargedAmount) {

@@ -41,9 +41,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     } elseif (!checkDailyLimit($pdo, $currentUser['id'], $meterNumber, $settings['maxDailyTxPerId'] ?? 50)) {
         $error = "Daily transaction limit reached for $meterNumber";
     } else {
+            $globalChargePct = getApiCharge($pdo, 'electric');
+            $chargedAmount = ($amount * (1 - ($userDisc / 100))) * (1 + ($globalChargePct / 100));
+
         $pdo->beginTransaction();
         try {
-            updateWallet($pdo, $currentUser['id'], $amount, 'debit');
+                updateWallet($pdo, $currentUser['id'], $chargedAmount, 'debit');
 
             $vtRes = callVtpass($pdo, $serviceId, [
                 'billersCode' => $meterNumber,
@@ -57,17 +60,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             if ($isSuccess) {
                 $token = $vtRes['mainToken'] ?? $vtRes['token'] ?? ($vtRes['purchased_code'] ?? '');
 
-                $chargedAmount = $amount * (1 - ($userDisc / 100));
                 $apiCost = $amount * (1 - ($apiDisc / 100));
                 $profitVal = $chargedAmount - $apiCost;
 
-                logTransaction($pdo, $currentUser['id'], 'Electricity', $amount, 'successful', "Electric ($serviceId $type) for $meterNumber", $meterNumber, $serviceId, $token, $apiCost, $profitVal);
+                logTransaction($pdo, $currentUser['id'], 'Electricity', $chargedAmount, 'successful', "Electric ($serviceId $type) for $meterNumber", $meterNumber, $serviceId, $token, $apiCost, $profitVal);
                 sendMail($pdo, $currentUser['email'], "Electricity Receipt", "Successful recharge for $meterNumber. Token: $token");
                 claimDailyRewardIfEligible($pdo, $currentUser['id']);
                 $success = true;
             } else {
-                updateWallet($pdo, $currentUser['id'], $amount, 'credit');
-                logTransaction($pdo, $currentUser['id'], 'Electricity', $amount, 'failed', "Electric failed: " . ($vtRes['response_description'] ?? 'API Error'), $meterNumber, $serviceId);
+                updateWallet($pdo, $currentUser['id'], $chargedAmount, 'credit');
+                logTransaction($pdo, $currentUser['id'], 'Electricity', $chargedAmount, 'failed', "Electric failed: " . ($vtRes['response_description'] ?? 'API Error'), $meterNumber, $serviceId);
                 $error = 'Transaction failed: ' . ($vtRes['response_description'] ?? 'Provider Error');
             }
 

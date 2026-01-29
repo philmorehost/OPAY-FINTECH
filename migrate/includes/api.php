@@ -363,6 +363,42 @@ function testBybitConnection($pdo) {
 }
 }
 
+/**
+ * MEXC API (V3)
+ */
+if (!function_exists('callMexc')) {
+function callMexc($pdo, $endpoint, $method = 'GET', $params = []) {
+    $settings = fetchSettings($pdo);
+    $creds = $settings['financialSettings']['mexc'] ?? [];
+    $apiKey = $creds['apiKey'] ?? '';
+    $secret = $creds['apiSecret'] ?? '';
+    $baseUrl = "https://api.mexc.com";
+
+    $timestamp = round(microtime(true) * 1000);
+    $params['timestamp'] = $timestamp;
+    $params['recvWindow'] = 5000;
+
+    $queryString = http_build_query($params);
+    $signature = hash_hmac('sha256', $queryString, $secret);
+    $fullUrl = $baseUrl . $endpoint . "?" . $queryString . "&signature=" . $signature;
+
+    $headers = [
+        "X-MEXC-APIKEY: $apiKey",
+        "Content-Type: application/json"
+    ];
+
+    return callApi($fullUrl, $method, [], $headers);
+}
+}
+
+if (!function_exists('testMexcConnection')) {
+function testMexcConnection($pdo) {
+    $res = callMexc($pdo, '/api/v3/account', 'GET');
+    if (isset($res['accountType'])) return ['status' => 'success', 'message' => 'MEXC Connection Successful!'];
+    return ['status' => 'error', 'message' => 'MEXC Failed: ' . ($res['msg'] ?? 'Unknown Error')];
+}
+}
+
 if (!function_exists('bybitGetMarketPrice')) {
 function bybitGetMarketPrice($pdo, $symbol = 'BTCUSDT') {
     $res = callBybit($pdo, '/v5/market/tickers', 'GET', ['category' => 'spot', 'symbol' => $symbol]);
@@ -390,6 +426,70 @@ function bybitWithdraw($pdo, $coin, $amount, $address, $tag = '') {
     ];
     if ($tag) $params['tag'] = $tag;
     return callBybit($pdo, '/v5/asset/withdraw/create', 'POST', $params);
+}
+}
+
+/**
+ * Unified Crypto Hub Helpers
+ * These respect the 'primaryCrypto' setting
+ */
+if (!function_exists('cryptoGetBalances')) {
+function cryptoGetBalances($pdo) {
+    $settings = fetchSettings($pdo);
+    $provider = $settings['financialSettings']['primaryCrypto'] ?? 'bybit';
+    if ($provider === 'mexc') return mexcGetBalances($pdo);
+    return bybitGetBalances($pdo);
+}
+}
+
+if (!function_exists('cryptoWithdraw')) {
+function cryptoWithdraw($pdo, $coin, $amount, $address, $tag = '') {
+    $settings = fetchSettings($pdo);
+    $provider = $settings['financialSettings']['primaryCrypto'] ?? 'bybit';
+    if ($provider === 'mexc') return mexcWithdraw($pdo, $coin, $amount, $address, $tag);
+    return bybitWithdraw($pdo, $coin, $amount, $address, $tag);
+}
+}
+
+if (!function_exists('cryptoGetPrice')) {
+function cryptoGetPrice($pdo, $coin) {
+    // Currently using Bybit for price even if MEXC is primary,
+    // but can be extended if needed. CoinGecko is also used for display.
+    return bybitGetMarketPrice($pdo, $coin . 'USDT');
+}
+}
+
+if (!function_exists('getApiCharge')) {
+function getApiCharge($pdo, $key) {
+    $settings = fetchSettings($pdo);
+    $fs = $settings['financialSettings'] ?? [];
+    if (is_string($fs)) $fs = json_decode($fs, true) ?: [];
+    return (float)($fs['globalCharges'][$key] ?? 0);
+}
+}
+
+if (!function_exists('mexcGetBalances')) {
+function mexcGetBalances($pdo) {
+    $res = callMexc($pdo, '/api/v3/account', 'GET');
+    if (isset($res['balances'])) {
+        // Normalize to match bybitGetBalances format if possible,
+        // but since they are different APIs, the caller should handle it or we normalize here.
+        // For now, returning raw.
+    }
+    return $res;
+}
+}
+
+if (!function_exists('mexcWithdraw')) {
+function mexcWithdraw($pdo, $coin, $amount, $address, $tag = '', $network = '') {
+    $params = [
+        'coin' => strtoupper($coin),
+        'address' => $address,
+        'amount' => (string)$amount
+    ];
+    if ($tag) $params['memo'] = $tag;
+    if ($network) $params['network'] = $network;
+    return callMexc($pdo, '/api/v3/capital/withdraw/apply', 'POST', $params);
 }
 }
 

@@ -41,8 +41,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     } elseif (empty($recipients)) {
         $error = 'Enter valid phone numbers';
     } else {
-        $userPrice = (float)$selectedPlan['userPrice'];
-        $apiPrice = (float)($selectedPlan['apiPrice'] ?? $userPrice * 0.9); // Fallback to 10% profit if not set
+        $globalChargePct = getApiCharge($pdo, 'data');
+        $userPrice = (float)$selectedPlan['userPrice'] * (1 + ($globalChargePct / 100));
+
+        $apiPrice = (float)($selectedPlan['apiPrice'] ?? (float)$selectedPlan['userPrice'] * 0.9);
         $profit = $userPrice - $apiPrice;
         $totalCost = count($recipients) * $userPrice;
 

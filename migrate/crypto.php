@@ -4,6 +4,9 @@ if (!isLoggedIn()) redirect('/login');
 checkKycRestriction($settings, $currentUser);
 
 $pageTitle = 'Crypto Hub';
+$fs = $settings['financialSettings'] ?? [];
+if (is_string($fs)) $fs = json_decode($fs, true) ?: [];
+$primaryProvider = $fs['primaryCrypto'] ?? 'bybit';
 $error = '';
 $success = '';
 
@@ -17,23 +20,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Handle Buy (Simulated via Bybit Price)
+// Handle Buy (Simulated via Price)
 if (!$error && isset($_POST['buy_amount'])) {
     $coin = $_POST['coin'];
     $amountNgn = (float)$_POST['buy_amount'];
-    $rate = bybitGetMarketPrice($pdo, $coin . 'USDT') ?: 95000; // Simplified fallback rate
-    // Simplified conversion NGN -> USDT -> Coin
+
+    $chargePct = getApiCharge($pdo, 'crypto_buy');
+    $totalToPay = $amountNgn * (1 + ($chargePct / 100));
+
+    $rate = cryptoGetPrice($pdo, $coin) ?: 95000;
     $usdtRate = 1600; // Mock NGN/USDT
     $coinAmount = ($amountNgn / $usdtRate) / $rate;
 
-    if ($currentUser['walletBalance'] >= $amountNgn) {
-        if (updateWallet($pdo, $currentUser['id'], $amountNgn, 'debit')) {
-            logTransaction($pdo, $currentUser['id'], "Crypto Buy", $amountNgn, 'successful', "Bought " . number_format($coinAmount, 8) . " $coin", "Bybit Hub");
+    if ($currentUser['walletBalance'] >= $totalToPay) {
+        if (updateWallet($pdo, $currentUser['id'], $totalToPay, 'debit')) {
+                        logTransaction($pdo, $currentUser['id'], "Crypto Buy", $totalToPay, 'successful', "Bought " . number_format($coinAmount, 8) . " $coin", ucfirst($primaryProvider) . " Hub", null, null, $amountNgn, ($totalToPay - $amountNgn));
             $success = "Purchase successful! " . number_format($coinAmount, 8) . " $coin added to your portfolio.";
             $currentUser = fetchUser($pdo, $currentUser['id']); // Refresh
         }
     } else {
-        $error = "Insufficient balance.";
+        $error = "Insufficient balance. Total with charge: " . formatCurrency($totalToPay);
     }
 }
 
@@ -41,14 +47,18 @@ if (!$error && isset($_POST['buy_amount'])) {
 if (!$error && isset($_POST['sell_amount'])) {
     $coin = $_POST['coin'];
     $coinAmount = (float)$_POST['sell_amount'];
-    $rate = bybitGetMarketPrice($pdo, $coin . 'USDT') ?: 95000;
+
+    $rate = cryptoGetPrice($pdo, $coin) ?: 95000;
     $usdtRate = 1580; // Mock NGN/USDT Sell rate
     $amountNgn = ($coinAmount * $rate) * $usdtRate;
 
-    // In a real system we would check user's crypto balance in Bybit or local table
-    if (updateWallet($pdo, $currentUser['id'], $amountNgn, 'credit')) {
-        logTransaction($pdo, $currentUser['id'], "Crypto Sell", $amountNgn, 'successful', "Sold " . number_format($coinAmount, 8) . " $coin", "Bybit Hub");
-        $success = "Sale successful! " . formatCurrency($amountNgn) . " added to your wallet.";
+    $chargePct = getApiCharge($pdo, 'crypto_sell');
+    $finalCredit = $amountNgn * (1 - ($chargePct / 100));
+
+    // In a real system we would check user's crypto balance in local table
+    if (updateWallet($pdo, $currentUser['id'], $finalCredit, 'credit')) {
+        logTransaction($pdo, $currentUser['id'], "Crypto Sell", $finalCredit, 'successful', "Sold " . number_format($coinAmount, 8) . " $coin", ucfirst($primaryProvider) . " Hub", null, null, $amountNgn, ($amountNgn - $finalCredit));
+        $success = "Sale successful! " . formatCurrency($finalCredit) . " added to your wallet.";
         $currentUser = fetchUser($pdo, $currentUser['id']);
     }
 }
@@ -64,6 +74,9 @@ if (!$error && isset($_POST['withdraw_address'])) {
     $address = $_POST['withdraw_address'];
     $amount = (float)$_POST['withdraw_amount'];
 
+    $chargePct = getApiCharge($pdo, 'crypto_withdraw');
+    $totalDeduct = $amount * (1 + ($chargePct / 100));
+
     // Check Whitelist & Lock
     $stmt = $pdo->prepare("SELECT isLocked, unlockedAt FROM withdrawal_whitelist WHERE userId = ? AND address = ?");
     $stmt->execute([$currentUser['id'], $address]);
@@ -75,21 +88,30 @@ if (!$error && isset($_POST['withdraw_address'])) {
         $timeLeft = round((strtotime($wl['unlockedAt']) - time()) / 3600, 1);
         $error = "Address is under 24h cooling period. $timeLeft hours remaining.";
     } else {
-        // Execute Withdrawal via Bybit
-        $res = bybitWithdraw($pdo, $_POST['coin'], $amount, $address);
-        if (isset($res['retCode']) && $res['retCode'] == 0) {
-            $success = "Withdrawal request submitted successfully.";
+        // Deduct from wallet if needed or just process from crypto balance
+        // For simplicity, we deduct from main wallet in this mock
+        if ($currentUser['walletBalance'] < $totalDeduct) {
+            $error = "Insufficient balance for withdrawal + charge.";
         } else {
-            $error = "Withdrawal failed: " . ($res['retMsg'] ?? 'Provider error');
+            updateWallet($pdo, $currentUser['id'], $totalDeduct, 'debit');
+            // Execute Withdrawal via Primary Provider
+            $res = cryptoWithdraw($pdo, $_POST['coin'], $amount, $address);
+            if (isset($res['retCode']) && $res['retCode'] == 0) {
+                logTransaction($pdo, $currentUser['id'], "Crypto Withdrawal", $totalDeduct, 'successful', "Withdrew $amount {$_POST['coin']} to $address", $address, null, null, $amount, ($totalDeduct - $amount));
+                $success = "Withdrawal request submitted successfully.";
+            } else {
+                updateWallet($pdo, $currentUser['id'], $totalDeduct, 'credit'); // Refund
+                $error = "Withdrawal failed: " . ($res['retMsg'] ?? $res['msg'] ?? 'Provider error');
+            }
         }
     }
 }
 
 // Get Market Prices
 $prices = [
-    'BTC' => bybitGetMarketPrice($pdo, 'BTCUSDT'),
-    'ETH' => bybitGetMarketPrice($pdo, 'ETHUSDT'),
-    'SOL' => bybitGetMarketPrice($pdo, 'SOLUSDT'),
+    'BTC' => cryptoGetPrice($pdo, 'BTC'),
+    'ETH' => cryptoGetPrice($pdo, 'ETH'),
+    'SOL' => cryptoGetPrice($pdo, 'SOL'),
     'USDT' => 1.00
 ];
 

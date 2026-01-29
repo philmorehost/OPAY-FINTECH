@@ -28,7 +28,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
     // Calculate Costs & Profit
     $userDiscount = (float)($settings['airtimeDiscounts'][$network] ?? 0);
-    $unitCost = $amount * (1 - $userDiscount / 100);
+    $globalChargePct = getApiCharge($pdo, 'airtime');
+
+    $unitCost = ($amount * (1 - $userDiscount / 100)) * (1 + ($globalChargePct / 100));
     $totalCost = count($recipients) * $unitCost;
 
     // API Info for Profit
@@ -65,7 +67,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
                     if ($isSuccess) {
                         $successCount++;
-                        logTransaction($pdo, $currentUser['id'], 'Airtime', $unitCost, 'successful', "$network Airtime for $num", $num, $network, null, $unitApiCost, $unitProfit);
+                        $unitProfitVal = $unitCost - $unitApiCost;
+                        logTransaction($pdo, $currentUser['id'], 'Airtime', $unitCost, 'successful', "$network Airtime for $num", $num, $network, null, $unitApiCost, $unitProfitVal);
                     } else {
                         updateWallet($pdo, $currentUser['id'], $unitCost, 'credit');
                         logTransaction($pdo, $currentUser['id'], 'Airtime', $unitCost, 'failed', "$network Airtime failed for $num: " . ($response['message'] ?? 'Error'), $num, $network);
