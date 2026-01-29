@@ -225,7 +225,7 @@ function testGenericConnection($pdo, $provider, $creds) {
                 $headers[] = "api-key: " . $creds['apiKey'];
                 $headers[] = "public-key: " . ($creds['publicKey'] ?? '');
             }
-            $url = (!empty($creds['sandbox'])) ? "https://sandbox.vtpass.com/api/balance" : "https://api-service.vtpass.com/api/balance";
+            $url = (!empty($creds['sandbox'])) ? "https://sandbox.vtpass.com/api/balance" : "https://vtpass.com/api/balance";
             $res = callApi($url, 'GET', [], $headers);
             if (is_array($res)) {
                 if (isset($res['code']) && $res['code'] === '000') return ['status' => 'success', 'message' => 'Connected! Balance: ' . ($res['contents']['balance'] ?? 'N/A')];
@@ -290,7 +290,7 @@ if (!function_exists('vtpassGetVariations')) {
 function vtpassGetVariations($pdo, $serviceId) {
     $settings = fetchSettings($pdo);
     $creds = $settings['utilitySettings']['vtpass'] ?? [];
-    $url = "https://api-service.vtpass.com/api/service-variations?serviceID=" . $serviceId;
+    $url = "https://vtpass.com/api/service-variations?serviceID=" . $serviceId;
     if (!empty($creds['sandbox'])) $url = "https://sandbox.vtpass.com/api/service-variations?serviceID=" . $serviceId;
     return callApi($url, 'GET');
 }
@@ -299,7 +299,7 @@ function vtpassGetVariations($pdo, $serviceId) {
 if (!function_exists('vtpassVerifyMerchant')) {
 function vtpassVerifyMerchant($pdo, $serviceId, $billersCode) {
     $data = ['serviceID' => $serviceId, 'billersCode' => $billersCode];
-    $url = "https://api-service.vtpass.com/api/merchant-verify";
+    $url = "https://vtpass.com/api/merchant-verify";
     $settings = fetchSettings($pdo);
     $creds = $settings['utilitySettings']['vtpass'] ?? [];
     if (!empty($creds['sandbox'])) $url = "https://sandbox.vtpass.com/api/merchant-verify";

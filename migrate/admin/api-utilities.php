@@ -16,15 +16,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $serviceId = sanitize($_POST['service_id']);
         $category = sanitize($_POST['category']);
         $res = vtpassGetVariations($pdo, $serviceId);
-        $vars = $res['content']['varations'] ?? $res['content']['variations'] ?? null;
-        if ($vars) {
+        $vars = (is_array($res) && isset($res['content'])) ? ($res['content']['varations'] ?? $res['content']['variations'] ?? null) : null;
+        if (is_array($vars)) {
             foreach ($vars as $v) {
                 $stmt = $pdo->prepare("INSERT INTO utility_packages (category, provider, service_id, package_id, name, api_price, user_price) VALUES (?, 'vtpass', ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), api_price = VALUES(api_price)");
-                $stmt->execute([$category, $serviceId, $v['variation_code'] ?? $v['id'], $v['name'], (float)($v['variation_amount'] ?? $v['amount']), (float)($v['variation_amount'] ?? $v['amount'])]);
+                $stmt->execute([$category, $serviceId, $v['variation_code'] ?? $v['id'] ?? $v['variation_id'] ?? '', $v['name'] ?? '', (float)($v['variation_amount'] ?? $v['amount'] ?? 0), (float)($v['variation_amount'] ?? $v['amount'] ?? 0)]);
             }
             $success = "Fetched " . count($vars) . " packages for $serviceId";
         } else {
-            $error = "Failed to fetch packages: " . ($res['response_description'] ?? 'No variations found in response');
+            $desc = is_array($res) ? ($res['response_description'] ?? $res['message'] ?? 'No variations found') : (is_string($res) ? substr($res, 0, 100) : 'Unknown error');
+            $error = "Failed to fetch packages: " . $desc;
         }
     } elseif (isset($_POST['action']) && $_POST['action'] === 'fetch_betting') {
         $res = nellobyteBetting($pdo, 'GetProviders');
