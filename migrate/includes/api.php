@@ -244,7 +244,14 @@ function purchaseData($pdo, $network, $planId, $phone) {
     $netCode = getNetworkCode($provider, $network);
     switch ($provider) {
         case 'datagifting':
-            $res = callApi("https://v6.datagifting.com.ng/web/api/data.php?api_key=" . ($creds['apiKey'] ?? '') . "&network=$netCode&plan=$planId&phone_number=$phone");
+            // Fetch plan details to get type and quantity as requested in prompt
+            $stmt = $pdo->prepare("SELECT * FROM data_plans WHERE plan_id = ? OR id = ? LIMIT 1");
+            $stmt->execute([$planId, $planId]);
+            $p = $stmt->fetch();
+            $type = $p ? $p['type'] : 'sme';
+            $qty = $p ? $p['data_size'] : '1gb';
+
+            $res = callApi("https://v6.datagifting.com.ng/web/api/data.php?api_key=" . ($creds['apiKey'] ?? '') . "&network=$netCode&phone_number=$phone&type=$type&quantity=$qty");
             if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
             return ['status' => 'failed', 'message' => $res['msg'] ?? 'Provider Error'];
         case 'nellobyte':
