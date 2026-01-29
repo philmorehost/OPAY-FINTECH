@@ -28,6 +28,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email2fa = isset($_POST['email2faEnabled']) ? 1 : 0;
     $google2fa = isset($_POST['google2faEnabled']) ? 1 : 0;
 
+    if ($google2fa && !$currentUser['google2faEnabled']) {
+        if (empty($_POST['google2faCode']) || !TOTP::verifyCode($currentUser['google2faSecret'], $_POST['google2faCode'])) {
+            $error = "Please verify your Authenticator code before enabling Google 2FA.";
+            $google2fa = 0;
+        }
+    }
+
     $stmt = $pdo->prepare("UPDATE users SET loginAlertsEnabled = ?, biometricEnabled = ?, marketingEmailsEnabled = ?, smsAlertsEnabled = ?, email2faEnabled = ?, google2faEnabled = ? WHERE id = ?");
     $stmt->execute([$loginAlerts, $biometric, $marketing, $smsAlerts, $email2fa, $google2fa, $currentUser['id']]);
 

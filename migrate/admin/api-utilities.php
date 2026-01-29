@@ -48,21 +48,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $error = "Failed to fetch from NaijaResultPins";
         }
-    } elseif (isset($_POST['action']) && $_POST['action'] === 'fetch_exams_vtp') {
-        $exams = ['waec', 'neco', 'waec-registration', 'nabteb', 'jamb'];
-        $count = 0;
-        foreach ($exams as $e) {
-            $res = vtpassGetVariations($pdo, $e);
-            $vars = $res['content']['varations'] ?? $res['content']['variations'] ?? null;
-            if ($vars) {
-                foreach ($vars as $v) {
-                    $stmt = $pdo->prepare("INSERT INTO utility_packages (category, provider, service_id, package_id, name, api_price, user_price) VALUES ('exam', 'vtpass', ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), api_price = VALUES(api_price)");
-                    $stmt->execute([$e, $v['variation_code'] ?? $v['id'], strtoupper($e) . ' - ' . $v['name'], (float)($v['variation_amount'] ?? $v['amount']), (float)($v['variation_amount'] ?? $v['amount'])]);
-                    $count++;
-                }
-            }
-        }
-        $success = "Fetched $count exam products from VTPass";
     } elseif (isset($_POST['action']) && $_POST['action'] === 'add_manual_package') {
         $stmt = $pdo->prepare("INSERT INTO utility_packages (category, provider, service_id, package_id, name, api_price, user_price) VALUES (?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
@@ -87,39 +72,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $pdo->prepare("UPDATE utility_packages SET api_discount = ?, user_discount = ?, user_price = ? WHERE id = ?");
         $stmt->execute([$apiDisc, $userDisc, $userPrice, $id]);
         $success = "Package updated!";
+    } elseif (isset($_POST['action']) && $_POST['action'] === 'save_settings') {
+        $utilSettings = [
+            'vtpass' => [
+                'apiKey' => $_POST['vt_apiKey'],
+                'secretKey' => $_POST['vt_secretKey'],
+                'publicKey' => $_POST['vt_publicKey'],
+                'username' => $_POST['vt_username'],
+                'password' => $_POST['vt_password']
+            ],
+            'nellobyte' => [
+                'userId' => $_POST['nb_userId'],
+                'apiKey' => $_POST['nb_apiKey']
+            ],
+            'routing' => [
+                'cable' => $_POST['route_cable'],
+                'electric' => $_POST['route_electric'],
+                'betting' => $_POST['route_betting'],
+                'exam' => $_POST['route_exam']
+            ]
+        ];
+
+        $stmt = $pdo->prepare("UPDATE settings SET utilitySettings = ? WHERE id = 1");
+        $stmt->execute([json_encode($utilSettings)]);
+
+        // Update NR API key which is in otherApiSettings
+        $os = $settings['otherApiSettings'] ?? [];
+        if (is_string($os)) $os = json_decode($os, true) ?: [];
+        $os['naijaresultpins']['apiKey'] = $_POST['nr_apiKey'];
+        $stmt = $pdo->prepare("UPDATE settings SET otherApiSettings = ? WHERE id = 1");
+        $stmt->execute([json_encode($os)]);
+
+        $success = "Utility settings updated!";
     }
-
-    $utilSettings = [
-        'vtpass' => [
-            'apiKey' => $_POST['vt_apiKey'],
-            'secretKey' => $_POST['vt_secretKey'],
-            'publicKey' => $_POST['vt_publicKey'],
-            'username' => $_POST['vt_username'],
-            'password' => $_POST['vt_password']
-        ],
-        'nellobyte' => [
-            'userId' => $_POST['nb_userId'],
-            'apiKey' => $_POST['nb_apiKey']
-        ],
-        'routing' => [
-            'cable' => $_POST['route_cable'],
-            'electric' => $_POST['route_electric'],
-            'betting' => $_POST['route_betting'],
-            'exam' => $_POST['route_exam']
-        ]
-    ];
-
-    $stmt = $pdo->prepare("UPDATE settings SET utilitySettings = ? WHERE id = 1");
-    $stmt->execute([json_encode($utilSettings)]);
-
-    // Update NR API key which is in otherApiSettings
-    $os = $settings['otherApiSettings'] ?? [];
-    if (is_string($os)) $os = json_decode($os, true) ?: [];
-    $os['naijaresultpins']['apiKey'] = $_POST['nr_apiKey'];
-    $stmt = $pdo->prepare("UPDATE settings SET otherApiSettings = ? WHERE id = 1");
-    $stmt->execute([json_encode($os)]);
-
-    $success = "Utility settings updated!";
     $settings = fetchSettings($pdo);
 }
 
@@ -231,6 +216,9 @@ require_once __DIR__ . '/header.php';
                     <select name="route_<?php echo $key; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
                         <option value="vtpass" <?php echo ($us['routing'][$key] ?? '') === 'vtpass' ? 'selected' : ''; ?>>VTPass</option>
                         <option value="nellobyte" <?php echo ($us['routing'][$key] ?? '') === 'nellobyte' ? 'selected' : ''; ?>>Nellobyte</option>
+                        <?php if($key === 'exam'): ?>
+                        <option value="naijaresultpins" <?php echo ($us['routing'][$key] ?? '') === 'naijaresultpins' ? 'selected' : ''; ?>>NaijaResultPins</option>
+                        <?php endif; ?>
                     </select>
                 </div>
                 <?php endforeach; ?>
@@ -238,118 +226,95 @@ require_once __DIR__ . '/header.php';
         </div>
 
         <input type="hidden" name="provider" value="">
-        <button type="submit" class="w-full bg-gray-900 text-white py-5 rounded-[32px] font-black uppercase shadow-xl hover:bg-black transition-all">Save Utility Configuration</button>
+        <button type="submit" name="action" value="save_settings" class="w-full bg-gray-900 text-white py-5 rounded-[32px] font-black uppercase shadow-xl hover:bg-black transition-all">Save Utility Configuration</button>
     </form>
 
-    <!-- Package Manager -->
-    <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100 mt-10">
-        <h3 class="text-sm font-black uppercase tracking-widest mb-8 flex items-center gap-3"><i data-lucide="package" class="text-orange-500"></i> Utility Package Manager</h3>
+    <?php
+    $categories = [
+        ['id' => 'cable', 'name' => 'Cable TV', 'icon' => 'tv', 'color' => 'text-blue-500'],
+        ['id' => 'electric', 'name' => 'Electricity', 'icon' => 'zap', 'color' => 'text-orange-500'],
+        ['id' => 'exam', 'name' => 'Exam PINs', 'icon' => 'graduation-cap', 'color' => 'text-indigo-500'],
+        ['id' => 'betting', 'name' => 'Betting', 'icon' => 'target', 'color' => 'text-emerald-500']
+    ];
 
-        <!-- Fetch Tools -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-            <form method="POST" class="bg-gray-50 p-6 rounded-[32px] border border-gray-100 space-y-4">
-                <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
-                <input type="hidden" name="action" value="fetch_packages">
-                <label class="text-[9px] font-black text-gray-400 uppercase">VTPass Fetch</label>
-                <select name="category" class="w-full p-3 bg-white rounded-xl font-bold outline-none text-xs">
-                    <option value="cable">Cable TV</option>
-                    <option value="electric">Electricity</option>
-                    <option value="exam">Exams</option>
-                </select>
-                <select name="service_id" class="w-full p-3 bg-white rounded-xl font-bold outline-none text-xs">
-                    <optgroup label="Cable">
-                        <option value="dstv">DSTV</option>
-                        <option value="gotv">GOTV</option>
-                        <option value="startimes">Startimes</option>
-                    </optgroup>
-                    <optgroup label="Electric">
-                        <option value="ikeja-electric">Ikeja Electric</option>
-                        <option value="eko-electric">Eko Electric</option>
-                        <option value="abuja-electric">Abuja Electric</option>
-                        <option value="enugu-electric">Enugu Electric</option>
-                        <option value="ibadan-electric">Ibadan Electric</option>
-                    </optgroup>
-                    <optgroup label="Exams">
-                        <option value="waec">WAEC</option>
-                        <option value="neco">NECO</option>
-                        <option value="jamb">JAMB</option>
-                    </optgroup>
-                </select>
-                <button type="submit" class="w-full py-3 bg-billpay-green text-white rounded-xl font-black uppercase text-[9px]">Fetch VTPass</button>
-            </form>
+    foreach ($categories as $cat):
+    ?>
+    <!-- <?php echo $cat['name']; ?> Manager -->
+    <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100 mt-10 space-y-8">
+        <div class="flex items-center justify-between">
+            <h3 class="text-sm font-black uppercase tracking-widest flex items-center gap-3">
+                <i data-lucide="<?php echo $cat['icon']; ?>" class="<?php echo $cat['color']; ?>"></i> <?php echo $cat['name']; ?> Hub
+            </h3>
 
-            <form method="POST" class="bg-gray-50 p-6 rounded-[32px] border border-gray-100 flex flex-col justify-between">
-                <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
-                <input type="hidden" name="action" value="fetch_betting">
-                <div>
-                    <label class="text-[9px] font-black text-gray-400 uppercase">Nellobyte Fetch</label>
-                    <p class="text-[8px] text-gray-400 mt-2 uppercase">Fetch all betting providers currently available on Nellobyte.</p>
-                </div>
-                <button type="submit" class="w-full py-4 bg-orange-500 text-white rounded-xl font-black uppercase text-[9px]">Fetch Betting</button>
-            </form>
+            <div class="flex items-center gap-3">
+                <?php if ($cat['id'] === 'cable' || $cat['id'] === 'electric' || $cat['id'] === 'exam'): ?>
+                <form method="POST" class="flex items-center gap-2">
+                    <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                    <input type="hidden" name="action" value="fetch_packages">
+                    <input type="hidden" name="category" value="<?php echo $cat['id']; ?>">
+                    <select name="service_id" class="p-2 bg-gray-50 rounded-lg font-bold outline-none text-[10px] border border-gray-100">
+                        <?php if($cat['id'] === 'cable'): ?>
+                            <option value="dstv">DSTV</option><option value="gotv">GOTV</option><option value="startimes">Startimes</option><option value="showmax">Showmax</option>
+                        <?php elseif($cat['id'] === 'electric'): ?>
+                            <option value="ikeja-electric">Ikeja</option><option value="eko-electric">Eko</option><option value="abuja-electric">Abuja</option><option value="kano-electric">Kano</option><option value="enugu-electric">Enugu</option><option value="ibadan-electric">Ibadan</option><option value="portharcourt-electric">Port Harcourt</option><option value="jos-electric">Jos</option><option value="kaduna-electric">Kaduna</option><option value="benin-electric">Benin</option><option value="yola-electric">Yola</option>
+                        <?php elseif($cat['id'] === 'exam'): ?>
+                            <option value="waec">WAEC</option><option value="neco">NECO</option><option value="jamb">JAMB</option><option value="waec-registration">WAEC Reg</option><option value="nabteb">NABTEB</option>
+                        <?php endif; ?>
+                    </select>
+                    <button type="submit" class="px-4 py-2 bg-billpay-green text-white rounded-lg font-black uppercase text-[8px] whitespace-nowrap">Fetch VTPass</button>
+                </form>
+                <?php endif; ?>
 
-            <form method="POST" class="bg-gray-50 p-6 rounded-[32px] border border-gray-100 flex flex-col justify-between">
-                <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
-                <input type="hidden" name="action" value="fetch_exams_nr">
-                <div>
-                    <label class="text-[9px] font-black text-gray-400 uppercase">NaijaResultPins Fetch</label>
-                    <p class="text-[8px] text-gray-400 mt-2 uppercase">Fetch all available exam tokens and prices.</p>
-                </div>
-                <button type="submit" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-black uppercase text-[9px]">Fetch Exams (NR)</button>
-            </form>
+                <?php if ($cat['id'] === 'exam'): ?>
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                    <input type="hidden" name="action" value="fetch_exams_nr">
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg font-black uppercase text-[8px] whitespace-nowrap">Fetch NR</button>
+                </form>
+                <?php endif; ?>
 
-            <div class="bg-blue-600 p-6 rounded-[32px] text-white flex flex-col justify-center text-center">
-                <div class="text-[10px] font-black uppercase mb-1">Live Profit</div>
-                <div class="text-2xl font-black">
-                    <?php
-                    $stmt = $pdo->query("SELECT COUNT(*) FROM utility_packages WHERE enabled = 1");
-                    echo $stmt->fetchColumn();
-                    ?>
-                </div>
-                <div class="text-[8px] font-bold uppercase opacity-60">Active Packages</div>
+                <?php if ($cat['id'] === 'betting'): ?>
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                    <input type="hidden" name="action" value="fetch_betting">
+                    <button type="submit" class="px-4 py-2 bg-orange-500 text-white rounded-lg font-black uppercase text-[8px] whitespace-nowrap">Fetch Nellobyte</button>
+                </form>
+                <?php endif; ?>
             </div>
         </div>
 
-        <!-- Manual Add Form -->
-        <div class="bg-white p-8 rounded-[32px] border-2 border-dashed border-gray-100 mb-10">
-            <h4 class="text-[10px] font-black uppercase text-gray-400 mb-6">Add Manual Package</h4>
-            <form method="POST" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 items-end">
+        <!-- Manual Add form for this category -->
+        <div class="bg-gray-50 p-6 rounded-[32px] border border-gray-100">
+            <h4 class="text-[9px] font-black uppercase text-gray-400 mb-4 ml-1">Add Manual <?php echo $cat['name']; ?></h4>
+            <form method="POST" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 items-end">
                 <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                 <input type="hidden" name="action" value="add_manual_package">
+                <input type="hidden" name="cat" value="<?php echo $cat['id']; ?>">
                 <div>
-                    <label class="text-[8px] font-black text-gray-400 uppercase">Category</label>
-                    <select name="cat" class="w-full p-3 bg-gray-50 rounded-xl font-bold mt-1 outline-none text-xs">
-                        <option value="cable">Cable</option>
-                        <option value="electric">Electric</option>
-                        <option value="betting">Betting</option>
-                        <option value="exam">Exam</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="text-[8px] font-black text-gray-400 uppercase">Provider (Gateway)</label>
-                    <input type="text" name="prov" placeholder="e.g. vtpass" required class="w-full p-3 bg-gray-50 rounded-xl font-bold mt-1 outline-none text-xs">
+                    <label class="text-[8px] font-black text-gray-400 uppercase">Gateway</label>
+                    <input type="text" name="prov" placeholder="vtpass" required class="w-full p-3 bg-white rounded-xl font-bold mt-1 outline-none text-[10px]">
                 </div>
                 <div>
                     <label class="text-[8px] font-black text-gray-400 uppercase">Service ID</label>
-                    <input type="text" name="sid" placeholder="e.g. dstv" required class="w-full p-3 bg-gray-50 rounded-xl font-bold mt-1 outline-none text-xs">
+                    <input type="text" name="sid" placeholder="dstv" required class="w-full p-3 bg-white rounded-xl font-bold mt-1 outline-none text-[10px]">
                 </div>
                 <div>
-                    <label class="text-[8px] font-black text-gray-400 uppercase">Package ID (Code)</label>
-                    <input type="text" name="pid" placeholder="Code" required class="w-full p-3 bg-gray-50 rounded-xl font-bold mt-1 outline-none text-xs">
+                    <label class="text-[8px] font-black text-gray-400 uppercase">Package Code</label>
+                    <input type="text" name="pid" placeholder="p-1" required class="w-full p-3 bg-white rounded-xl font-bold mt-1 outline-none text-[10px]">
                 </div>
                 <div>
-                    <label class="text-[8px] font-black text-gray-400 uppercase">Name</label>
-                    <input type="text" name="name" placeholder="Display Name" required class="w-full p-3 bg-gray-50 rounded-xl font-bold mt-1 outline-none text-xs">
+                    <label class="text-[8px] font-black text-gray-400 uppercase">Display Name</label>
+                    <input type="text" name="name" placeholder="Name" required class="w-full p-3 bg-white rounded-xl font-bold mt-1 outline-none text-[10px]">
                 </div>
                 <div>
-                    <label class="text-[8px] font-black text-gray-400 uppercase">API Price</label>
-                    <input type="number" step="0.01" name="api_p" value="0" class="w-full p-3 bg-gray-50 rounded-xl font-bold mt-1 outline-none text-xs">
+                    <label class="text-[8px] font-black text-gray-400 uppercase">API Cost</label>
+                    <input type="number" step="0.01" name="api_p" value="0" class="w-full p-3 bg-white rounded-xl font-bold mt-1 outline-none text-[10px]">
                 </div>
                 <div>
                     <label class="text-[8px] font-black text-gray-400 uppercase">User Price</label>
-                    <input type="number" step="0.01" name="user_p" value="0" class="w-full p-3 bg-gray-50 rounded-xl font-bold mt-1 outline-none text-xs">
+                    <input type="number" step="0.01" name="user_p" value="0" class="w-full p-3 bg-white rounded-xl font-bold mt-1 outline-none text-[10px]">
                 </div>
-                <button type="submit" class="bg-gray-900 text-white py-3 rounded-xl font-black uppercase text-[10px]">Add</button>
+                <button type="submit" class="bg-gray-900 text-white py-3 rounded-xl font-black uppercase text-[10px]">Add Package</button>
             </form>
         </div>
 
@@ -357,20 +322,23 @@ require_once __DIR__ . '/header.php';
             <table class="w-full text-left">
                 <thead>
                     <tr class="text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">
-                        <th class="pb-6">Category</th>
-                        <th class="pb-6">Provider/Name</th>
-                        <th class="pb-6">API Price</th>
-                        <th class="pb-6">API Disc (%)</th>
-                        <th class="pb-6">User Price</th>
-                        <th class="pb-6">User Disc (%)</th>
-                        <th class="pb-6">Profit</th>
-                        <th class="pb-6 text-right">Action</th>
+                        <th class="pb-4">Provider Info</th>
+                        <th class="pb-4">Package ID</th>
+                        <th class="pb-4">API Price</th>
+                        <th class="pb-4">API Disc</th>
+                        <th class="pb-4">User Price</th>
+                        <th class="pb-4">User Disc</th>
+                        <th class="pb-4">Profit</th>
+                        <th class="pb-4 text-right">Action</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-50">
                     <?php
-                    $stmt = $pdo->query("SELECT * FROM utility_packages ORDER BY category, provider, name");
+                    $stmt = $pdo->prepare("SELECT * FROM utility_packages WHERE category = ? ORDER BY provider, name");
+                    $stmt->execute([$cat['id']]);
+                    $pkgCount = 0;
                     while ($p = $stmt->fetch()):
+                        $pkgCount++;
                         $apiCost = $p['api_price'] * (1 - $p['api_discount'] / 100);
                         $sellingPrice = $p['user_price'] * (1 - $p['user_discount'] / 100);
                         $profitVal = $sellingPrice - $apiCost;
@@ -380,27 +348,28 @@ require_once __DIR__ . '/header.php';
                         <input type="hidden" name="action" value="update_package">
                         <input type="hidden" name="package_id" value="<?php echo $p['id']; ?>">
                         <tr>
-                            <td class="py-6 font-black text-[10px] uppercase text-gray-400"><?php echo $p['category']; ?></td>
-                            <td class="py-6">
-                                <div class="font-black text-xs uppercase"><?php echo $p['provider']; ?> <span class="text-[8px] opacity-40"><?php echo $p['package_id']; ?></span></div>
+                            <td class="py-4">
+                                <div class="font-black text-xs uppercase"><?php echo $p['provider']; ?></div>
                                 <div class="text-[10px] font-bold text-gray-400"><?php echo $p['name']; ?></div>
                             </td>
-                            <td class="py-6 font-black text-xs">₦<?php echo number_format($p['api_price'], 2); ?></td>
-                            <td class="py-6"><input type="number" step="0.01" name="api_discount" value="<?php echo $p['api_discount']; ?>" class="w-16 p-2 bg-gray-50 rounded-lg text-[10px] font-black outline-none"></td>
-                            <td class="py-6"><input type="number" step="0.01" name="user_price" value="<?php echo $p['user_price']; ?>" class="w-24 p-2 bg-gray-50 rounded-lg text-[10px] font-black outline-none"></td>
-                            <td class="py-6"><input type="number" step="0.01" name="user_discount" value="<?php echo $p['user_discount']; ?>" class="w-16 p-2 bg-gray-50 rounded-lg text-[10px] font-black outline-none"></td>
-                            <td class="py-6"><span class="px-2 py-1 <?php echo $profitVal >= 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'; ?> text-[9px] font-black rounded-md">₦<?php echo number_format($profitVal, 2); ?></span></td>
-                            <td class="py-6 text-right space-x-2 flex items-center justify-end">
+                            <td class="py-4 font-mono text-[10px]"><?php echo $p['package_id']; ?></td>
+                            <td class="py-4 font-black text-xs">₦<?php echo number_format($p['api_price'], 2); ?></td>
+                            <td class="py-4"><input type="number" step="0.01" name="api_discount" value="<?php echo $p['api_discount']; ?>" class="w-16 p-2 bg-gray-50 rounded-lg text-[10px] font-black outline-none"></td>
+                            <td class="py-4"><input type="number" step="0.01" name="user_price" value="<?php echo $p['user_price']; ?>" class="w-24 p-2 bg-gray-50 rounded-lg text-[10px] font-black outline-none"></td>
+                            <td class="py-4"><input type="number" step="0.01" name="user_discount" value="<?php echo $p['user_discount']; ?>" class="w-16 p-2 bg-gray-50 rounded-lg text-[10px] font-black outline-none"></td>
+                            <td class="py-4"><span class="px-2 py-1 <?php echo $profitVal >= 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'; ?> text-[9px] font-black rounded-md">₦<?php echo number_format($profitVal, 2); ?></span></td>
+                            <td class="py-4 text-right space-x-2 flex items-center justify-end">
                                 <button type="submit" class="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-[8px] font-black uppercase">Save</button>
                                 <button type="submit" name="action" value="delete_package" onclick="return confirm('Delete?')" class="text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                             </td>
                         </tr>
                     </form>
-                    <?php endwhile; ?>
+                    <?php endwhile; if($pkgCount === 0) echo '<tr><td colspan="8" class="py-10 text-center text-[10px] font-black text-gray-300 uppercase tracking-widest">No packages found for this hub</td></tr>'; ?>
                 </tbody>
             </table>
         </div>
     </div>
+    <?php endforeach; ?>
 </div>
 
 <?php require_once __DIR__ . '/footer.php'; ?>

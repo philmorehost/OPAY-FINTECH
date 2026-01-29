@@ -107,6 +107,9 @@ if ($currentStep === 'email' && !isset($_SESSION['email_2fa_code'])) {
             </div>
             <h2 class="text-xl font-black uppercase tracking-tight">Security Check</h2>
             <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Step <?php echo $_SESSION['mfa_step_idx'] + 1; ?> of <?php echo count($requiredSteps); ?></p>
+            <?php if ($currentStep === 'biometric'): ?>
+                <p class="text-[8px] font-black text-red-500 uppercase mt-2 bg-red-50 p-2 rounded-lg border border-red-100">Warning: Biometric logic is currently in Demo Mode (Simplified ID Match).</p>
+            <?php endif; ?>
         </div>
 
         <?php if ($error): ?>

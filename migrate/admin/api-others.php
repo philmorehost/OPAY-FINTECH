@@ -14,23 +14,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         else $error = "Test Failed: " . $testRes['message'];
     }
 
-    $otherSettings = [
-        'kudisms' => [
-            'token' => $_POST['ks_token'],
-            'sender' => $_POST['ks_sender']
-        ],
-        'reloadly' => [
-            'clientId' => $_POST['rl_clientId'],
-            'clientSecret' => $_POST['rl_clientSecret']
-        ],
-        'coingecko' => [
-            'apiKey' => $_POST['cg_apiKey']
-        ],
-        'simulationMode' => isset($_POST['simulationMode']) ? 1 : 0
+    $os = $settings['otherApiSettings'] ?? [];
+    if (is_string($os)) $os = json_decode($os, true) ?: [];
+
+    $os['kudisms'] = [
+        'token' => $_POST['ks_token'],
+        'sender' => $_POST['ks_sender']
     ];
+    $os['reloadly'] = [
+        'clientId' => $_POST['rl_clientId'],
+        'clientSecret' => $_POST['rl_clientSecret']
+    ];
+    $os['coingecko'] = [
+        'apiKey' => $_POST['cg_apiKey']
+    ];
+    $os['simulationMode'] = isset($_POST['simulationMode']) ? 1 : 0;
 
     $stmt = $pdo->prepare("UPDATE settings SET otherApiSettings = ? WHERE id = 1");
-    $stmt->execute([json_encode($otherSettings)]);
+    $stmt->execute([json_encode($os)]);
     $success = "Other API settings updated!";
     $settings = fetchSettings($pdo);
 }

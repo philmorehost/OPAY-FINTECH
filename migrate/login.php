@@ -162,7 +162,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </button>
                 <div>
                     <p class="text-[10px] font-black text-gray-900 uppercase tracking-widest mb-1" id="biometric-user-text">Continue as User</p>
-                    <p class="text-[9px] font-bold text-gray-400 uppercase">Touch ID / Face ID</p>
+                    <p class="text-[9px] font-bold text-gray-400 uppercase">Touch ID / Face ID (Demo)</p>
                 </div>
             </div>
 
