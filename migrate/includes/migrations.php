@@ -138,6 +138,21 @@ try {
         INDEX (userId)
     )");
 
+    // Data Plans Table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS data_plans (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        network VARCHAR(50),
+        plan_id VARCHAR(50),
+        name VARCHAR(100),
+        data_size VARCHAR(50),
+        api_price DECIMAL(10,2),
+        user_price DECIMAL(10,2),
+        duration VARCHAR(50),
+        gateway VARCHAR(50),
+        type VARCHAR(50) DEFAULT 'sme',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )");
+
 } catch (PDOException $e) {
     // Silent fail
 }

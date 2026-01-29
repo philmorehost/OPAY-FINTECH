@@ -735,14 +735,13 @@ require_once __DIR__ . '/includes/header.php';
             .then(r => r.json())
             .then(res => {
                 btn.disabled = false;
-                if (res.status === 'success' || res.status === true || res.id || res.data) {
+                if (res.status === 'success' || res.status === true || res.id || res.data || res.quote_id) {
                     const data = res.data || res;
-                    // Handle minor units if returned as such (usually 100x larger than input)
-                    let targetAmount = data.target_amount || (amount * (data.rate || 1));
-                    if (targetAmount > (amount * (data.rate || 1)) * 50) targetAmount /= 100; // Heuristic fix for minor units
+                    // Explicit Unit Handling: JuicyWay returns values in minor units (kobo/cents)
+                    let targetAmount = (data.target_amount !== undefined) ? (data.target_amount / 100) : (amount * (data.rate || 1));
 
                     document.getElementById('toAmountDisplay').innerText = targetAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                    document.getElementById('quoteId').value = data.id;
+                    document.getElementById('quoteId').value = data.id || data.quote_id || data.reference;
 
                     // Display Rate
                     const rate = data.rate || (targetAmount / amount);
@@ -782,8 +781,7 @@ require_once __DIR__ . '/includes/header.php';
                                 .then(r => r.json())
                                 .then(refresh => {
                                     const rData = refresh.data || refresh;
-                                    let rTarget = rData.target_amount || (amount * (rData.rate || 1));
-                                    if (rTarget > (amount * (rData.rate || 1)) * 50) rTarget /= 100;
+                                    let rTarget = (rData.target_amount !== undefined) ? (rData.target_amount / 100) : (amount * (rData.rate || 1));
 
                                     const rRate = rData.rate || (rTarget / amount);
                                     document.getElementById('liveRateText').innerText = `Rate: 1 ${from} ~ ${rRate.toFixed(4)} ${to}`;

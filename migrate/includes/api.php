@@ -154,19 +154,26 @@ function testAirtimeConnection($pdo, $provider) {
     switch ($provider) {
         case 'datagifting':
             $res = callApi("https://v6.datagifting.com.ng/web/api/user.php?api_key=" . ($creds['apiKey'] ?? ''));
-            if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => 'Connected! Balance: ' . ($res['wallet'] ?? $res['balance'] ?? 'N/A')];
-            if (isset($res['status']) && $res['status'] === 'fail') return ['status' => 'error', 'message' => $res['msg'] ?? 'Auth Failed'];
-            break;
+            if (is_array($res)) {
+                if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => 'Connected! Balance: ' . ($res['wallet'] ?? $res['balance'] ?? 'N/A')];
+                if (isset($res['status']) && $res['status'] === 'fail') return ['status' => 'error', 'message' => $res['msg'] ?? 'Auth Failed'];
+            }
+            return ['status' => 'error', 'message' => 'Connection Failed: ' . print_r($res, true)];
         case 'nellobyte':
             $res = callApi("https://www.nellobytesystems.com/APIWalletV1.asp?UserID=" . ($creds['userId'] ?? '') . "&APIKey=" . ($creds['apiKey'] ?? ''));
-            if (isset($res['status']) && strpos($res['status'], 'SUCCESS') !== false) return ['status' => 'success', 'message' => 'Connected! Balance: ' . ($res['balance'] ?? 'N/A')];
-            if (isset($res['walletbalance'])) return ['status' => 'success', 'message' => 'Connected! Balance: ' . $res['walletbalance']];
-            break;
+            if (is_array($res)) {
+                if (isset($res['status']) && strpos($res['status'], 'SUCCESS') !== false) return ['status' => 'success', 'message' => 'Connected! Balance: ' . ($res['balance'] ?? 'N/A')];
+                if (isset($res['walletbalance'])) return ['status' => 'success', 'message' => 'Connected! Balance: ' . $res['walletbalance']];
+                if (isset($res['status'])) return ['status' => 'error', 'message' => $res['status']];
+            }
+            return ['status' => 'error', 'message' => 'Connection Failed: ' . print_r($res, true)];
         case 'datastation':
             $res = callApi("https://datastationapi.com/api/user/", 'GET', [], ["Authorization: Token " . ($creds['token'] ?? '')]);
-            if (isset($res['user']['wallet_balance'])) return ['status' => 'success', 'message' => 'Connected! Balance: ' . $res['user']['wallet_balance']];
-            if (isset($res['wallet_balance'])) return ['status' => 'success', 'message' => 'Connected! Balance: ' . $res['wallet_balance']];
-            break;
+            if (is_array($res)) {
+                if (isset($res['user']['wallet_balance'])) return ['status' => 'success', 'message' => 'Connected! Balance: ' . $res['user']['wallet_balance']];
+                if (isset($res['wallet_balance'])) return ['status' => 'success', 'message' => 'Connected! Balance: ' . $res['wallet_balance']];
+            }
+            return ['status' => 'error', 'message' => 'Connection Failed: ' . print_r($res, true)];
         case 'vtpass':
             $headers = ["Content-Type: application/json"];
             if (!empty($creds['username']) && !empty($creds['password'])) {
@@ -175,12 +182,15 @@ function testAirtimeConnection($pdo, $provider) {
                 $headers[] = "api-key: " . $creds['apiKey'];
                 $headers[] = "public-key: " . ($creds['publicKey'] ?? '');
             }
-            $url = (!empty($creds['sandbox'])) ? "https://sandbox.vtpass.com/api/balance" : "https://vtpass.com/api/balance";
+            $url = (!empty($creds['sandbox'])) ? "https://sandbox.vtpass.com/api/balance" : "https://api-service.vtpass.com/api/balance";
             $res = callApi($url, 'GET', [], $headers);
-            if (isset($res['code']) && $res['code'] === '000') return ['status' => 'success', 'message' => 'Connected! Balance: ' . ($res['contents']['balance'] ?? 'N/A')];
-            return ['status' => 'error', 'message' => $res['response_description'] ?? 'Auth Failed'];
+            if (is_array($res)) {
+                if (isset($res['code']) && $res['code'] === '000') return ['status' => 'success', 'message' => 'Connected! Balance: ' . ($res['contents']['balance'] ?? 'N/A')];
+                return ['status' => 'error', 'message' => $res['response_description'] ?? 'Auth Failed'];
+            }
+            return ['status' => 'error', 'message' => 'Connection Failed: ' . print_r($res, true)];
     }
-    return ['status' => 'error', 'message' => 'Connection failed or provider not supported for test'];
+    return ['status' => 'error', 'message' => 'Provider not supported for test'];
 }
 }
 
@@ -200,10 +210,15 @@ function purchaseData($pdo, $network, $planId, $phone) {
             $res = callApi("https://nellobytesystems.com/api/data?userid=" . ($creds['userId'] ?? '') . "&apikey=" . ($creds['apiKey'] ?? '') . "&network=$netCode&plan=$planId&phone=$phone");
             if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
             return ['status' => 'failed', 'message' => $res['msg'] ?? 'Provider Error'];
-        case 'hdkdata':
-            $res = callApi("https://hdkdata.com/api/data?api_key=" . ($creds['apiKey'] ?? '') . "&network=$netCode&plan=$planId&phone=$phone");
-            if (isset($res['status']) && ($res['status'] === 'success' || $res['status'] === true)) return ['status' => 'success', 'message' => $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
-            return ['status' => 'failed', 'message' => $res['msg'] ?? 'Provider Error'];
+        case 'datastation':
+            $res = callApi("https://datastationapi.com/api/data/", 'POST', [
+                'network' => $netCode,
+                'plan' => $planId,
+                'mobile_number' => $phone,
+                'Ported_number' => true
+            ], ["Authorization: Token " . ($creds['token'] ?? '')]);
+            if (empty($res) || (isset($res['Status']) && $res['Status'] === 'successful')) return ['status' => 'success', 'message' => 'Successful', 'ref' => uniqid()];
+            return ['status' => 'failed', 'message' => 'Provider Error'];
     }
     return ['status' => 'failed', 'message' => 'No provider'];
 }
@@ -346,20 +361,23 @@ function juicywayGetQuote($pdo, $amount, $from, $to) {
     $from = strtoupper($from);
     $to = strtoupper($to);
     $minorAmount = (int)($amount * 100);
-    // JuicyWay quote API usually expects amount as a query parameter
-    return callJuicyWay($pdo, "exchange/quote?source_currency=$from&target_currency=$to&amount=$minorAmount&lock=true", 'GET');
+    // Adding multiple variations of amount for maximum compatibility
+    $url = "exchange/quote?source_currency=$from&target_currency=$to&amount=$minorAmount&source_amount=$minorAmount&lock=true";
+    return callJuicyWay($pdo, $url, 'GET');
 }
 }
 
 if (!function_exists('juicywaySwap')) {
 function juicywaySwap($pdo, $amount, $from, $to, $quoteId = null) {
-    if ($quoteId) {
+    if (!empty($quoteId) && $quoteId !== 'null' && $quoteId !== 'undefined') {
         // If quote_id is provided, the API often rejects redundant amount/currency fields
         $data = ['quote_id' => $quoteId];
     } else {
         $minorAmount = (int)($amount * 100);
+        // If amount is unknown, try source_amount. If both unknown, try value.
+        // Reverting to sending ONLY what is absolutely necessary.
         $data = [
-            'amount' => $minorAmount,
+            'source_amount' => $minorAmount,
             'source_currency' => strtoupper($from),
             'target_currency' => strtoupper($to)
         ];

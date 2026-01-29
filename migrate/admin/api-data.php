@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'providers' => [
             'datagifting' => ['apiKey' => $_POST['dg_apiKey']],
             'nellobyte' => ['userId' => $_POST['nb_userId'], 'apiKey' => $_POST['nb_apiKey']],
-            'hdkdata' => ['token' => $_POST['hdk_token']]
+            'datastation' => ['token' => $_POST['ds_token']]
         ],
         'routing' => [
             'MTN' => $_POST['route_mtn'],
@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'providers' => [
                 'datagifting' => ['apiKey' => $_POST['dg_apiKey']],
                 'nellobyte' => ['userId' => $_POST['nb_userId'], 'apiKey' => $_POST['nb_apiKey']],
-                'hdkdata' => ['apiKey' => $_POST['hdk_apiKey']]
+                'datastation' => ['token' => $_POST['ds_token']]
             ],
             'routing' => [
                 'MTN' => $_POST['route_mtn'],
@@ -73,7 +73,7 @@ if (is_string($ds)) $ds = json_decode($ds, true) ?: [];
 
 if (empty($ds)) {
     $ds = [
-        'providers' => ['datagifting' => ['apiKey' => ''], 'nellobyte' => ['userId' => '', 'apiKey' => ''], 'hdkdata' => ['token' => '']],
+        'providers' => ['datagifting' => ['apiKey' => ''], 'nellobyte' => ['userId' => '', 'apiKey' => ''], 'datastation' => ['token' => '']],
         'routing' => ['MTN' => 'datagifting', 'Airtel' => 'datagifting', 'Glo' => 'datagifting', '9mobile' => 'datagifting']
     ];
 }
@@ -119,10 +119,10 @@ require_once __DIR__ . '/header.php';
 
             <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
                 <h3 class="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-3 text-blue-600">
-                    <i data-lucide="key" class="w-5 h-5"></i> HDKData (3)
+                    <i data-lucide="key" class="w-5 h-5"></i> Datastationapi (3)
                 </h3>
-                <label class="text-[10px] font-black text-gray-400 uppercase ml-1">API Key</label>
-                <input type="password" name="hdk_apiKey" value="<?php echo $ds['providers']['hdkdata']['apiKey'] ?? $ds['providers']['hdkdata']['token'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
+                <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Token</label>
+                <input type="password" name="ds_token" value="<?php echo $ds['providers']['datastation']['token'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
             </div>
         </div>
 
@@ -138,7 +138,7 @@ require_once __DIR__ . '/header.php';
                     <select name="route_<?php echo strtolower($net); ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
                         <option value="datagifting" <?php echo ($ds['routing'][$net] ?? '') === 'datagifting' ? 'selected' : ''; ?>>DataGifting</option>
                         <option value="nellobyte" <?php echo ($ds['routing'][$net] ?? '') === 'nellobyte' ? 'selected' : ''; ?>>Nellobyte</option>
-                        <option value="hdkdata" <?php echo ($ds['routing'][$net] ?? '') === 'hdkdata' ? 'selected' : ''; ?>>HDKData</option>
+                        <option value="datastation" <?php echo ($ds['routing'][$net] ?? '') === 'datastation' ? 'selected' : ''; ?>>Datastationapi</option>
                     </select>
                 </div>
                 <?php endforeach; ?>

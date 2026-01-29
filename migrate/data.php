@@ -17,11 +17,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $planId = $_POST['planId'];
     $networkName = sanitize($_POST['networkName']);
 
-    $selectedPlan = null;
-    $allPlans = $settings['dataProducts'] ?? [];
-    if (is_string($allPlans)) $allPlans = json_decode($allPlans, true) ?: [];
-    foreach ($allPlans as $p) {
-        if ($p['id'] == $planId) { $selectedPlan = $p; break; }
+    $stmt = $pdo->prepare("SELECT * FROM data_plans WHERE id = ?");
+    $stmt->execute([$planId]);
+    $selectedPlan = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($selectedPlan) {
+        $selectedPlan['userPrice'] = $selectedPlan['user_price'];
+        $selectedPlan['apiPrice'] = $selectedPlan['api_price'];
+        $selectedPlan['size'] = $selectedPlan['data_size'];
+        $selectedPlan['apiCode'] = $selectedPlan['plan_id'];
     }
 
     $recipients = [];
@@ -167,7 +170,16 @@ require_once __DIR__ . '/includes/header.php';
 <?php endif; ?>
 
 <script>
-    const allPlans = <?php echo json_encode($allPlans); ?>;
+    <?php
+    $allPlansStmt = $pdo->query("SELECT * FROM data_plans ORDER BY network ASC, user_price ASC");
+    $allPlansRaw = $allPlansStmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($allPlansRaw as &$p) {
+        $p['size'] = $p['data_size'];
+        $p['userPrice'] = $p['user_price'];
+        $p['enabled'] = true;
+    }
+    ?>
+    const allPlans = <?php echo json_encode($allPlansRaw); ?>;
     function setBulk(isBulk) {
         document.getElementById('isBulkInput').value = isBulk;
         document.getElementById('singlePhoneGroup').classList.toggle('hidden', isBulk);
