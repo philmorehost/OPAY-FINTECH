@@ -114,8 +114,12 @@ function purchaseAirtime($pdo, $network, $amount, $phone) {
             $callbackUrl = (isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST]/webhook-nellobyte.php";
             $url = "https://www.nellobytesystems.com/APIAirtimeV1.asp?UserID=" . ($creds['userId'] ?? '') . "&APIKey=" . ($creds['apiKey'] ?? '') . "&MobileNetwork=$netCode&Amount=$amount&MobileNumber=$phone&RequestID=$requestId&CallBackURL=" . urlencode($callbackUrl);
             $res = callApi($url);
-            if (isset($res['status']) && ($res['status'] === 'ORDER_RECEIVED' || $res['status'] === 'ORDER_COMPLETED')) return ['status' => 'success', 'message' => 'Successful', 'ref' => $res['orderid'] ?? $requestId];
-            return ['status' => 'failed', 'message' => $res['status'] ?? 'Provider Error'];
+            if (is_array($res)) {
+                if (isset($res['status']) && ($res['status'] === 'ORDER_RECEIVED' || $res['status'] === 'ORDER_COMPLETED')) return ['status' => 'success', 'message' => 'Successful', 'ref' => $res['orderid'] ?? $requestId];
+                return ['status' => 'failed', 'message' => $res['status'] ?? $res['msg'] ?? 'Provider Error'];
+            }
+            if (is_string($res) && (strpos($res, 'ORDER_RECEIVED') !== false || strpos($res, 'ORDER_COMPLETED') !== false)) return ['status' => 'success', 'message' => 'Successful', 'ref' => $requestId];
+            return ['status' => 'failed', 'message' => is_string($res) ? $res : 'Provider Error'];
         case 'datastation':
             $res = callApi("https://datastationapi.com/api/topup/", 'POST', [
                 'network' => $netCode,
@@ -149,6 +153,39 @@ function testAirtimeConnection($pdo, $provider) {
     $settings = fetchSettings($pdo);
     $as = $settings['airtimeSettings'] ?? [];
     $creds = $as['providers'][$provider] ?? [];
+    return testGenericConnection($pdo, $provider, $creds);
+}
+}
+
+if (!function_exists('testDataConnection')) {
+function testDataConnection($pdo, $provider) {
+    $settings = fetchSettings($pdo);
+    $ds = $settings['dataSettings'] ?? [];
+    $creds = $ds['providers'][$provider] ?? [];
+    return testGenericConnection($pdo, $provider, $creds);
+}
+}
+
+if (!function_exists('testUtilityConnection')) {
+function testUtilityConnection($pdo, $provider) {
+    $settings = fetchSettings($pdo);
+    $us = $settings['utilitySettings'] ?? [];
+    $creds = $us[$provider] ?? [];
+    return testGenericConnection($pdo, $provider, $creds);
+}
+}
+
+if (!function_exists('testOtherConnection')) {
+function testOtherConnection($pdo, $provider) {
+    $settings = fetchSettings($pdo);
+    $os = $settings['otherApiSettings'] ?? [];
+    $creds = $os[$provider] ?? [];
+    return testGenericConnection($pdo, $provider, $creds);
+}
+}
+
+if (!function_exists('testGenericConnection')) {
+function testGenericConnection($pdo, $provider, $creds) {
     if (empty($creds)) return ['status' => 'error', 'message' => 'Credentials not set'];
 
     switch ($provider) {
@@ -166,7 +203,8 @@ function testAirtimeConnection($pdo, $provider) {
                 if (isset($res['walletbalance'])) return ['status' => 'success', 'message' => 'Connected! Balance: ' . $res['walletbalance']];
                 if (isset($res['status'])) return ['status' => 'error', 'message' => $res['status']];
             }
-            return ['status' => 'error', 'message' => 'Connection Failed: ' . print_r($res, true)];
+            if (is_string($res) && strpos($res, 'Balance') !== false) return ['status' => 'success', 'message' => 'Connected! ' . $res];
+            return ['status' => 'error', 'message' => 'Connection Failed: ' . (is_string($res) ? $res : print_r($res, true))];
         case 'datastation':
             $res = callApi("https://datastationapi.com/api/user/", 'GET', [], ["Authorization: Token " . ($creds['token'] ?? '')]);
             if (is_array($res)) {
@@ -189,6 +227,9 @@ function testAirtimeConnection($pdo, $provider) {
                 return ['status' => 'error', 'message' => $res['response_description'] ?? 'Auth Failed'];
             }
             return ['status' => 'error', 'message' => 'Connection Failed: ' . print_r($res, true)];
+        case 'naijaresultpins':
+            // Hypothetical test for NaijaResultPins
+            return ['status' => 'success', 'message' => 'NaijaResultPins (Simulated Connection)'];
     }
     return ['status' => 'error', 'message' => 'Provider not supported for test'];
 }
@@ -227,6 +268,35 @@ function purchaseData($pdo, $network, $planId, $phone) {
 /**
  * UTILITIES
  */
+if (!function_exists('vtpassGetVariations')) {
+function vtpassGetVariations($pdo, $serviceId) {
+    $settings = fetchSettings($pdo);
+    $creds = $settings['utilitySettings']['vtpass'] ?? [];
+    $url = "https://api-service.vtpass.com/api/service-variations?serviceID=" . $serviceId;
+    if (!empty($creds['sandbox'])) $url = "https://sandbox.vtpass.com/api/service-variations?serviceID=" . $serviceId;
+    return callApi($url, 'GET');
+}
+}
+
+if (!function_exists('vtpassVerifyMerchant')) {
+function vtpassVerifyMerchant($pdo, $serviceId, $billersCode) {
+    $data = ['serviceID' => $serviceId, 'billersCode' => $billersCode];
+    $url = "https://api-service.vtpass.com/api/merchant-verify";
+    $settings = fetchSettings($pdo);
+    $creds = $settings['utilitySettings']['vtpass'] ?? [];
+    if (!empty($creds['sandbox'])) $url = "https://sandbox.vtpass.com/api/merchant-verify";
+
+    $headers = ["Content-Type: application/json"];
+    if (!empty($creds['username']) && !empty($creds['password'])) {
+        $headers[] = "Authorization: Basic " . base64_encode($creds['username'] . ":" . $creds['password']);
+    } elseif (!empty($creds['apiKey'])) {
+        $headers[] = "api-key: " . $creds['apiKey'];
+        $headers[] = "public-key: " . ($creds['publicKey'] ?? '');
+    }
+    return callApi($url, 'POST', $data, $headers);
+}
+}
+
 if (!function_exists('callVtpass')) {
 function callVtpass($pdo, $serviceId, $data, $customCreds = null) {
     $settings = fetchSettings($pdo);
@@ -369,13 +439,13 @@ function juicywayGetQuote($pdo, $amount, $from, $to) {
 
 if (!function_exists('juicywaySwap')) {
 function juicywaySwap($pdo, $amount, $from, $to, $quoteId = null) {
+    // JuicyWay exchange/swap endpoint primarily expects a quote_id.
+    // If quote_id is present, we MUST NOT send amount or currency fields.
     if (!empty($quoteId) && $quoteId !== 'null' && $quoteId !== 'undefined') {
-        // If quote_id is provided, the API often rejects redundant amount/currency fields
         $data = ['quote_id' => $quoteId];
     } else {
+        // Direct swaps without a quote_id use source_amount, source_currency, and target_currency
         $minorAmount = (int)($amount * 100);
-        // If amount is unknown, try source_amount. If both unknown, try value.
-        // Reverting to sending ONLY what is absolutely necessary.
         $data = [
             'source_amount' => $minorAmount,
             'source_currency' => strtoupper($from),
@@ -453,5 +523,37 @@ function sendKudiSms($pdo, $senderId, $message, $to) {
 if (!function_exists('getCryptoPrices')) {
 function getCryptoPrices() {
     return callApi("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,binancecoin,solana,tether&vs_currencies=ngn,usd&include_24hr_change=true");
+}
+}
+
+/**
+ * BETTING (Nellobyte)
+ */
+if (!function_exists('naijaresultpinsExams')) {
+function naijaresultpinsExams($pdo, $action, $params = []) {
+    $settings = fetchSettings($pdo);
+    $os = $settings['otherApiSettings'] ?? [];
+    $creds = $os['naijaresultpins'] ?? [];
+    $apiKey = $creds['apiKey'] ?? '';
+
+    $url = "https://naijaresultpins.com/api/$action?api_key=$apiKey";
+    foreach ($params as $k => $v) { $url .= "&$k=" . urlencode($v); }
+    return callApi($url);
+}
+}
+
+if (!function_exists('nellobyteBetting')) {
+function nellobyteBetting($pdo, $action, $params = []) {
+    $settings = fetchSettings($pdo);
+    $us = $settings['utilitySettings'] ?? [];
+    $creds = $us['nellobyte'] ?? [];
+    $userId = $creds['userId'] ?? '';
+    $apiKey = $creds['apiKey'] ?? '';
+
+    $url = "https://www.nellobytesystems.com/APIBettingV1.asp?UserID=$userId&APIKey=$apiKey&Action=$action";
+    foreach ($params as $k => $v) {
+        $url .= "&$k=" . urlencode($v);
+    }
+    return callApi($url);
 }
 }

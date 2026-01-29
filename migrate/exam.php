@@ -3,57 +3,68 @@ require_once __DIR__ . '/includes/config.php';
 if (!isLoggedIn()) redirect('/login');
 $pageTitle = 'Exam PIN';
 
-$examProviders = $settings['examProviders'] ?? [];
-if (is_string($examProviders)) $examProviders = json_decode($examProviders, true) ?: [];
-
 $error = '';
 $success = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'purchase') {
     if (!verifyCsrfToken($_POST['csrf_token'])) die('CSRF Failed');
 
-    $providerId = $_POST['providerId'];
+    $packageId = $_POST['providerId']; // This is package_id in utility_packages
     $qty = (int)$_POST['quantity'];
 
-    $selectedProv = null;
-    foreach ($examProviders as $p) {
-        if ($p['id'] === $providerId) { $selectedProv = $p; break; }
-    }
+    $stmt = $pdo->prepare("SELECT * FROM utility_packages WHERE category = 'exam' AND package_id = ?");
+    $stmt->execute([$packageId]);
+    $pkg = $stmt->fetch();
 
-    if (!$selectedProv) {
-        $error = "Invalid provider";
+    if (!$pkg) {
+        $error = "Invalid exam product";
     } else {
-        $userPrice = (float)$selectedProv['userPrice'];
+        $userPrice = (float)$pkg['user_price'] * (1 - ($pkg['user_discount'] / 100));
+        $apiCost = (float)$pkg['api_price'] * (1 - ($pkg['api_discount'] / 100));
         $totalCost = $userPrice * $qty;
+
         if ($currentUser['walletBalance'] < $totalCost) {
-            $error = 'Insufficient balance';
+            $error = 'Insufficient balance. Need ' . formatCurrency($totalCost);
         } else {
             $pdo->beginTransaction();
             try {
                 updateWallet($pdo, $currentUser['id'], $totalCost, 'debit');
 
-                $vtRes = callVtpass($pdo, $providerId, [
-                    'quantity' => $qty,
-                    'amount' => $totalCost,
-                    'phone' => $currentUser['phone']
-                ]);
-
-                $isSuccess = isset($vtRes['code']) && $vtRes['code'] === '000';
-                $tokens = [];
-                if ($isSuccess && isset($vtRes['cards'])) {
-                    foreach ($vtRes['cards'] as $card) { $tokens[] = $card['pin']; }
+                $res = null;
+                $isSuccess = false;
+                if ($pkg['provider'] === 'vtpass') {
+                    $res = callVtpass($pdo, strtolower(explode(' - ', $pkg['name'])[0]), [
+                        'variation_code' => $pkg['package_id'],
+                        'amount' => $pkg['api_price'] * $qty,
+                        'phone' => $currentUser['phone']
+                    ]);
+                    $isSuccess = isset($res['code']) && $res['code'] === '000';
+                } else {
+                    $res = naijaresultpinsExams($pdo, 'buy', ['package' => $pkg['package_id'], 'quantity' => $qty]);
+                    $isSuccess = isset($res['status']) && ($res['status'] === 'success' || $res['status'] === true);
                 }
-                $tokenStr = implode(', ', $tokens);
-
+                $tokenStr = '';
                 if ($isSuccess) {
-                    logTransaction($pdo, $currentUser['id'], 'Exam PIN', $totalCost, 'successful', "Purchase of $qty " . $selectedProv['name'] . " PIN(s)", 'Self', $selectedProv['name'], $tokenStr);
-                    sendMail($pdo, $currentUser['email'], "Exam PIN Receipt", "Successful purchase of $qty PIN(s). PIN: $tokenStr");
+                    if (isset($res['cards'])) {
+                        $tokens = [];
+                        foreach ($res['cards'] as $card) { $tokens[] = ($card['pin'] ?? $card['pin_code'] ?? ''); }
+                        $tokenStr = implode(', ', $tokens);
+                    } elseif (isset($res['pins'])) {
+                        $tokenStr = implode(', ', $res['pins']);
+                    } elseif (isset($res['pin'])) {
+                        $tokenStr = $res['pin'];
+                    }
+
+                    $profitVal = $totalCost - ($apiCost * $qty);
+                    logTransaction($pdo, $currentUser['id'], 'Exam PIN', $totalCost, 'successful', "Purchase of $qty " . $pkg['name'] . " PIN(s)", 'Self', $pkg['provider'], $tokenStr, ($apiCost * $qty), $profitVal);
+                    sendMail($pdo, $currentUser['email'], "Exam PIN Receipt", "Successful purchase of $qty PIN(s). <br>Product: {$pkg['name']} <br>PIN: $tokenStr");
                     claimDailyRewardIfEligible($pdo, $currentUser['id']);
                     $success = true;
                 } else {
                     updateWallet($pdo, $currentUser['id'], $totalCost, 'credit');
-                    logTransaction($pdo, $currentUser['id'], 'Exam PIN', $totalCost, 'failed', "Exam PIN failed: " . ($vtRes['response_description'] ?? 'API Error'), 'Self', $selectedProv['name']);
-                    $error = 'Transaction failed: ' . ($vtRes['response_description'] ?? 'Provider Error');
+                    $errMsg = is_array($res) ? ($res['response_description'] ?? $res['msg'] ?? $res['message'] ?? 'API Error') : 'Provider Error';
+                    logTransaction($pdo, $currentUser['id'], 'Exam PIN', $totalCost, 'failed', "Exam PIN failed: $errMsg", 'Self', $pkg['provider']);
+                    $error = 'Transaction failed: ' . $errMsg;
                 }
 
                 $pdo->commit();
@@ -85,13 +96,17 @@ require_once __DIR__ . '/includes/header.php';
 
             <div>
                 <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Select Exam</label>
-                <div class="grid grid-cols-2 gap-4">
-                    <?php foreach ($examProviders as $p): ?>
-                    <button type="button" onclick="setProv('<?php echo $p['id']; ?>')" id="prov_<?php echo $p['id']; ?>" class="prov-btn p-5 rounded-[24px] border-2 transition-all border-transparent bg-gray-50 flex flex-col items-center gap-2">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <?php
+                    $stmt = $pdo->query("SELECT * FROM utility_packages WHERE category = 'exam' AND enabled = 1 ORDER BY name ASC");
+                    while ($p = $stmt->fetch()):
+                        $price = (float)$p['user_price'] * (1 - ($p['user_discount'] / 100));
+                    ?>
+                    <button type="button" onclick="setProv('<?php echo $p['package_id']; ?>')" id="prov_<?php echo $p['package_id']; ?>" class="prov-btn p-5 rounded-[24px] border-2 transition-all border-transparent bg-gray-50 flex flex-col items-center gap-2 text-center">
                         <span class="text-xs font-black text-gray-800"><?php echo $p['name']; ?></span>
-                        <span class="text-[9px] font-bold text-billpay-green uppercase"><?php echo formatCurrency($p['userPrice']); ?></span>
+                        <span class="text-[9px] font-bold text-billpay-green uppercase"><?php echo formatCurrency($price); ?></span>
                     </button>
-                    <?php endforeach; ?>
+                    <?php endwhile; ?>
                 </div>
                 <input type="hidden" name="providerId" id="providerInput" required>
             </div>

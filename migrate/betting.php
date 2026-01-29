@@ -3,11 +3,18 @@ require_once __DIR__ . '/includes/config.php';
 if (!isLoggedIn()) redirect('/login');
 $pageTitle = 'Betting';
 
-$bettingProviders = $settings['bettingProviders'] ?? [];
-if (is_string($bettingProviders)) $bettingProviders = json_decode($bettingProviders, true) ?: [];
-
 $error = '';
 $success = false;
+
+if (isset($_GET['ajax'])) {
+    header('Content-Type: application/json');
+    if ($_GET['ajax'] === 'verify') {
+        $provider = sanitize($_GET['provider']);
+        $customerId = sanitize($_GET['customerId']);
+        echo json_encode(nellobyteBetting($pdo, 'Verify', ['Provider' => $provider, 'CustomerID' => $customerId]));
+        exit;
+    }
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'purchase') {
     if (!verifyCsrfToken($_POST['csrf_token'])) { die('CSRF token validation failed'); }
@@ -15,6 +22,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $providerId = $_POST['providerId'];
     $customerId = sanitize($_POST['customerId']);
     $amount = (float)$_POST['amount'];
+
+    // Fetch discounts
+    $stmt = $pdo->prepare("SELECT * FROM utility_packages WHERE category = 'betting' AND provider = 'nellobyte' AND package_id = ?");
+    $stmt->execute([$providerId]);
+    $pkg = $stmt->fetch();
+
+    $apiDisc = (float)($pkg['api_discount'] ?? 0);
+    $userDisc = (float)($pkg['user_discount'] ?? 0);
 
     if (isKycRejected($currentUser)) {
         $error = 'Account restricted. Please update your KYC.';
@@ -25,27 +40,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     } else {
         $pdo->beginTransaction();
         try {
-            updateWallet($pdo, $currentUser['id'], $amount, 'debit');
+            $chargedAmount = $amount * (1 - ($userDisc / 100));
+            $apiCost = $amount * (1 - ($apiDisc / 100));
 
-            $vtRes = callVtpass($pdo, $providerId, [
-                'billersCode' => $customerId,
-                'amount' => $amount,
-                'phone' => $currentUser['phone']
+            if ($currentUser['walletBalance'] < $chargedAmount) {
+                throw new Exception("Insufficient balance. Total cost: " . formatCurrency($chargedAmount));
+            }
+
+            updateWallet($pdo, $currentUser['id'], $chargedAmount, 'debit');
+
+            $requestId = date('YmdHi') . bin2hex(random_bytes(4));
+            $res = nellobyteBetting($pdo, 'Fund', [
+                'Provider' => $providerId,
+                'CustomerID' => $customerId,
+                'Amount' => $amount,
+                'RequestID' => $requestId
             ]);
 
-            $isSuccess = isset($vtRes['code']) && $vtRes['code'] === '000';
+            $isSuccess = is_array($res) && isset($res['status']) && ($res['status'] === 'ORDER_RECEIVED' || $res['status'] === 'ORDER_COMPLETED');
+            if (!$isSuccess && is_string($res) && (strpos($res, 'ORDER_RECEIVED') !== false || strpos($res, 'ORDER_COMPLETED') !== false)) $isSuccess = true;
 
             if ($isSuccess) {
-                $profit = $amount * 0.01; // Placeholder 1% profit
-                $apiAmount = $amount - $profit;
-                logTransaction($pdo, $currentUser['id'], 'Betting', $amount, 'successful', "Betting Wallet Fund ($providerId) for ID: $customerId", $customerId, $providerId, null, $apiAmount, $profit);
-                sendMail($pdo, $currentUser['email'], "Betting Funding Receipt", "Successful funding for $customerId. Amount: " . formatCurrency($amount));
+                $profitVal = $chargedAmount - $apiCost;
+                logTransaction($pdo, $currentUser['id'], 'Betting', $chargedAmount, 'successful', "Betting Fund ($providerId) for $customerId", $customerId, 'Nellobyte', null, $apiCost, $profitVal);
+                sendMail($pdo, $currentUser['email'], "Betting Funding Receipt", "Successful funding for $customerId. Amount: " . formatCurrency($chargedAmount));
                 claimDailyRewardIfEligible($pdo, $currentUser['id']);
                 $success = true;
             } else {
-                updateWallet($pdo, $currentUser['id'], $amount, 'credit');
-                logTransaction($pdo, $currentUser['id'], 'Betting', $amount, 'failed', "Betting failed: " . ($vtRes['response_description'] ?? 'API Error'), $customerId, $providerId);
-                $error = 'Transaction failed: ' . ($vtRes['response_description'] ?? 'Provider Error');
+                updateWallet($pdo, $currentUser['id'], $chargedAmount, 'credit');
+                $errMsg = is_array($res) ? ($res['status'] ?? $res['msg'] ?? 'API Error') : $res;
+                logTransaction($pdo, $currentUser['id'], 'Betting', $chargedAmount, 'failed', "Betting failed: $errMsg", $customerId, 'Nellobyte');
+                $error = 'Transaction failed: ' . $errMsg;
             }
 
             $pdo->commit();
@@ -78,19 +103,23 @@ require_once __DIR__ . '/includes/header.php';
             <div>
                 <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest ml-1">Select Provider</label>
                 <div class="grid grid-cols-4 gap-3">
-                    <?php foreach ($bettingProviders as $p): ?>
-                    <button type="button" onclick="setProvider('<?php echo $p['id']; ?>')" id="prov_<?php echo $p['id']; ?>" class="prov-btn flex flex-col items-center gap-2 p-2 rounded-2xl border-2 transition-all border-transparent bg-gray-50 <?php echo !($p['enabled'] ?? true) ? 'opacity-30 pointer-events-none' : ''; ?>">
-                        <div class="w-10 h-10 rounded-full bg-gray-900 flex items-center justify-center text-white text-[10px] font-black"><?php echo substr($p['name'], 0, 2); ?></div>
+                    <?php
+                    $stmt = $pdo->query("SELECT * FROM utility_packages WHERE category = 'betting' AND enabled = 1 ORDER BY name ASC");
+                    while ($p = $stmt->fetch()):
+                    ?>
+                    <button type="button" onclick="setProvider('<?php echo $p['package_id']; ?>')" id="prov_<?php echo $p['package_id']; ?>" class="prov-btn flex flex-col items-center gap-2 p-2 rounded-2xl border-2 transition-all border-transparent bg-gray-50">
+                        <div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white text-[10px] font-black"><?php echo substr($p['name'], 0, 2); ?></div>
                         <span class="text-[8px] font-black uppercase text-gray-800"><?php echo $p['name']; ?></span>
                     </button>
-                    <?php endforeach; ?>
+                    <?php endwhile; ?>
                 </div>
                 <input type="hidden" name="providerId" id="providerInput" required>
             </div>
 
             <div>
                 <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Customer ID</label>
-                <input type="text" name="customerId" placeholder="Enter betting ID" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" required>
+                <input type="text" name="customerId" id="customerId" placeholder="Enter betting ID" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" required>
+                <div id="verifyInfo" class="mt-2 ml-1"></div>
             </div>
 
             <div>
@@ -106,7 +135,29 @@ require_once __DIR__ . '/includes/header.php';
     function setProvider(id) {
         document.getElementById('providerInput').value = id;
         document.querySelectorAll('.prov-btn').forEach(btn => btn.classList.remove('border-billpay-green', 'bg-green-50'));
-        document.getElementById('prov_' + id).classList.add('border-billpay-green', 'bg-green-50');
+        const active = document.getElementById('prov_' + id);
+        if (active) active.classList.add('border-billpay-green', 'bg-green-50');
+        verifyID();
     }
+
+    async function verifyID() {
+        const prov = document.getElementById('providerInput').value;
+        const cid = document.getElementById('customerId').value;
+        const info = document.getElementById('verifyInfo');
+        if (prov && cid.length >= 5) {
+            info.innerHTML = '<div class="text-[9px] font-black text-amber-500 uppercase animate-pulse">Verifying ID...</div>';
+            try {
+                const res = await fetch(`?ajax=verify&provider=${prov}&customerId=${cid}`);
+                const data = await res.json();
+                if (data.status === 'SUCCESS' || (data.content && data.content.Customer_Name)) {
+                    const name = data.content ? data.content.Customer_Name : (data.name || 'Verified Account');
+                    info.innerHTML = `<div class="text-[9px] font-black text-green-500 uppercase">Verified: ${name}</div>`;
+                } else {
+                    info.innerHTML = `<div class="text-[9px] font-black text-red-500 uppercase">Verification Failed: ${data.msg || 'Invalid ID'}</div>`;
+                }
+            } catch (e) { info.innerHTML = ''; }
+        } else { info.innerHTML = ''; }
+    }
+    document.getElementById('customerId').addEventListener('input', verifyID);
 </script>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

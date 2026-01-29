@@ -7,6 +7,13 @@ $pageTitle = 'Data API Settings';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrfToken($_POST['csrf_token'])) die('CSRF Failed');
 
+    if (isset($_POST['action']) && $_POST['action'] === 'test_api') {
+        $provider = sanitize($_POST['provider']);
+        $testRes = testDataConnection($pdo, $provider);
+        if ($testRes['status'] === 'success') $success = "Test Successful: " . $testRes['message'];
+        else $error = "Test Failed: " . $testRes['message'];
+    }
+
     $dataSettings = [
         'providers' => [
             'datagifting' => ['apiKey' => $_POST['dg_apiKey']],
@@ -86,7 +93,8 @@ require_once __DIR__ . '/header.php';
         <h2 class="text-2xl font-black uppercase tracking-tight">Data API Gateway</h2>
     </div>
 
-    <?php if (isset($success)): ?><div class="p-4 bg-green-50 text-green-800 rounded-2xl text-xs font-black border border-green-100 uppercase text-center"><?php echo $success; ?></div><?php endif; ?>
+    <?php if (isset($success)): ?><div class="p-4 bg-green-50 text-green-800 rounded-2xl text-xs font-black border border-green-100 uppercase text-center shadow-sm"><?php echo $success; ?></div><?php endif; ?>
+    <?php if (isset($error)): ?><div class="p-4 bg-red-50 text-red-800 rounded-2xl text-xs font-black border border-red-100 uppercase text-center shadow-sm"><?php echo $error; ?></div><?php endif; ?>
 
     <form method="POST" class="space-y-10">
         <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
@@ -94,17 +102,23 @@ require_once __DIR__ . '/header.php';
         <!-- Provider Credentials -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-                <h3 class="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-3 text-billpay-green">
-                    <i data-lucide="key" class="w-5 h-5"></i> DataGifting (1)
-                </h3>
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-sm font-black uppercase tracking-widest flex items-center gap-3 text-billpay-green">
+                        <i data-lucide="key" class="w-5 h-5"></i> DataGifting (1)
+                    </h3>
+                    <button type="submit" name="action" value="test_api" onclick="this.form.provider.value='datagifting'" class="text-[10px] font-black text-billpay-green uppercase hover:underline">Test</button>
+                </div>
                 <label class="text-[10px] font-black text-gray-400 uppercase ml-1">API Key</label>
                 <input type="password" name="dg_apiKey" value="<?php echo $ds['providers']['datagifting']['apiKey'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
             </div>
 
             <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-                <h3 class="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-3 text-orange-500">
-                    <i data-lucide="key" class="w-5 h-5"></i> Nellobyte (2)
-                </h3>
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-sm font-black uppercase tracking-widest flex items-center gap-3 text-orange-500">
+                        <i data-lucide="key" class="w-5 h-5"></i> Nellobyte (2)
+                    </h3>
+                    <button type="submit" name="action" value="test_api" onclick="this.form.provider.value='nellobyte'" class="text-[10px] font-black text-orange-500 uppercase hover:underline">Test</button>
+                </div>
                 <div class="space-y-4">
                     <div>
                         <label class="text-[10px] font-black text-gray-400 uppercase ml-1">User ID</label>
@@ -118,13 +132,17 @@ require_once __DIR__ . '/header.php';
             </div>
 
             <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-                <h3 class="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-3 text-blue-600">
-                    <i data-lucide="key" class="w-5 h-5"></i> Datastationapi (3)
-                </h3>
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-sm font-black uppercase tracking-widest flex items-center gap-3 text-blue-600">
+                        <i data-lucide="key" class="w-5 h-5"></i> Datastationapi (3)
+                    </h3>
+                    <button type="submit" name="action" value="test_api" onclick="this.form.provider.value='datastation'" class="text-[10px] font-black text-blue-600 uppercase hover:underline">Test</button>
+                </div>
                 <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Token</label>
                 <input type="password" name="ds_token" value="<?php echo $ds['providers']['datastation']['token'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
             </div>
         </div>
+        <input type="hidden" name="provider" value="">
 
         <!-- Routing -->
         <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">

@@ -3,12 +3,20 @@ require_once __DIR__ . '/includes/config.php';
 if (!isLoggedIn()) redirect('/login');
 $pageTitle = 'Electricity';
 
-$electricProviders = $settings['electricProviders'] ?? [];
-if (is_string($electricProviders)) $electricProviders = json_decode($electricProviders, true) ?: [];
-
 $error = '';
 $success = false;
 $token = '';
+
+if (isset($_GET['ajax'])) {
+    header('Content-Type: application/json');
+    if ($_GET['ajax'] === 'verify') {
+        $serviceId = sanitize($_GET['serviceId']);
+        $meter = sanitize($_GET['meter']);
+        $type = sanitize($_GET['type']);
+        echo json_encode(vtpassVerifyMerchant($pdo, $serviceId, $meter));
+        exit;
+    }
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'purchase') {
     if (!verifyCsrfToken($_POST['csrf_token'])) { die('CSRF token validation failed'); }
@@ -17,6 +25,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $meterNumber = sanitize($_POST['meterNumber']);
     $amount = (float)$_POST['amount'];
     $type = $_POST['type']; // prepaid/postpaid
+
+    // Fetch dynamic discount/profit from utility_packages if available
+    $stmt = $pdo->prepare("SELECT * FROM utility_packages WHERE category = 'electric' AND provider = ? AND (package_id = ? OR package_id = 'electricity') LIMIT 1");
+    $stmt->execute([$serviceId, $type]);
+    $pkg = $stmt->fetch();
+
+    $apiDisc = (float)($pkg['api_discount'] ?? 0);
+    $userDisc = (float)($pkg['user_discount'] ?? 0);
 
     if (isKycRejected($currentUser)) {
         $error = 'Account restricted. Please update your KYC.';
@@ -39,10 +55,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $isSuccess = isset($vtRes['code']) && $vtRes['code'] === '000';
 
             if ($isSuccess) {
-                $token = $vtRes['mainToken'] ?? $vtRes['token'] ?? '';
-                $profit = $amount * 0.01; // Placeholder 1% profit
-                $apiAmount = $amount - $profit;
-                logTransaction($pdo, $currentUser['id'], 'Electricity', $amount, 'successful', "Electric ($serviceId) for $meterNumber", $meterNumber, $serviceId, $token, $apiAmount, $profit);
+                $token = $vtRes['mainToken'] ?? $vtRes['token'] ?? ($vtRes['purchased_code'] ?? '');
+
+                $chargedAmount = $amount * (1 - ($userDisc / 100));
+                $apiCost = $amount * (1 - ($apiDisc / 100));
+                $profitVal = $chargedAmount - $apiCost;
+
+                logTransaction($pdo, $currentUser['id'], 'Electricity', $amount, 'successful', "Electric ($serviceId $type) for $meterNumber", $meterNumber, $serviceId, $token, $apiCost, $profitVal);
                 sendMail($pdo, $currentUser['email'], "Electricity Receipt", "Successful recharge for $meterNumber. Token: $token");
                 claimDailyRewardIfEligible($pdo, $currentUser['id']);
                 $success = true;
@@ -93,10 +112,18 @@ require_once __DIR__ . '/includes/header.php';
             <div>
                 <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest ml-1">Distribution Company</label>
                 <div class="grid grid-cols-4 gap-3">
-                    <?php foreach ($electricProviders as $p): ?>
-                    <button type="button" onclick="setService('<?php echo $p['serviceId']; ?>')" id="svc_<?php echo $p['serviceId']; ?>" class="svc-btn flex flex-col items-center gap-2 p-2 rounded-2xl border-2 transition-all border-transparent bg-gray-50">
-                        <div class="w-10 h-10 rounded-full bg-orange-500 flex items-center justify-center text-white text-[10px] font-black"><?php echo substr($p['name'], 0, 1); ?></div>
-                        <span class="text-[8px] font-black uppercase text-gray-800"><?php echo $p['name']; ?></span>
+                    <?php
+                    $discos = [
+                        'ikeja-electric' => 'IKEDC', 'eko-electric' => 'EKEDC', 'kano-electric' => 'KEDCO',
+                        'portharcourt-electric' => 'PHED', 'jos-electric' => 'JED', 'ibadan-electric' => 'IBEDC',
+                        'kaduna-electric' => 'KAEDCO', 'abuja-electric' => 'AEDC', 'enugu-electric' => 'EEDC',
+                        'benin-electric' => 'BEDC', 'yola-electric' => 'YEDC'
+                    ];
+                    foreach ($discos as $id => $name):
+                    ?>
+                    <button type="button" onclick="setService('<?php echo $id; ?>')" id="svc_<?php echo $id; ?>" class="svc-btn flex flex-col items-center gap-2 p-2 rounded-2xl border-2 transition-all border-transparent bg-gray-50">
+                        <div class="w-10 h-10 rounded-full bg-orange-500 flex items-center justify-center text-white text-[10px] font-black"><?php echo substr($name, 0, 2); ?></div>
+                        <span class="text-[8px] font-black uppercase text-gray-800"><?php echo $name; ?></span>
                     </button>
                     <?php endforeach; ?>
                 </div>
@@ -111,7 +138,8 @@ require_once __DIR__ . '/includes/header.php';
 
             <div>
                 <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Meter Number</label>
-                <input type="text" name="meterNumber" placeholder="Enter meter number" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" required>
+                <input type="text" name="meterNumber" id="meterNumber" placeholder="Enter meter number" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" required>
+                <div id="meterInfo" class="mt-2 ml-1"></div>
             </div>
 
             <div>
@@ -128,12 +156,41 @@ require_once __DIR__ . '/includes/header.php';
     function setService(id) {
         document.getElementById('serviceInput').value = id;
         document.querySelectorAll('.svc-btn').forEach(btn => btn.classList.remove('border-billpay-green', 'bg-green-50'));
-        document.getElementById('svc_' + id).classList.add('border-billpay-green', 'bg-green-50');
+        const active = document.getElementById('svc_' + id);
+        if (active) active.classList.add('border-billpay-green', 'bg-green-50');
+        verifyMeter();
     }
     function setType(val) {
         document.getElementById('typeInput').value = val;
         document.getElementById('typePrepaid').className = val === 'prepaid' ? 'flex-1 py-3.5 rounded-xl text-[10px] font-black uppercase bg-white shadow-md text-billpay-green' : 'flex-1 py-3.5 rounded-xl text-[10px] font-black uppercase text-gray-400';
         document.getElementById('typePostpaid').className = val === 'postpaid' ? 'flex-1 py-3.5 rounded-xl text-[10px] font-black uppercase bg-white shadow-md text-billpay-green' : 'flex-1 py-3.5 rounded-xl text-[10px] font-black uppercase text-gray-400';
+        verifyMeter();
     }
+
+    async function verifyMeter() {
+        const meter = document.getElementById('meterNumber').value;
+        const provider = document.getElementById('serviceInput').value;
+        const type = document.getElementById('typeInput').value;
+        const infoDiv = document.getElementById('meterInfo');
+
+        if (meter.length >= 8 && provider) {
+            infoDiv.innerHTML = '<div class="text-[9px] font-black text-amber-500 uppercase animate-pulse">Verifying Meter...</div>';
+            try {
+                const res = await fetch(`?ajax=verify&serviceId=${provider}&meter=${meter}&type=${type}`);
+                const data = await res.json();
+                if (data.code === '000' && data.content && data.content.Customer_Name) {
+                    infoDiv.innerHTML = `<div class="text-[9px] font-black text-green-500 uppercase">Verified: ${data.content.Customer_Name}</div><div class="text-[8px] font-bold text-gray-400 uppercase">${data.content.Address || ''}</div>`;
+                } else {
+                    infoDiv.innerHTML = `<div class="text-[9px] font-black text-red-500 uppercase">Verification Failed: ${data.response_description || 'Invalid Meter'}</div>`;
+                }
+            } catch (e) {
+                infoDiv.innerHTML = '';
+            }
+        } else {
+            infoDiv.innerHTML = '';
+        }
+    }
+
+    document.getElementById('meterNumber').addEventListener('input', verifyMeter);
 </script>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

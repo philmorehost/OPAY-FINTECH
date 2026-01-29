@@ -153,6 +153,20 @@ try {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
 
+    $pdo->exec("CREATE TABLE IF NOT EXISTS utility_packages (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        category ENUM('cable', 'electric', 'exam', 'betting') NOT NULL,
+        provider VARCHAR(50),
+        package_id VARCHAR(100),
+        name VARCHAR(255),
+        api_price DECIMAL(15, 2) DEFAULT 0.00,
+        user_price DECIMAL(15, 2) DEFAULT 0.00,
+        api_discount DECIMAL(5, 2) DEFAULT 0.00,
+        user_discount DECIMAL(5, 2) DEFAULT 0.00,
+        enabled TINYINT(1) DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )");
+
 } catch (PDOException $e) {
     // Silent fail
 }
