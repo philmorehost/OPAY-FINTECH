@@ -29,19 +29,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } elseif (isset($_POST['action']) && $_POST['action'] === 'fetch_betting') {
         $res = nellobyteGetBettingCompanies($pdo);
-        if (is_array($res) && isset($res['content']) && is_array($res['content'])) {
-            foreach ($res['content'] as $p) {
-                $slug = $p['Slug'] ?? $p['ID'] ?? '';
-                $name = $p['Name'] ?? '';
+        // Robust parsing for Nellobyte Betting Companies (V1/V2 variants)
+        $companies = null;
+        if (is_array($res)) {
+            if (isset($res['BETTING_COMPANY'])) $companies = $res['BETTING_COMPANY'];
+            elseif (isset($res['content'])) $companies = $res['content'];
+            elseif (isset($res['companies'])) $companies = $res['companies'];
+            elseif (isset($res[0])) $companies = $res;
+        }
+
+        if (is_array($companies)) {
+            foreach ($companies as $p) {
+                $slug = $p['PRODUCT_CODE'] ?? $p['Slug'] ?? $p['ID'] ?? $p['id'] ?? '';
+                $name = $p['PRODUCT_NAME'] ?? $p['Name'] ?? $p['name'] ?? ucwords(str_replace('-', ' ', $slug));
                 if ($slug) {
                     $stmt = $pdo->prepare("INSERT INTO utility_packages (category, provider, service_id, package_id, name) VALUES ('betting', 'nellobyte', ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name)");
                     $stmt->execute([$slug, $slug, $name]);
                 }
             }
-            $success = "Fetched " . count($res['content']) . " betting providers from Nellobyte V2";
+            $success = "Fetched " . count($companies) . " betting providers from Nellobyte";
         } else {
-            $desc = is_array($res) ? ($res['status'] ?? json_encode($res)) : (is_string($res) ? $res : 'Unknown error');
-            $error = "Failed to fetch betting providers: " . substr($desc, 0, 100);
+            $desc = is_array($res) ? json_encode($res) : (is_string($res) ? $res : 'Unknown error');
+            $error = "Failed to fetch betting providers: " . substr($desc, 0, 150);
         }
     } elseif (isset($_POST['action']) && $_POST['action'] === 'fetch_exams_nr') {
         $res = naijaresultpinsExams($pdo, 'packages');
