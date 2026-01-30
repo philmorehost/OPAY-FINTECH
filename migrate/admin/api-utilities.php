@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = "Failed to fetch packages: " . $desc;
         }
     } elseif (isset($_POST['action']) && $_POST['action'] === 'fetch_betting') {
-        $res = nellobyteBetting($pdo, 'GetProviders');
+        $res = nellobyteGetBettingCompanies($pdo);
         if (is_array($res) && isset($res['content'])) {
             foreach ($res['content'] as $p) {
                 $stmt = $pdo->prepare("INSERT INTO utility_packages (category, provider, service_id, package_id, name) VALUES ('betting', 'nellobyte', ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name)");
@@ -387,11 +387,16 @@ require_once __DIR__ . '/header.php';
                     $stmt = $pdo->prepare("SELECT * FROM utility_packages WHERE category = ? ORDER BY provider, name");
                     $stmt->execute([$cat['id']]);
                     $pkgCount = 0;
+                    $isDiscountMode = ($cat['id'] === 'electric' || $cat['id'] === 'betting');
                     while ($p = $stmt->fetch()):
                         $pkgCount++;
-                        $apiCost = $p['api_price'] * (1 - $p['api_discount'] / 100);
-                        $sellingPrice = $p['user_price'] * (1 - $p['user_discount'] / 100);
-                        $profitVal = $sellingPrice - $apiCost;
+                        if ($isDiscountMode) {
+                            $profitPct = (float)$p['api_discount'] - (float)$p['user_discount'];
+                        } else {
+                            $apiCost = $p['api_price'] * (1 - $p['api_discount'] / 100);
+                            $sellingPrice = $p['user_price'] * (1 - $p['user_discount'] / 100);
+                            $profitVal = $sellingPrice - $apiCost;
+                        }
                     ?>
                     <form method="POST">
                         <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
@@ -403,11 +408,17 @@ require_once __DIR__ . '/header.php';
                                 <div class="text-[10px] font-bold text-gray-400"><?php echo $p['name']; ?></div>
                             </td>
                             <td class="py-4 font-mono text-[10px]"><?php echo $p['package_id']; ?></td>
-                            <td class="py-4 font-black text-xs">₦<?php echo number_format($p['api_price'], 2); ?></td>
+                            <td class="py-4 font-black text-xs"><?php echo !$isDiscountMode ? '₦'.number_format($p['api_price'], 2) : '-'; ?></td>
                             <td class="py-4"><input type="number" step="0.01" name="api_discount" value="<?php echo $p['api_discount']; ?>" class="w-16 p-2 bg-gray-50 rounded-lg text-[10px] font-black outline-none"></td>
-                            <td class="py-4"><input type="number" step="0.01" name="user_price" value="<?php echo $p['user_price']; ?>" class="w-24 p-2 bg-gray-50 rounded-lg text-[10px] font-black outline-none"></td>
+                            <td class="py-4"><input type="number" step="0.01" name="user_price" value="<?php echo $p['user_price']; ?>" class="<?php echo $isDiscountMode ? 'hidden' : ''; ?> w-24 p-2 bg-gray-50 rounded-lg text-[10px] font-black outline-none"><?php echo $isDiscountMode ? '-' : ''; ?></td>
                             <td class="py-4"><input type="number" step="0.01" name="user_discount" value="<?php echo $p['user_discount']; ?>" class="w-16 p-2 bg-gray-50 rounded-lg text-[10px] font-black outline-none"></td>
-                            <td class="py-4"><span class="px-2 py-1 <?php echo $profitVal >= 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'; ?> text-[9px] font-black rounded-md">₦<?php echo number_format($profitVal, 2); ?></span></td>
+                            <td class="py-4">
+                                <?php if($isDiscountMode): ?>
+                                    <span class="px-2 py-1 <?php echo $profitPct >= 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'; ?> text-[9px] font-black rounded-md"><?php echo number_format($profitPct, 2); ?>%</span>
+                                <?php else: ?>
+                                    <span class="px-2 py-1 <?php echo $profitVal >= 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'; ?> text-[9px] font-black rounded-md">₦<?php echo number_format($profitVal, 2); ?></span>
+                                <?php endif; ?>
+                            </td>
                             <td class="py-4 text-right space-x-2 flex items-center justify-end">
                                 <button type="submit" class="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-[8px] font-black uppercase">Save</button>
                                 <button type="submit" name="action" value="delete_package" onclick="return confirm('Delete?')" class="text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>

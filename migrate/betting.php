@@ -108,9 +108,9 @@ require_once __DIR__ . '/includes/header.php';
                     $stmt = $pdo->query("SELECT * FROM utility_packages WHERE category = 'betting' AND enabled = 1 ORDER BY name ASC");
                     while ($p = $stmt->fetch()):
                     ?>
-                    <button type="button" onclick="setProvider('<?php echo $p['package_id']; ?>')" id="prov_<?php echo $p['package_id']; ?>" class="prov-btn flex flex-col items-center gap-2 p-2 rounded-2xl border-2 transition-all border-transparent bg-gray-50">
-                        <div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white text-[10px] font-black"><?php echo substr($p['name'], 0, 2); ?></div>
-                        <span class="text-[8px] font-black uppercase text-gray-800"><?php echo $p['name']; ?></span>
+                    <button type="button" onclick="setProvider('<?php echo $p['package_id']; ?>')" id="prov_<?php echo $p['package_id']; ?>" class="prov-btn flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all border-transparent bg-gray-50 hover:bg-gray-100 group">
+                        <div class="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center text-white text-xs font-black shadow-sm group-hover:scale-110 transition-transform"><?php echo substr($p['name'], 0, 2); ?></div>
+                        <span class="text-[9px] font-black uppercase text-gray-800 tracking-tighter"><?php echo $p['name']; ?></span>
                     </button>
                     <?php endwhile; ?>
                 </div>
@@ -128,7 +128,7 @@ require_once __DIR__ . '/includes/header.php';
                 <input type="number" name="amount" placeholder="Min ₦100" min="100" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-xl outline-none" required>
             </div>
 
-            <button type="submit" id="submitBtn" class="w-full bg-billpay-green text-white font-black py-5 rounded-[24px] shadow-xl active:scale-95 transition-all uppercase flex items-center justify-center gap-3">
+            <button type="submit" id="submitBtn" disabled class="w-full bg-billpay-green text-white font-black py-5 rounded-[24px] shadow-xl active:scale-95 transition-all uppercase flex items-center justify-center gap-3 disabled:opacity-40 disabled:cursor-not-allowed">
                 <span id="btnText">Fund Account</span>
                 <div id="btnLoader" class="hidden w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
             </button>
@@ -138,29 +138,50 @@ require_once __DIR__ . '/includes/header.php';
 <script>
     function setProvider(id) {
         document.getElementById('providerInput').value = id;
-        document.querySelectorAll('.prov-btn').forEach(btn => btn.classList.remove('border-billpay-green', 'bg-green-50'));
+        document.querySelectorAll('.prov-btn').forEach(btn => btn.classList.remove('border-gray-900', 'bg-billpay-green/10', 'ring-2', 'ring-billpay-green/20'));
         const active = document.getElementById('prov_' + id);
-        if (active) active.classList.add('border-billpay-green', 'bg-green-50');
+        if (active) active.classList.add('border-gray-900', 'bg-billpay-green/10', 'ring-2', 'ring-billpay-green/20');
         verifyID();
     }
 
+    let verifyTimeout;
     async function verifyID() {
         const prov = document.getElementById('providerInput').value;
         const cid = document.getElementById('customerId').value;
         const info = document.getElementById('verifyInfo');
+        const submitBtn = document.getElementById('submitBtn');
+
         if (prov && cid.length >= 5) {
-            info.innerHTML = '<div class="text-[9px] font-black text-amber-500 uppercase animate-pulse">Verifying ID...</div>';
-            try {
-                const res = await fetch(`?ajax=verify&provider=${prov}&customerId=${cid}`);
-                const data = await res.json();
-                if (data.status === 'SUCCESS' || (data.content && data.content.Customer_Name)) {
-                    const name = data.content ? data.content.Customer_Name : (data.name || 'Verified Account');
-                    info.innerHTML = `<div class="text-[9px] font-black text-green-500 uppercase">Verified: ${name}</div>`;
-                } else {
-                    info.innerHTML = `<div class="text-[9px] font-black text-red-500 uppercase">Verification Failed: ${data.msg || 'Invalid ID'}</div>`;
+            submitBtn.disabled = true;
+            info.innerHTML = '<div class="text-xs font-black text-amber-500 uppercase animate-pulse flex items-center gap-2"><div class="w-2 h-2 bg-amber-500 rounded-full animate-bounce"></div> Verifying Customer Security...</div>';
+
+            clearTimeout(verifyTimeout);
+            verifyTimeout = setTimeout(async () => {
+                try {
+                    const res = await fetch(`?ajax=verify&provider=${prov}&customerId=${cid}`);
+                    const data = await res.json();
+                    if (data.status === 'SUCCESS' || (data.content && data.content.Customer_Name)) {
+                        const name = data.content ? data.content.Customer_Name : (data.name || 'Verified Account');
+                        info.innerHTML = `
+                            <div class="p-3 bg-green-50 rounded-xl border border-green-100 animate-fade-in">
+                                <div class="text-[11px] font-black text-green-600 uppercase">Customer Verified</div>
+                                <div class="text-sm font-black text-gray-900 mt-1">${name}</div>
+                            </div>
+                        `;
+                        submitBtn.disabled = false;
+                    } else {
+                        info.innerHTML = `<div class="p-3 bg-red-50 rounded-xl border border-red-100 text-[11px] font-black text-red-500 uppercase animate-shake">Verification Failed: ${data.msg || 'Invalid Betting ID'}</div>`;
+                        submitBtn.disabled = true;
+                    }
+                } catch (e) {
+                    info.innerHTML = '<div class="text-[10px] font-black text-red-400 uppercase">Connection failed. Retrying...</div>';
+                    submitBtn.disabled = true;
                 }
-            } catch (e) { info.innerHTML = ''; }
-        } else { info.innerHTML = ''; }
+            }, 500);
+        } else {
+            info.innerHTML = '';
+            submitBtn.disabled = true;
+        }
     }
     document.getElementById('customerId').addEventListener('input', verifyID);
 

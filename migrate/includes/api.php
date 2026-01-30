@@ -640,6 +640,18 @@ function sendKudiSms($pdo, $senderId, $message, $to) {
 }
 }
 
+if (!function_exists('nellobyteGetBettingCompanies')) {
+function nellobyteGetBettingCompanies($pdo) {
+    $settings = fetchSettings($pdo);
+    $us = $settings['utilitySettings'] ?? [];
+    $creds = $us['nellobyte'] ?? [];
+    $userId = $creds['userId'] ?? '';
+
+    $url = "https://www.nellobytesystems.com/APIBettingCompaniesV2.asp?UserID=$userId";
+    return callApi($url);
+}
+}
+
 if (!function_exists('datagiftingGetDataPlans')) {
 function datagiftingGetDataPlans($pdo) {
     $settings = fetchSettings($pdo);

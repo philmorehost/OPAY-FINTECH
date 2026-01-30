@@ -759,15 +759,26 @@ require_once __DIR__ . '/includes/header.php';
                 btn.disabled = false;
                 if (res.status === 'success' || res.status === true || res.id || res.data || res.quote_id) {
                     const data = res.data || res;
-                    // Explicit Unit Handling: JuicyWay returns values in minor units (kobo/cents)
-                    let targetAmount = (data.target_amount !== undefined) ? (data.target_amount / 100) : (amount * (data.rate || 1));
+                    const symbol = data.symbol || ''; // e.g. "USD-NGN"
+                    let rate = parseFloat(data.rate) || 1;
+
+                    // JuicyWay Rate Logic:
+                    // If symbol is "TARGET-SOURCE", Rate = Source/Target => Target = Source / Rate
+                    // If symbol is "SOURCE-TARGET", Rate = Target/Source => Target = Source * Rate
+                    // Default to Source-Target multiply logic if symbol is missing or matches from-to
+                    let effectiveRate = rate;
+                    if (symbol && symbol.startsWith(to) && symbol.endsWith(from)) {
+                        effectiveRate = 1 / rate;
+                    }
+
+                    let targetAmount = (data.target_amount !== undefined) ? (data.target_amount / 100) : (amount * effectiveRate);
 
                     document.getElementById('toAmountDisplay').innerText = targetAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
                     document.getElementById('quoteId').value = data.id || data.quote_id || data.reference;
 
-                    // Display Rate
-                    const rate = data.rate || (targetAmount / amount);
-                    document.getElementById('liveRateText').innerText = `Rate: 1 ${from} ~ ${rate.toFixed(4)} ${to}`;
+                    // Display Rate (Always 1 SOURCE ~ X TARGET)
+                    const displayRate = targetAmount / amount;
+                    document.getElementById('liveRateText').innerText = `Rate: 1 ${from} ~ ${displayRate.toFixed(6)} ${to}`;
                     document.getElementById('rateDisplay').classList.remove('hidden');
 
                     document.getElementById('quoteInfo').classList.remove('hidden');
