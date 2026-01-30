@@ -30,6 +30,17 @@ if (!empty($_GET['date'])) {
     $params[] = $_GET['date'];
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_status') {
+    if (!verifyCsrfToken($_POST['csrf_token'])) die('CSRF Failed');
+    $txId = sanitize($_POST['txId']);
+    $newStatus = sanitize($_POST['newStatus']);
+    if (changeTransactionStatus($pdo, $txId, $newStatus)) {
+        $success = "Transaction status updated and wallet adjusted.";
+    } else {
+        $error = "Failed to update status.";
+    }
+}
+
 $sql .= " ORDER BY t.date DESC LIMIT 100";
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
@@ -74,6 +85,9 @@ require_once __DIR__ . '/header.php';
             </form>
         </div>
 
+    <?php if (isset($success)): ?><div class="mb-6 p-4 bg-green-50 text-green-800 rounded-2xl text-[10px] font-black uppercase text-center border border-green-100"><?php echo $success; ?></div><?php endif; ?>
+    <?php if (isset($error)): ?><div class="mb-6 p-4 bg-red-50 text-red-800 rounded-2xl text-[10px] font-black uppercase text-center border border-red-100"><?php echo $error; ?></div><?php endif; ?>
+
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
                 <thead>
@@ -88,8 +102,8 @@ require_once __DIR__ . '/header.php';
                 </thead>
                 <tbody class="divide-y divide-gray-50">
                     <?php foreach ($transactions as $tx): ?>
-                       <tr class="hover:bg-gray-50 transition-colors cursor-pointer" onclick="window.location='/receipt?id=<?php echo $tx['id']; ?>'">
-                          <td class="p-6 font-mono text-[10px] font-bold text-gray-400 uppercase"><?php echo $tx['id']; ?></td>
+                       <tr class="hover:bg-gray-50 transition-colors">
+                          <td class="p-6 font-mono text-[10px] font-bold text-gray-400 uppercase cursor-pointer" onclick="window.location='/receipt?id=<?php echo $tx['id']; ?>'"><?php echo $tx['id']; ?></td>
                           <td class="p-6">
                              <div class="flex flex-col">
                                 <span class="text-xs font-black text-gray-800"><?php echo $tx['fullName']; ?></span>
@@ -99,9 +113,21 @@ require_once __DIR__ . '/header.php';
                           <td class="p-6"><span class="px-3 py-1 bg-gray-100 rounded-full text-[9px] font-black uppercase text-gray-500"><?php echo $tx['type']; ?></span></td>
                           <td class="p-6 font-black text-gray-800 text-xs"><?php echo formatCurrency($tx['amount']); ?></td>
                           <td class="p-6">
-                             <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase <?php echo $tx['status'] === 'successful' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'; ?>">
-                                <?php echo $tx['status']; ?>
-                             </span>
+                             <form method="POST" class="flex items-center gap-2">
+                                <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                                <input type="hidden" name="action" value="update_status">
+                                <input type="hidden" name="txId" value="<?php echo $tx['id']; ?>">
+                                <select name="newStatus" onchange="this.form.submit()" class="px-2 py-1 rounded-lg text-[9px] font-black uppercase outline-none border <?php echo $tx['status'] === 'successful' ? 'bg-green-50 text-green-600 border-green-100' : ($tx['status'] === 'failed' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-amber-50 text-amber-600 border-amber-100'); ?>">
+                                    <option value="pending" <?php echo $tx['status'] === 'pending' ? 'selected' : ''; ?>>Pending</option>
+                                    <option value="successful" <?php echo $tx['status'] === 'successful' ? 'selected' : ''; ?>>Successful</option>
+                                    <option value="failed" <?php echo $tx['status'] === 'failed' ? 'selected' : ''; ?>>Failed</option>
+                                </select>
+                                <?php if (!empty($tx['token'])): ?>
+                                <button type="button" onclick="singleRequery('<?php echo $tx['id']; ?>', this)" class="p-1.5 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors" title="Requery Status">
+                                    <i data-lucide="refresh-cw" class="w-3 h-3 text-gray-500"></i>
+                                </button>
+                                <?php endif; ?>
+                             </form>
                           </td>
                           <td class="p-6 text-[10px] font-bold text-gray-400"><?php echo date('Y-m-d H:i', strtotime($tx['date'])); ?></td>
                        </tr>
@@ -112,6 +138,30 @@ require_once __DIR__ . '/header.php';
     </div>
 </div>
 <script>
+function singleRequery(txId, btn) {
+    const icon = btn.querySelector('i');
+    btn.disabled = true;
+    icon.classList.add('animate-spin');
+
+    fetch('/cron-requery.php?ajax=1&force=1&txId=' + txId)
+        .then(r => r.json())
+        .then(data => {
+            if (data.results && data.results[txId]) {
+                alert('Requery result: ' + data.results[txId].message);
+                window.location.reload();
+            } else {
+                alert('No response for this transaction.');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Requery failed.');
+        })
+        .finally(() => {
+            btn.disabled = false;
+            icon.classList.remove('animate-spin');
+        });
+}
 function triggerRequery(e) {
     const btn = e.currentTarget;
     const icon = btn.querySelector('i');

@@ -246,6 +246,41 @@ require_once __DIR__ . '/header.php';
         <button type="submit" class="w-full bg-gray-900 text-white py-5 rounded-[32px] font-black uppercase shadow-xl hover:bg-black transition-all">Save Configuration</button>
     </form>
 
+    <!-- Automated Requery Cronjob -->
+    <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100 mt-10">
+        <div class="flex items-center gap-4 mb-6">
+            <div class="w-12 h-12 bg-indigo-50 text-indigo-500 rounded-2xl flex items-center justify-center">
+                <i data-lucide="clock" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <h3 class="text-sm font-black uppercase tracking-widest">Automation (Cronjob)</h3>
+                <p class="text-[9px] font-bold text-gray-400 uppercase">Set up automated transaction status re-checking</p>
+            </div>
+        </div>
+
+        <div class="space-y-6">
+            <div class="p-6 bg-gray-50 rounded-3xl border border-gray-100">
+                <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Command Line / Path</label>
+                <div class="mt-2 flex items-center gap-2">
+                    <input type="text" readonly value="php <?php echo realpath(__DIR__ . '/../cron-requery.php'); ?>" class="flex-1 p-4 bg-white rounded-xl border border-gray-200 font-mono text-[10px] text-billpay-green">
+                    <button type="button" onclick="navigator.clipboard.writeText(this.previousElementSibling.value); alert('Copied!')" class="p-4 bg-gray-900 text-white rounded-xl hover:bg-black transition-all">
+                        <i data-lucide="copy" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-blue-50 p-6 rounded-3xl border border-blue-100">
+                <h4 class="text-[10px] font-black uppercase text-blue-900 mb-2 flex items-center gap-2"><i data-lucide="info" class="w-3 h-3"></i> cPanel Configuration Instructions</h4>
+                <ol class="text-[9px] font-bold text-blue-700 uppercase space-y-2 list-decimal ml-4">
+                    <li>Log into your cPanel and search for "Cron Jobs".</li>
+                    <li>Under "Add New Cron Job", select "Every Minute (* * * * *)" from common settings.</li>
+                    <li>Paste the path shown above into the "Command" field.</li>
+                    <li>Click "Add New Cron Job" to start automated requery.</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
     <!-- Cache Management -->
     <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100 mt-10">
         <h3 class="text-xl font-black uppercase tracking-widest mb-4 flex items-center gap-3"><i data-lucide="refresh-cw" class="text-orange-500"></i> Cache Management</h3>

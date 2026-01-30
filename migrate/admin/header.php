@@ -77,6 +77,7 @@
                 ['label' => 'KYC Review', 'icon' => 'shield-check', 'path' => '/admin/kyc'],
                 ['label' => 'Deposits', 'icon' => 'wallet', 'path' => '/admin/deposits'],
                 ['label' => 'All Tx History', 'icon' => 'file-text', 'path' => '/admin/transactions'],
+                ['label' => 'Issue Reports', 'icon' => 'alert-octagon', 'path' => '/admin/transaction-reports'],
                 ['label' => 'Support', 'icon' => 'message-square', 'path' => '/admin/support'],
                 ['label' => 'Email Hub', 'icon' => 'mail', 'path' => '/admin/email-hub'],
                 [

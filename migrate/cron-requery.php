@@ -19,10 +19,16 @@ if (file_exists($lockFile) && time() - filemtime($lockFile) < 55 && !isset($_GET
 }
 touch($lockFile);
 
-// Fetch pending or failed transactions from last 5 minutes, queried < 5 times
-$stmt = $pdo->prepare("SELECT id FROM transactions WHERE (status = 'pending' OR status = 'failed') AND date > DATE_SUB(NOW(), INTERVAL 5 MINUTE) AND query_count < 5 ORDER BY date DESC LIMIT 20");
-$stmt->execute();
-$toQuery = $stmt->fetchAll(PDO::FETCH_COLUMN);
+// Manual Single Requery or Auto-Batch
+$toQuery = [];
+if (!empty($_GET['txId'])) {
+    $toQuery = [sanitize($_GET['txId'])];
+} else {
+    // Fetch pending or failed transactions from last 5 minutes, queried < 5 times
+    $stmt = $pdo->prepare("SELECT id FROM transactions WHERE (status = 'pending' OR status = 'failed') AND date > DATE_SUB(NOW(), INTERVAL 5 MINUTE) AND query_count < 5 ORDER BY date DESC LIMIT 20");
+    $stmt->execute();
+    $toQuery = $stmt->fetchAll(PDO::FETCH_COLUMN);
+}
 
 $results = [];
 foreach ($toQuery as $txId) {

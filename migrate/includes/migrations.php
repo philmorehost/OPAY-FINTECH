@@ -246,6 +246,19 @@ try {
         UNIQUE KEY type_value (type, value)
     )");
 
+    $pdo->exec("CREATE TABLE IF NOT EXISTS transaction_reports (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        txId VARCHAR(50) NOT NULL,
+        userId VARCHAR(50) NOT NULL,
+        issueType VARCHAR(100),
+        message TEXT NOT NULL,
+        status ENUM('open', 'resolved', 'closed') DEFAULT 'open',
+        adminComment TEXT,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX (txId),
+        INDEX (userId)
+    )");
+
     // Ensure all countries are initialized in access_control if not present
     // (We'll do this lazily or in the admin page)
 

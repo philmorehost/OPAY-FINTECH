@@ -225,6 +225,44 @@ function logTransaction($pdo, $userId, $type, $amount, $status, $details, $recip
 }
 }
 
+if (!function_exists('changeTransactionStatus')) {
+function changeTransactionStatus($pdo, $txId, $newStatus) {
+    $stmt = $pdo->prepare("SELECT * FROM transactions WHERE id = ?");
+    $stmt->execute([$txId]);
+    $tx = $stmt->fetch();
+    if (!$tx) return false;
+
+    if ($tx['status'] === $newStatus) return true;
+
+    $pdo->beginTransaction();
+    try {
+        // failed -> successful: DEBIT user (if not already debited)
+        if ($tx['status'] === 'failed' && $newStatus === 'successful') {
+             // When it first failed, it might have been refunded.
+             // If 'refunded' flag exists and is 1, we re-debit.
+             if ($tx['refunded']) {
+                updateWallet($pdo, $tx['userId'], $tx['amount'], 'debit');
+                $pdo->prepare("UPDATE transactions SET refunded = 0 WHERE id = ?")->execute([$txId]);
+             }
+        }
+        // successful -> failed: REFUND user
+        elseif ($tx['status'] === 'successful' && $newStatus === 'failed') {
+            updateWallet($pdo, $tx['userId'], $tx['amount'], 'credit');
+            $pdo->prepare("UPDATE transactions SET refunded = 1 WHERE id = ?")->execute([$txId]);
+        }
+
+        $stmt = $pdo->prepare("UPDATE transactions SET status = ? WHERE id = ?");
+        $stmt->execute([$newStatus, $txId]);
+
+        $pdo->commit();
+        return true;
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        return false;
+    }
+}
+}
+
 if (!function_exists('sendEmail2fa')) {
 function sendEmail2fa($pdo, $user) {
     $code = rand(100000, 999999);

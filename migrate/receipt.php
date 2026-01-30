@@ -77,6 +77,25 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                     <?php endif; ?>
 
+                    <?php if ($tx['type'] === 'Data EPIN' && $tx['token']): ?>
+                    <div class="space-y-4 mt-8">
+                        <div class="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Generated EPINs</div>
+                        <?php
+                            $stmt = $pdo->prepare("SELECT * FROM data_epins WHERE batchId = ?");
+                            $stmt->execute([$tx['token']]);
+                            $pins = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                            foreach ($pins as $p):
+                        ?>
+                        <div class="bg-gray-50 p-6 rounded-3xl border border-gray-100 text-center">
+                            <div class="text-[8px] font-black text-gray-400 uppercase mb-1">RECHARGE PIN</div>
+                            <div class="text-xl font-black tracking-widest text-gray-900"><?php echo $p['pin']; ?></div>
+                            <div class="text-[8px] font-bold text-gray-400 mt-1 uppercase">S/N: <?php echo $p['serial']; ?></div>
+                        </div>
+                        <?php endforeach; ?>
+                        <a href="/datacard?print_batch=<?php echo $tx['token']; ?>" target="_blank" class="block w-full py-4 bg-billpay-green/10 text-billpay-green text-center rounded-2xl font-black text-[9px] uppercase tracking-widest">Print Full Batch</a>
+                    </div>
+                    <?php endif; ?>
+
                     <div class="bg-indigo-50/50 p-6 rounded-3xl border border-indigo-100 mt-8">
                         <div class="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Description</div>
                         <p class="text-[11px] font-bold text-indigo-900 leading-relaxed uppercase"><?php echo $tx['details']; ?></p>
@@ -115,6 +134,10 @@ require_once __DIR__ . '/includes/header.php';
                     <i data-lucide="file-text" class="w-4 h-4 text-indigo-500"></i> Print PDF
                 </button>
             </div>
+
+            <a href="/report-issue?txId=<?php echo $tx['id']; ?>" class="block w-full py-5 bg-red-50 text-red-600 rounded-[24px] font-black text-[10px] uppercase tracking-widest text-center border border-red-100 shadow-sm hover:bg-red-100 transition-all">
+                <i data-lucide="alert-triangle" class="w-4 h-4 inline-block mr-2 mb-0.5"></i> Report an Issue
+            </a>
         </div>
     </div>
 </div>

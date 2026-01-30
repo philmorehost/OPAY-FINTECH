@@ -780,19 +780,11 @@ function requeryTransaction($pdo, $txId) {
     }
 
     if ($newStatus && $newStatus !== $tx['status']) {
-        $pdo->beginTransaction();
-        try {
-            // If it was failed (and refunded) but now successful -> Re-debit
-            if ($tx['status'] === 'failed' && $tx['refunded'] && $newStatus === 'successful') {
-                updateWallet($pdo, $tx['userId'], $tx['amount'], 'debit');
-                $pdo->prepare("UPDATE transactions SET refunded = 0 WHERE id = ?")->execute([$tx['id']]);
-            }
-
-            $pdo->prepare("UPDATE transactions SET status = ?, details = CONCAT(details, ' | Requery: ', ?), last_queried_at = NOW(), query_count = query_count + 1 WHERE id = ?")
-                ->execute([$newStatus, $apiMsg, $txId]);
-            $pdo->commit();
+        if (changeTransactionStatus($pdo, $txId, $newStatus)) {
+            $pdo->prepare("UPDATE transactions SET details = CONCAT(details, ' | Requery: ', ?), last_queried_at = NOW(), query_count = query_count + 1 WHERE id = ?")
+                ->execute([$apiMsg, $txId]);
             return ['status' => 'success', 'new_status' => $newStatus, 'message' => "Updated to $newStatus"];
-        } catch (Exception $e) { $pdo->rollBack(); return ['status' => 'error', 'message' => $e->getMessage()]; }
+        }
     }
 
     $pdo->prepare("UPDATE transactions SET last_queried_at = NOW(), query_count = query_count + 1 WHERE id = ?")->execute([$txId]);

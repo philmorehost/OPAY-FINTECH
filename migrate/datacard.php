@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         $stmt->execute([$currentUser['id'], $networkName, $selectedPlan['plan_id'], $selectedPlan['data_size'] . ' ' . $selectedPlan['type'], $pin, $serial, $batchId]);
                     }
 
-                    logTransaction($pdo, $currentUser['id'], 'Data EPIN', $totalCost, 'successful', "Generated $quantity Data EPINs for $networkName", 'System', 'Internal');
+                    logTransaction($pdo, $currentUser['id'], 'Data EPIN', $totalCost, 'successful', "Generated $quantity Data EPINs for $networkName", 'System', 'Internal', $batchId);
                     $pdo->commit();
                     $success = true;
                     // Refresh balance
@@ -74,7 +74,7 @@ require_once __DIR__ . '/includes/header.php';
             <a href="/dashboard"><i data-lucide="arrow-left" class="w-6 h-6 text-gray-900"></i></a>
             <h1 class="text-lg font-black text-gray-900 uppercase tracking-tight">Data Bundle EPINs</h1>
         </div>
-        <a href="/transactions?type=Data+EPIN" class="text-[10px] font-black text-billpay-green uppercase">My Batches</a>
+        <a href="/datacard-history" class="text-[10px] font-black text-billpay-green uppercase">My Batches</a>
     </div>
 
     <div class="p-4 flex-1">
