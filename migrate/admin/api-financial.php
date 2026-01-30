@@ -88,7 +88,7 @@ require_once __DIR__ . '/header.php';
 
 <div class="space-y-10 animate-fade-in pb-20 text-gray-900">
     <div class="flex items-center justify-between">
-        <h2 class="text-2xl font-black uppercase tracking-tight">Financial & Banking API</h2>
+        <h2 class="text-2xl font-black uppercase tracking-tight">Financial API Service Charges</h2>
     </div>
 
     <?php if (isset($success)): ?><div class="p-4 bg-green-50 text-green-800 rounded-2xl text-xs font-black border border-green-100 uppercase text-center"><?php echo $success; ?></div><?php endif; ?>
@@ -220,22 +220,20 @@ require_once __DIR__ . '/header.php';
         <!-- Service Charges Manager -->
         <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
             <h3 class="text-sm font-black uppercase tracking-widest mb-8 flex items-center gap-3">
-                <i data-lucide="percent" class="text-indigo-500"></i> Global API Service Charges
+                <i data-lucide="percent" class="text-indigo-500"></i> Financial Service Charges
             </h3>
-            <div class="grid grid-cols-2 md:grid-cols-5 gap-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <?php
                 $chargeKeys = [
-                    'airtime' => 'Airtime',
-                    'data' => 'Data',
-                    'cable' => 'Cable TV',
-                    'electric' => 'Electricity',
-                    'betting' => 'Betting',
-                    'exam' => 'Exam PINs',
                     'crypto_buy' => 'Crypto Buy',
                     'crypto_sell' => 'Crypto Sell',
                     'crypto_swap' => 'Crypto Swap',
                     'crypto_withdraw' => 'Crypto Withdraw'
                 ];
+                // Maintain hidden values for removed keys to prevent settings wipe
+                $removedKeys = ['airtime', 'data', 'cable', 'electric', 'betting', 'exam'];
+                foreach($removedKeys as $rk) echo '<input type="hidden" name="charge_'.$rk.'" value="'.($fs['globalCharges'][$rk] ?? 0).'">';
+
                 foreach ($chargeKeys as $key => $label):
                 ?>
                 <div>
@@ -246,7 +244,7 @@ require_once __DIR__ . '/header.php';
             </div>
             <div class="mt-8 p-6 bg-indigo-50 rounded-3xl border border-indigo-100 flex gap-4">
                 <i data-lucide="shield-alert" class="w-6 h-6 text-indigo-500"></i>
-                <p class="text-[10px] font-bold text-indigo-700 uppercase leading-relaxed">These charges are applied on top of the calculated cost or deducted from payouts. Use carefully to maintain competitive pricing.</p>
+                <p class="text-[10px] font-bold text-indigo-700 uppercase leading-relaxed">These charges are applied specifically to financial operations managed on this page. VTU/Utility charges are now managed per network/provider in their respective API hubs.</p>
             </div>
         </div>
 

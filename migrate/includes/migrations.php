@@ -190,6 +190,25 @@ try {
     )");
     addColumnIfNotExists($pdo, 'utility_packages', 'service_id', "VARCHAR(50) AFTER provider");
 
+    // Data EPINs Table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS data_epins (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        userId VARCHAR(50),
+        network VARCHAR(50),
+        planId VARCHAR(50),
+        planName VARCHAR(100),
+        pin VARCHAR(100),
+        serial VARCHAR(100),
+        batchId VARCHAR(50),
+        status ENUM('active', 'used', 'processing') DEFAULT 'active',
+        processorPhone VARCHAR(20),
+        processedAt DATETIME,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+    )");
+
+    // Settings for EPIN Phone Numbers
+    addColumnIfNotExists($pdo, 'settings', 'epinSettings', "TEXT");
+
 } catch (PDOException $e) {
     // Silent fail
 }

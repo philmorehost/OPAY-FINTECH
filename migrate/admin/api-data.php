@@ -28,7 +28,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]
     ];
 
-    if (isset($_POST['action']) && $_POST['action'] === 'add_plan') {
+    if (isset($_POST['action']) && $_POST['action'] === 'save_epin_settings') {
+        $epinSettings = [
+            'phones' => [
+                'MTN' => $_POST['epin_phone_mtn'],
+                'Airtel' => $_POST['epin_phone_airtel'],
+                'Glo' => $_POST['epin_phone_glo'],
+                '9mobile' => $_POST['epin_phone_9mobile']
+            ]
+        ];
+        $stmt = $pdo->prepare("UPDATE settings SET epinSettings = ? WHERE id = 1");
+        $stmt->execute([json_encode($epinSettings)]);
+        $success = "EPIN settings updated!";
+    } elseif (isset($_POST['action']) && $_POST['action'] === 'add_plan') {
         $stmt = $pdo->prepare("INSERT INTO data_plans (network, plan_id, data_size, type, api_price, user_price, gateway) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE data_size = VALUES(data_size), user_price = VALUES(user_price), api_price = VALUES(api_price)");
         $stmt->execute([
             sanitize($_POST['plan_network']),
@@ -271,6 +283,24 @@ require_once __DIR__ . '/header.php';
 
         <button type="submit" class="w-full bg-gray-900 text-white py-5 rounded-[32px] font-black uppercase shadow-xl hover:bg-black transition-all">Save Data Configuration</button>
     </form>
+
+    <!-- EPIN Phone Settings -->
+    <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100 mt-10">
+        <h3 class="text-sm font-black uppercase tracking-widest mb-8 flex items-center gap-3"><i data-lucide="smartphone" class="text-indigo-500"></i> EPIN Instruction Phone Numbers</h3>
+        <?php
+            $es = $settings['epinSettings'] ?? [];
+            if (is_string($es)) $es = json_decode($es, true) ?: [];
+            $eph = $es['phones'] ?? [];
+        ?>
+        <form method="POST" class="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+            <div><label class="text-[10px] font-black text-gray-400 uppercase">MTN Phone</label><input type="text" name="epin_phone_mtn" value="<?php echo $eph['MTN'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none text-xs border border-transparent focus:border-billpay-green"></div>
+            <div><label class="text-[10px] font-black text-gray-400 uppercase">Airtel Phone</label><input type="text" name="epin_phone_airtel" value="<?php echo $eph['Airtel'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none text-xs border border-transparent focus:border-billpay-green"></div>
+            <div><label class="text-[10px] font-black text-gray-400 uppercase">Glo Phone</label><input type="text" name="epin_phone_glo" value="<?php echo $eph['Glo'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none text-xs border border-transparent focus:border-billpay-green"></div>
+            <div><label class="text-[10px] font-black text-gray-400 uppercase">9mobile Phone</label><input type="text" name="epin_phone_9mobile" value="<?php echo $eph['9mobile'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none text-xs border border-transparent focus:border-billpay-green"></div>
+            <div class="col-span-2 md:col-span-4"><button type="submit" name="action" value="save_epin_settings" class="w-full py-4 bg-gray-900 text-white rounded-2xl font-black uppercase text-xs">Update EPIN Phones</button></div>
+        </form>
+    </div>
 
     <!-- Data Package Manager -->
     <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100 mt-10">

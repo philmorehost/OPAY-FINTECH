@@ -10,6 +10,7 @@ $services = [
     ['icon' => 'crown', 'label' => 'Finance', 'path' => '/finance', 'color' => 'text-amber-500'],
     ['icon' => 'bar-chart-3', 'label' => 'Crypto', 'path' => '/crypto', 'color' => 'text-orange-500'],
     ['icon' => 'credit-card', 'label' => 'Card', 'path' => '/vcard', 'color' => 'text-pink-500'],
+    ['icon' => 'printer', 'label' => 'Data Card', 'path' => '/datacard', 'color' => 'text-indigo-600'],
     ['icon' => 'arrow-right-left', 'label' => 'Transfer', 'path' => '/transfer', 'color' => 'text-indigo-500'],
     ['icon' => 'bar-chart-2', 'label' => 'Referrals', 'path' => '/referrals', 'color' => 'text-cyan-600'],
     ['icon' => 'gift', 'label' => 'Gift Cards', 'path' => '/giftcards', 'color' => 'text-pink-600'],

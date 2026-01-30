@@ -646,8 +646,83 @@ function nellobyteGetBettingCompanies($pdo) {
     $us = $settings['utilitySettings'] ?? [];
     $creds = $us['nellobyte'] ?? [];
     $userId = $creds['userId'] ?? '';
-
     $url = "https://www.nellobytesystems.com/APIBettingCompaniesV2.asp?UserID=$userId";
+    return callApi($url);
+}
+}
+
+if (!function_exists('getReloadlyAccessToken')) {
+function getReloadlyAccessToken($pdo) {
+    $settings = fetchSettings($pdo);
+    $os = $settings['otherApiSettings']['reloadly'] ?? [];
+    $clientId = $os['clientId'] ?? '';
+    $clientSecret = $os['clientSecret'] ?? '';
+    if (empty($clientId) || empty($clientSecret)) return null;
+
+    $cacheKey = 'reloadly_token';
+    if (isset($_SESSION[$cacheKey]) && $_SESSION[$cacheKey . '_expiry'] > time()) {
+        return $_SESSION[$cacheKey];
+    }
+
+    $res = callApi("https://auth.reloadly.com/oauth/token", 'POST', [
+        'client_id' => $clientId,
+        'client_secret' => $clientSecret,
+        'grant_type' => 'client_credentials',
+        'audience' => 'https://giftcards.reloadly.com'
+    ], ['Content-Type: application/json']);
+
+    if (isset($res['access_token'])) {
+        $_SESSION[$cacheKey] = $res['access_token'];
+        $_SESSION[$cacheKey . '_expiry'] = time() + ($res['expires_in'] ?? 3600) - 60;
+        return $res['access_token'];
+    }
+    return null;
+}
+}
+
+if (!function_exists('getReloadlyGiftCards')) {
+function getReloadlyGiftCards($pdo) {
+    $token = getReloadlyAccessToken($pdo);
+    if (!$token) return ['status' => 'error', 'message' => 'Reloadly not configured'];
+    return callApi("https://giftcards.reloadly.com/products", 'GET', [], ["Authorization: Bearer $token", "Accept: application/com.reloadly.giftcards-v1+json"]);
+}
+}
+
+if (!function_exists('purchaseReloadlyGiftCard')) {
+function purchaseReloadlyGiftCard($pdo, $productId, $amount, $recipientEmail, $quantity = 1) {
+    $token = getReloadlyAccessToken($pdo);
+    if (!$token) return ['status' => 'error', 'message' => 'Reloadly not configured'];
+    $payload = [
+        'productId' => $productId,
+        'quantity' => $quantity,
+        'unitPrice' => $amount,
+        'senderName' => 'BillPay User',
+        'recipientEmail' => $recipientEmail,
+        'customIdentifier' => 'JW-' . uniqid()
+    ];
+    return callApi("https://giftcards.reloadly.com/orders", 'POST', $payload, ["Authorization: Bearer $token", "Accept: application/com.reloadly.giftcards-v1+json", "Content-Type: application/json"]);
+}
+}
+
+if (!function_exists('nellobyteGetDataEPINPlans')) {
+function nellobyteGetDataEPINPlans($pdo) {
+    $settings = fetchSettings($pdo);
+    $us = $settings['utilitySettings']['nellobyte'] ?? [];
+    $userId = $us['userId'] ?? '';
+    // Documentation suggests APIDatabundlePlansV2 for all data plans including EPIN
+    $url = "https://www.nellobytesystems.com/APIDatabundlePlansV2.asp?UserID=$userId";
+    return callApi($url);
+}
+}
+
+if (!function_exists('purchaseDataEPIN')) {
+function purchaseDataEPIN($pdo, $networkCode, $planId, $quantity = 1) {
+    $settings = fetchSettings($pdo);
+    $us = $settings['utilitySettings']['nellobyte'] ?? [];
+    $userId = $us['userId'] ?? '';
+    $apiKey = $us['apiKey'] ?? '';
+    $requestId = date('YmdHi') . bin2hex(random_bytes(4));
+    $url = "https://www.nellobytesystems.com/APIDatabundleEPINV1.asp?UserID=$userId&APIKey=$apiKey&MobileNetwork=$networkCode&DataPlan=$planId&Quantity=$quantity&RequestID=$requestId";
     return callApi($url);
 }
 }

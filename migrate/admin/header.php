@@ -86,6 +86,7 @@
                     'submenu' => [
                         ['label' => 'Airtime API', 'path' => '/admin/api-airtime'],
                         ['label' => 'Data API', 'path' => '/admin/api-data'],
+                        ['label' => 'Manage Data Cards', 'path' => '/admin/manage-epins'],
                         ['label' => 'Utilities API', 'path' => '/admin/api-utilities'],
                         ['label' => 'Financial API', 'path' => '/admin/api-financial'],
                         ['label' => 'Others API', 'path' => '/admin/api-others'],

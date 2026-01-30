@@ -29,27 +29,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } elseif (isset($_POST['action']) && $_POST['action'] === 'fetch_betting') {
         $res = nellobyteGetBettingCompanies($pdo);
-        // Better parsing for Nellobyte V2 Betting Companies
-        $companies = null;
-        if (is_array($res)) {
-            if (isset($res['content'])) $companies = $res['content'];
-            elseif (isset($res['companies'])) $companies = $res['companies'];
-            elseif (isset($res[0])) $companies = $res;
-        }
-
-        if (is_array($companies)) {
-            foreach ($companies as $p) {
-                $slug = $p['Slug'] ?? $p['ID'] ?? $p['id'] ?? '';
-                $name = $p['Name'] ?? $p['name'] ?? '';
+        if (is_array($res) && isset($res['content']) && is_array($res['content'])) {
+            foreach ($res['content'] as $p) {
+                $slug = $p['Slug'] ?? $p['ID'] ?? '';
+                $name = $p['Name'] ?? '';
                 if ($slug) {
                     $stmt = $pdo->prepare("INSERT INTO utility_packages (category, provider, service_id, package_id, name) VALUES ('betting', 'nellobyte', ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name)");
                     $stmt->execute([$slug, $slug, $name]);
                 }
             }
-            $success = "Fetched " . count($companies) . " betting providers";
+            $success = "Fetched " . count($res['content']) . " betting providers from Nellobyte V2";
         } else {
-            $errDesc = is_array($res) ? json_encode($res) : (is_string($res) ? $res : 'Unknown Response Format');
-            $error = "Failed to fetch betting providers: " . substr($errDesc, 0, 200);
+            $desc = is_array($res) ? ($res['status'] ?? json_encode($res)) : (is_string($res) ? $res : 'Unknown error');
+            $error = "Failed to fetch betting providers: " . substr($desc, 0, 100);
         }
     } elseif (isset($_POST['action']) && $_POST['action'] === 'fetch_exams_nr') {
         $res = naijaresultpinsExams($pdo, 'packages');
