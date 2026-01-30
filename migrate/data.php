@@ -184,8 +184,9 @@ require_once __DIR__ . '/includes/header.php';
         $p['enabled'] = true;
     }
     ?>
-    const allPlans = <?php echo json_encode($allPlansRaw); ?>;
+    const allPlans = <?php echo json_encode($allPlansRaw ?: []); ?>;
     const dataRouting = <?php echo json_encode($settings['dataSettings']['routing'] ?? []); ?>;
+    console.log("Data Plans Loaded:", allPlans.length);
     function setBulk(isBulk) {
         document.getElementById('isBulkInput').value = isBulk;
         document.getElementById('singlePhoneGroup').classList.toggle('hidden', isBulk);

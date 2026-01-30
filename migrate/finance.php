@@ -759,21 +759,33 @@ require_once __DIR__ . '/includes/header.php';
                 btn.disabled = false;
                 if (res.status === 'success' || res.status === true || res.id || res.data || res.quote_id) {
                     const data = res.data || res;
-                    const symbol = data.symbol || ''; // e.g. "USD-NGN"
+                    const symbol = (data.symbol || '').toUpperCase();
                     let rate = parseFloat(data.rate) || 1;
 
-                    // JuicyWay Rate Logic:
-                    // If symbol is "TARGET-SOURCE", Rate = Source/Target => Target = Source / Rate
-                    // If symbol is "SOURCE-TARGET", Rate = Target/Source => Target = Source * Rate
-                    // Default to Source-Target multiply logic if symbol is missing or matches from-to
-                    let effectiveRate = rate;
-                    if (symbol && symbol.startsWith(to) && symbol.endsWith(from)) {
-                        effectiveRate = 1 / rate;
+                    // JuicyWay Robust Rate Detection:
+                    // 1. If target_amount is present, use it directly (divided by 100 for minor units).
+                    // 2. If not, interpret rate based on symbol.
+                    //    A rate of 1500 for NGN-USD symbol usually means 1 USD = 1500 NGN.
+                    //    We want to find how many units of TO we get for 1 unit of FROM.
+
+                    let targetAmount;
+                    if (data.target_amount !== undefined) {
+                        targetAmount = data.target_amount / 100;
+                    } else {
+                        // Symbol logic: if symbol is "TO-FROM" (e.g. USD-NGN) and we are NGN->USD, rate is FROM/TO.
+                        // So 1 FROM = 1/Rate TO.
+                        let isReverse = (symbol.includes(to) && symbol.includes(from) && symbol.indexOf(to) < symbol.indexOf(from));
+
+                        // Heuristic: if rate > 100 and we are going NGN to USD/GBP/EUR/USDT/USDC, it's definitely reversed.
+                        if (from === 'NGN' && ['USD', 'GBP', 'EUR', 'USDT', 'USDC'].includes(to) && rate > 50) {
+                            isReverse = true;
+                        }
+
+                        let effectiveRate = isReverse ? (1 / rate) : rate;
+                        targetAmount = amount * effectiveRate;
                     }
 
-                    let targetAmount = (data.target_amount !== undefined) ? (data.target_amount / 100) : (amount * effectiveRate);
-
-                    document.getElementById('toAmountDisplay').innerText = targetAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    document.getElementById('toAmountDisplay').innerText = targetAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 4});
                     document.getElementById('quoteId').value = data.id || data.quote_id || data.reference;
 
                     // Display Rate (Always 1 SOURCE ~ X TARGET)

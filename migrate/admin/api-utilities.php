@@ -29,14 +29,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } elseif (isset($_POST['action']) && $_POST['action'] === 'fetch_betting') {
         $res = nellobyteGetBettingCompanies($pdo);
-        if (is_array($res) && isset($res['content'])) {
-            foreach ($res['content'] as $p) {
-                $stmt = $pdo->prepare("INSERT INTO utility_packages (category, provider, service_id, package_id, name) VALUES ('betting', 'nellobyte', ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name)");
-                $stmt->execute([$p['ID'], $p['ID'], $p['Name']]);
+        // Better parsing for Nellobyte V2 Betting Companies
+        $companies = null;
+        if (is_array($res)) {
+            if (isset($res['content'])) $companies = $res['content'];
+            elseif (isset($res['companies'])) $companies = $res['companies'];
+            elseif (isset($res[0])) $companies = $res;
+        }
+
+        if (is_array($companies)) {
+            foreach ($companies as $p) {
+                $slug = $p['Slug'] ?? $p['ID'] ?? $p['id'] ?? '';
+                $name = $p['Name'] ?? $p['name'] ?? '';
+                if ($slug) {
+                    $stmt = $pdo->prepare("INSERT INTO utility_packages (category, provider, service_id, package_id, name) VALUES ('betting', 'nellobyte', ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name)");
+                    $stmt->execute([$slug, $slug, $name]);
+                }
             }
-            $success = "Fetched " . count($res['content']) . " betting providers";
+            $success = "Fetched " . count($companies) . " betting providers";
         } else {
-            $error = "Failed to fetch betting providers: " . (is_string($res) ? $res : 'Unknown error');
+            $errDesc = is_array($res) ? json_encode($res) : (is_string($res) ? $res : 'Unknown Response Format');
+            $error = "Failed to fetch betting providers: " . substr($errDesc, 0, 200);
         }
     } elseif (isset($_POST['action']) && $_POST['action'] === 'fetch_exams_nr') {
         $res = naijaresultpinsExams($pdo, 'packages');
@@ -261,7 +274,7 @@ require_once __DIR__ . '/header.php';
             </h3>
 
             <div class="flex items-center gap-3">
-                <?php if ($cat['id'] === 'cable' || $cat['id'] === 'electric' || $cat['id'] === 'exam'): ?>
+                <?php if ($cat['id'] === 'cable' || $cat['id'] === 'electric' || ($cat['id'] === 'exam' && ($us['routing']['exam'] ?? 'vtpass') === 'vtpass')): ?>
                 <form method="POST" class="flex items-center gap-2">
                     <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                     <input type="hidden" name="action" value="fetch_packages">
@@ -279,7 +292,7 @@ require_once __DIR__ . '/header.php';
                 </form>
                 <?php endif; ?>
 
-                <?php if ($cat['id'] === 'exam'): ?>
+                <?php if ($cat['id'] === 'exam' && ($us['routing']['exam'] ?? '') === 'naijaresultpins'): ?>
                 <form method="POST">
                     <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                     <input type="hidden" name="action" value="fetch_exams_nr">
@@ -301,11 +314,11 @@ require_once __DIR__ . '/header.php';
                     <input type="hidden" name="clear_cat" value="<?php echo $cat['id']; ?>">
                     <div class="flex items-center gap-1">
                         <select name="clear_prov" class="p-2 bg-red-50 text-red-600 rounded-lg font-bold outline-none text-[8px] border border-red-100">
-                            <option value="vtpass">VTpass</option>
+                            <?php if($cat['id'] !== 'betting'): ?><option value="vtpass">VTpass</option><?php endif; ?>
                             <option value="nellobyte">Nellobyte</option>
-                            <option value="naijaresultpins">NaijaResultPins</option>
+                            <?php if($cat['id'] === 'exam'): ?><option value="naijaresultpins">NaijaResultPins</option><?php endif; ?>
                         </select>
-                        <button type="submit" onclick="return confirm('Clear?')" class="px-3 py-2 bg-red-500 text-white rounded-lg font-black uppercase text-[8px]">Clear</button>
+                        <button type="submit" onclick="return confirm('Clear all <?php echo $cat['name']; ?> packages for this provider?')" class="px-3 py-2 bg-red-500 text-white rounded-lg font-black uppercase text-[8px]">Clear</button>
                     </div>
                 </form>
             </div>
@@ -334,6 +347,7 @@ require_once __DIR__ . '/header.php';
         </div>
 
         <!-- Manual Add form for this category -->
+        <?php $isDiscMode = ($cat['id'] === 'electric' || $cat['id'] === 'betting'); ?>
         <div class="bg-gray-50 p-6 rounded-[32px] border border-gray-100">
             <h4 class="text-[9px] font-black uppercase text-gray-400 mb-4 ml-1">Add Manual <?php echo $cat['name']; ?></h4>
             <form method="POST" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 items-end">
@@ -356,6 +370,7 @@ require_once __DIR__ . '/header.php';
                     <label class="text-[8px] font-black text-gray-400 uppercase">Display Name</label>
                     <input type="text" name="name" placeholder="Name" required class="w-full p-3 bg-white rounded-xl font-bold mt-1 outline-none text-[10px]">
                 </div>
+                <?php if (!$isDiscMode): ?>
                 <div>
                     <label class="text-[8px] font-black text-gray-400 uppercase">API Cost</label>
                     <input type="number" step="0.01" name="api_p" value="0" class="w-full p-3 bg-white rounded-xl font-bold mt-1 outline-none text-[10px]">
@@ -364,6 +379,10 @@ require_once __DIR__ . '/header.php';
                     <label class="text-[8px] font-black text-gray-400 uppercase">User Price</label>
                     <input type="number" step="0.01" name="user_p" value="0" class="w-full p-3 bg-white rounded-xl font-bold mt-1 outline-none text-[10px]">
                 </div>
+                <?php else: ?>
+                    <input type="hidden" name="api_p" value="0">
+                    <input type="hidden" name="user_p" value="0">
+                <?php endif; ?>
                 <button type="submit" class="bg-gray-900 text-white py-3 rounded-xl font-black uppercase text-[10px]">Add Package</button>
             </form>
         </div>
@@ -374,10 +393,10 @@ require_once __DIR__ . '/header.php';
                     <tr class="text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">
                         <th class="pb-4">Provider Info</th>
                         <th class="pb-4">Package ID</th>
-                        <th class="pb-4">API Price</th>
-                        <th class="pb-4">API Disc</th>
-                        <th class="pb-4">User Price</th>
-                        <th class="pb-4">User Disc</th>
+                        <th class="pb-4"><?php echo $isDiscMode ? 'Fixed Cost?' : 'API Price'; ?></th>
+                        <th class="pb-4">API Disc %</th>
+                        <th class="pb-4"><?php echo $isDiscMode ? '-' : 'User Price'; ?></th>
+                        <th class="pb-4">User Disc %</th>
                         <th class="pb-4">Profit</th>
                         <th class="pb-4 text-right">Action</th>
                     </tr>
