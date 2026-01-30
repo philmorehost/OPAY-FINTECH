@@ -74,6 +74,11 @@ require_once __DIR__ . '/header.php';
 <div class="space-y-10 animate-fade-in pb-20 text-gray-900">
     <div class="flex items-center justify-between">
         <h2 class="text-2xl font-black uppercase tracking-tight">Airtime API Gateway</h2>
+        <div class="flex gap-4">
+            <button onclick="document.getElementById('batchModal').classList.remove('hidden')" class="bg-billpay-green text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase shadow-lg hover:bg-black transition-all flex items-center gap-2">
+                <i data-lucide="percent" class="w-4 h-4"></i> Apply All Discounts
+            </button>
+        </div>
     </div>
 
     <?php if (isset($success)): ?>
@@ -187,5 +192,49 @@ require_once __DIR__ . '/header.php';
         <button type="submit" class="w-full bg-gray-900 text-white py-6 rounded-[32px] font-black uppercase shadow-xl hover:bg-black transition-all">Save Airtime Configuration</button>
     </form>
 </div>
+
+<!-- Batch Modal -->
+<div id="batchModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-6">
+    <div class="bg-white rounded-[40px] w-full max-w-md p-10 shadow-2xl animate-scale-up">
+        <h3 class="text-xl font-black uppercase tracking-tight mb-2">Apply Global Discount</h3>
+        <p class="text-[10px] font-bold text-gray-400 uppercase mb-8">Update all networks simultaneously</p>
+
+        <div class="space-y-6">
+            <div>
+                <label class="text-[10px] font-black text-gray-400 uppercase ml-1">API Discount (%)</label>
+                <input type="number" id="batchApi" placeholder="e.g. 3.0" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green">
+            </div>
+            <div>
+                <label class="text-[10px] font-black text-gray-400 uppercase ml-1">User Discount (%)</label>
+                <input type="number" id="batchUser" placeholder="e.g. 2.0" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green">
+            </div>
+            <div class="flex gap-4 pt-4">
+                <button onclick="document.getElementById('batchModal').classList.add('hidden')" class="flex-1 py-4 bg-gray-100 text-gray-400 rounded-2xl font-black uppercase text-[10px]">Cancel</button>
+                <button onclick="applyBatch()" class="flex-2 px-10 py-4 bg-billpay-green text-white rounded-2xl font-black uppercase text-[10px] shadow-lg">Apply Now</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function applyBatch() {
+    const api = document.getElementById('batchApi').value;
+    const user = document.getElementById('batchUser').value;
+
+    if (api !== '') {
+        document.querySelectorAll('input[name^="api_discount_"]').forEach(el => el.value = api);
+    }
+    if (user !== '') {
+        document.querySelectorAll('input[name^="user_discount_"]').forEach(el => el.value = user);
+    }
+
+    // Trigger Alpine.js models if they exist (though here we might just need to trigger 'input' event)
+    document.querySelectorAll('input[name^="api_discount_"], input[name^="user_discount_"]').forEach(el => {
+        el.dispatchEvent(new Event('input'));
+    });
+
+    document.getElementById('batchModal').classList.add('hidden');
+}
+</script>
 
 <?php require_once __DIR__ . '/footer.php'; ?>

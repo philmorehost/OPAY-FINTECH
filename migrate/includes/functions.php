@@ -58,9 +58,16 @@ function checkMinDepositRestriction($settings, $currentUser) {
 if (!function_exists('claimDailyRewardIfEligible')) {
 function claimDailyRewardIfEligible($pdo, $userId) {
     $today = date('Y-m-d');
+
+    // 1. Check if already rewarded today
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM transactions WHERE userId = ? AND type = 'Daily Reward' AND DATE(date) = ?");
     $stmt->execute([$userId, $today]);
     if ($stmt->fetchColumn() > 0) return;
+
+    // 2. Ensure at least one successful transaction exists for today (excluding daily rewards)
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM transactions WHERE userId = ? AND status = 'successful' AND type != 'Daily Reward' AND DATE(date) = ?");
+    $stmt->execute([$userId, $today]);
+    if ($stmt->fetchColumn() == 0) return;
 
     $stmt = $pdo->query("SELECT bonusPerDay FROM settings WHERE id = 1");
     $bonus = $stmt->fetchColumn();

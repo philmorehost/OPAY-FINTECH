@@ -30,8 +30,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ];
     $os['simulationMode'] = isset($_POST['simulationMode']) ? 1 : 0;
 
-    $stmt = $pdo->prepare("UPDATE settings SET otherApiSettings = ? WHERE id = 1");
-    $stmt->execute([json_encode($os)]);
+    $stmt = $pdo->prepare("UPDATE settings SET otherApiSettings = ?, smsRate = ?, smsApiRate = ? WHERE id = 1");
+    $stmt->execute([json_encode($os), (float)$_POST['smsRate'], (float)$_POST['smsApiRate']]);
     $success = "Other API settings updated!";
     $settings = fetchSettings($pdo);
 }
@@ -76,6 +76,16 @@ require_once __DIR__ . '/header.php';
                     <div>
                         <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Default Sender Name</label>
                         <input type="text" name="ks_sender" value="<?php echo $os['kudisms']['sender'] ?? 'BillPay'; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-[10px] font-black text-gray-400 uppercase ml-1">API Rate (Cost)</label>
+                            <input type="number" step="0.01" name="smsApiRate" value="<?php echo $settings['smsApiRate'] ?? 3.50; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-black text-gray-400 uppercase ml-1">User Rate (Sale)</label>
+                            <input type="number" step="0.01" name="smsRate" value="<?php echo $settings['smsRate'] ?? 4.50; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
+                        </div>
                     </div>
                 </div>
             </div>

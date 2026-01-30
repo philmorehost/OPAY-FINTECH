@@ -134,6 +134,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $pdo->prepare("DELETE FROM data_plans WHERE gateway = ?");
         $stmt->execute([$provider]);
         $success = "Cleared all data plans for $provider!";
+    } elseif (isset($_POST['action']) && $_POST['action'] === 'apply_all_discounts') {
+        $apiDisc = (float)$_POST['all_api_discount'];
+        $userDisc = (float)$_POST['all_user_discount'];
+        $stmt = $pdo->prepare("UPDATE data_plans SET api_discount = ?, user_discount = ?");
+        $stmt->execute([$apiDisc, $userDisc]);
+        $success = "Applied discounts to all data plans!";
     } elseif (isset($_POST['action']) && $_POST['action'] === 'update_plan') {
         $id = (int)$_POST['plan_id'];
         $stmt = $pdo->prepare("UPDATE data_plans SET api_discount = ?, user_discount = ?, user_price = ? WHERE id = ?");
@@ -309,6 +315,27 @@ require_once __DIR__ . '/header.php';
                     <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-lg font-black uppercase text-[8px] whitespace-nowrap">Fetch All DataGifting</button>
                 </form>
             </div>
+        </div>
+
+        <!-- Apply to All Discounts -->
+        <div class="bg-indigo-50 p-6 rounded-[32px] border border-indigo-100 mb-10 flex flex-wrap items-center justify-between gap-6">
+            <div>
+                <h4 class="text-[10px] font-black uppercase text-indigo-900">Batch Discount Manager</h4>
+                <p class="text-[8px] font-bold text-indigo-700 uppercase">Apply the same discount percentage to all data plans at once.</p>
+            </div>
+            <form method="POST" class="flex items-center gap-4">
+                <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                <input type="hidden" name="action" value="apply_all_discounts">
+                <div class="flex items-center gap-2">
+                    <label class="text-[8px] font-black uppercase text-indigo-400">API Disc %</label>
+                    <input type="number" step="0.01" name="all_api_discount" placeholder="0.00" class="w-20 p-3 bg-white rounded-xl font-black text-[10px] outline-none border border-indigo-200">
+                </div>
+                <div class="flex items-center gap-2">
+                    <label class="text-[8px] font-black uppercase text-indigo-400">User Disc %</label>
+                    <input type="number" step="0.01" name="all_user_discount" placeholder="0.00" class="w-20 p-3 bg-white rounded-xl font-black text-[10px] outline-none border border-indigo-200">
+                </div>
+                <button type="submit" class="px-6 py-3 bg-indigo-600 text-white rounded-xl font-black uppercase text-[8px] shadow-lg hover:bg-indigo-700 transition-all">Apply to All Plans</button>
+            </form>
         </div>
 
         <!-- Add Plan Form -->

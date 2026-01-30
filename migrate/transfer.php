@@ -53,7 +53,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 require_once __DIR__ . '/includes/header.php';
 
 $banks = [
-    "Access Bank", "First Bank", "GTBank", "Kuda Bank", "Moniepoint", "Billpay Digital Bank", "United Bank for Africa", "Zenith Bank"
+    ["name" => "Access Bank", "code" => "044"],
+    ["name" => "Access Bank (Diamond)", "code" => "063"],
+    ["name" => "Airtel Smartcash", "code" => "120004"],
+    ["name" => "Ecobank Nigeria", "code" => "050"],
+    ["name" => "Fidelity Bank", "code" => "070"],
+    ["name" => "First Bank of Nigeria", "code" => "011"],
+    ["name" => "First City Monument Bank", "code" => "214"],
+    ["name" => "Guaranty Trust Bank", "code" => "058"],
+    ["name" => "Heritage Bank", "code" => "030"],
+    ["name" => "Keystone Bank", "code" => "082"],
+    ["name" => "Kuda Bank", "code" => "50211"],
+    ["name" => "Moniepoint MFB", "code" => "50515"],
+    ["name" => "OPay Digital Services", "code" => "999992"],
+    ["name" => "Palmpay", "code" => "999991"],
+    ["name" => "Stanbic IBTC Bank", "code" => "039"],
+    ["name" => "Standard Chartered Bank", "code" => "068"],
+    ["name" => "Sterling Bank", "code" => "232"],
+    ["name" => "Union Bank of Nigeria", "code" => "032"],
+    ["name" => "United Bank For Africa", "code" => "033"],
+    ["name" => "Unity Bank", "code" => "215"],
+    ["name" => "VFD Microfinance Bank", "code" => "566"],
+    ["name" => "Wema Bank", "code" => "035"],
+    ["name" => "Zenith Bank", "code" => "057"]
 ];
 ?>
 
@@ -86,7 +108,7 @@ $banks = [
                 <select name="bank" class="w-full p-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:border-billpay-green outline-none font-bold text-gray-900 text-sm" required>
                     <option value="">Choose Bank</option>
                     <?php foreach ($banks as $b): ?>
-                        <option value="<?php echo $b; ?>"><?php echo $b; ?></option>
+                        <option value="<?php echo $b['name']; ?>"><?php echo $b['name']; ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -103,22 +125,55 @@ $banks = [
 
             <div>
                 <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest">Amount (₦)</label>
-                <input type="number" name="amount" placeholder="Min ₦100" min="100" class="w-full p-4 bg-gray-50 text-gray-900 border-2 border-transparent focus:border-billpay-green outline-none rounded-2xl font-black text-xl" required>
+                <input type="number" name="amount" id="amount" placeholder="Min ₦100" min="100" class="w-full p-4 bg-gray-50 text-gray-900 border-2 border-transparent focus:border-billpay-green outline-none rounded-2xl font-black text-xl" required>
             </div>
 
-            <div class="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+            <div id="transferSummary" class="hidden bg-gray-50 p-6 rounded-2xl border border-gray-100 space-y-3">
                 <div class="flex justify-between items-center text-[10px] font-black uppercase text-gray-400">
                     <span>Transfer Fee</span>
                     <span>₦10.00</span>
                 </div>
+                <div class="flex justify-between items-center text-[10px] font-black uppercase text-gray-400">
+                    <span>Receiver Gets</span>
+                    <span id="summaryReceiver" class="text-gray-900">₦0.00</span>
+                </div>
+                <div class="pt-3 border-t border-gray-200 flex justify-between items-center text-xs font-black uppercase text-gray-900">
+                    <span>Total Charge</span>
+                    <span id="summaryTotal" class="text-billpay-green text-lg">₦0.00</span>
+                </div>
+                <div class="text-center pt-2">
+                    <span class="text-[8px] font-black text-indigo-500 uppercase">Updates every 30s</span>
+                </div>
             </div>
 
-            <button type="submit" id="submitBtn" disabled class="w-full bg-billpay-green text-white font-black py-5 rounded-2xl shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50 uppercase">CONFIRM TRANSFER</button>
+            <button type="submit" id="submitBtn" disabled class="w-full bg-billpay-green text-white font-black py-5 rounded-2xl shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50 uppercase">
+                <span class="btn-text">CONFIRM TRANSFER</span>
+                <div class="btn-loader hidden w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+            </button>
         </form>
     </div>
 </div>
 
 <script>
+    const amountInput = document.getElementById('amount');
+    const summary = document.getElementById('transferSummary');
+    const summaryReceiver = document.getElementById('summaryReceiver');
+    const summaryTotal = document.getElementById('summaryTotal');
+
+    function updateSummary() {
+        const amount = parseFloat(amountInput.value) || 0;
+        if (amount >= 100) {
+            summary.classList.remove('hidden');
+            summaryReceiver.innerText = '₦' + amount.toLocaleString(undefined, {minimumFractionDigits: 2});
+            summaryTotal.innerText = '₦' + (amount + 10).toLocaleString(undefined, {minimumFractionDigits: 2});
+        } else {
+            summary.classList.add('hidden');
+        }
+    }
+
+    amountInput.addEventListener('input', updateSummary);
+    setInterval(updateSummary, 30000);
+
     document.getElementById('accountNumber').addEventListener('input', function(e) {
         const val = e.target.value.replace(/\D/g, '');
         e.target.value = val;
@@ -142,6 +197,17 @@ $banks = [
             input.value = "";
             btn.disabled = true;
         }
+    });
+
+    document.querySelector('form').addEventListener('submit', function() {
+        const btn = document.getElementById('submitBtn');
+        const text = btn.querySelector('.btn-text');
+        const loader = btn.querySelector('.btn-loader');
+
+        btn.disabled = true;
+        btn.classList.add('opacity-70');
+        text.innerText = 'PROCESSING...';
+        loader.classList.remove('hidden');
     });
 </script>
 
