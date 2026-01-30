@@ -7,6 +7,15 @@ $pageTitle = 'Bank Transfer';
 $error = '';
 $success = false;
 
+if (isset($_GET['ajax']) && $_GET['ajax'] === 'getBanks') {
+    header('Content-Type: application/json');
+    $res = juicywayGetBanks($pdo, 'NG');
+    if (isset($res['data'])) echo json_encode($res);
+    elseif (is_array($res)) echo json_encode(['status' => 'success', 'data' => $res]);
+    else echo json_encode(['status' => 'error', 'message' => 'Failed to fetch banks']);
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'transfer') {
     if (!verifyCsrfToken($_POST['csrf_token'])) {
         die('CSRF token validation failed');
@@ -105,8 +114,8 @@ $banks = [
 
             <div>
                 <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest">Select Bank</label>
-                <select name="bank" class="w-full p-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:border-billpay-green outline-none font-bold text-gray-900 text-sm" required>
-                    <option value="">Choose Bank</option>
+                <select name="bank" id="bankSelect" class="w-full p-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:border-billpay-green outline-none font-bold text-gray-900 text-sm" required>
+                    <option value="">Loading Banks...</option>
                     <?php foreach ($banks as $b): ?>
                         <option value="<?php echo $b['name']; ?>"><?php echo $b['name']; ?></option>
                     <?php endforeach; ?>
@@ -173,6 +182,28 @@ $banks = [
 
     amountInput.addEventListener('input', updateSummary);
     setInterval(updateSummary, 30000);
+
+    window.addEventListener('DOMContentLoaded', () => {
+        fetch('?ajax=getBanks')
+            .then(r => r.json())
+            .then(res => {
+                const sel = document.getElementById('bankSelect');
+                if (res.status === 'success' || res.status === true) {
+                    sel.innerHTML = '<option value="">Choose Bank</option>';
+                    res.data.forEach(b => {
+                        const opt = document.createElement('option');
+                        opt.value = b.name;
+                        opt.textContent = b.name;
+                        sel.appendChild(opt);
+                    });
+                } else {
+                    sel.innerHTML = '<option value="">Error loading banks</option>';
+                }
+            })
+            .catch(() => {
+                document.getElementById('bankSelect').innerHTML = '<option value="">Connection Error</option>';
+            });
+    });
 
     document.getElementById('accountNumber').addEventListener('input', function(e) {
         const val = e.target.value.replace(/\D/g, '');

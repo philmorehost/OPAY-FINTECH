@@ -12,14 +12,30 @@ if (isset($_GET['ajax'])) {
     header('Content-Type: application/json');
     if ($_GET['ajax'] === 'getBanks') {
         $country = sanitize($_GET['country'] ?? 'NG');
-        echo json_encode(juicywayGetBanks($pdo, $country));
+        $res = juicywayGetBanks($pdo, $country);
+        // Ensure consistent response format for JS
+        if (isset($res['data'])) echo json_encode($res);
+        elseif (is_array($res)) echo json_encode(['status' => 'success', 'data' => $res]);
+        else echo json_encode(['status' => 'error', 'message' => 'Failed to fetch banks']);
         exit;
     }
     if ($_GET['ajax'] === 'getQuote') {
         $amount = (float)$_GET['amount'];
         $from = sanitize($_GET['from']);
         $to = sanitize($_GET['to']);
-        echo json_encode(juicywayGetQuote($pdo, $amount, $from, $to));
+        $res = juicywayGetQuote($pdo, $amount, $from, $to);
+        echo json_encode($res);
+        exit;
+    }
+    if ($_GET['ajax'] === 'getCountries') {
+        // JuicyWay might have an endpoint for countries, or we can use a standard list
+        // For now, providing a supported list for SWIFT
+        echo json_encode(['status' => 'success', 'data' => [
+            ['code' => 'US', 'name' => 'United States'], ['code' => 'GB', 'name' => 'United Kingdom'],
+            ['code' => 'CA', 'name' => 'Canada'], ['code' => 'EU', 'name' => 'European Union'],
+            ['code' => 'CN', 'name' => 'China'], ['code' => 'IN', 'name' => 'India'],
+            ['code' => 'NG', 'name' => 'Nigeria'], ['code' => 'AE', 'name' => 'United Arab Emirates']
+        ]]);
         exit;
     }
     if ($_GET['ajax'] === 'getBeneficiaries') {
@@ -71,6 +87,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             } elseif ($currency === 'USD') {
                 $payoutData['routing_number'] = sanitize($_POST['routing_number']);
                 $payoutData['transfer_type'] = sanitize($_POST['usd_type']); // ach, fedwire, swift
+                if ($payoutData['transfer_type'] === 'swift') {
+                    $payoutData['recipient_country'] = sanitize($_POST['recipient_country']);
+                }
             }
 
             $res = juicywayInitiatePayout($pdo, $payoutData);
@@ -276,12 +295,12 @@ require_once __DIR__ . '/includes/header.php';
                                 <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Select Currency</label>
                                 <select name="currency" id="transferCurrency" onchange="onTransferCurrencyChange()" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm border-2 border-transparent focus:border-billpay-green outline-none transition-all">
                                     <option value="NGN">Naira (NGN)</option>
+                                    <option value="GBP">Great British Pound (GBP)</option>
                                     <option value="USD">US Dollar (USD)</option>
-                                    <option value="GBP">British Pound (GBP)</option>
-                                    <option value="CAD">Canadian Dollar (CAD)</option>
-                                    <option value="EUR">Euro (EUR)</option>
                                     <option value="USDT">Tether (USDT)</option>
                                     <option value="USDC">USD Coin (USDC)</option>
+                                    <option value="CAD">Canadian Dollar (CAD)</option>
+                                    <option value="EUR">Euro (EUR)</option>
                                 </select>
                             </div>
                             <div>
@@ -306,18 +325,25 @@ require_once __DIR__ . '/includes/header.php';
                                     <input type="text" name="account_number" placeholder="0000000000" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none">
                                 </div>
                             </div>
-                            <div id="usdFields" class="hidden grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div id="usdFields" class="hidden space-y-6">
                                 <div>
-                                    <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Routing Number</label>
-                                    <input type="text" name="routing_number" placeholder="Routing / Sort Code" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none">
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">USD Transfer Type</label>
-                                    <select name="usd_type" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none">
+                                    <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">USD Payout Method</label>
+                                    <select name="usd_type" id="usdTypeSelect" onchange="onUsdTypeChange()" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none">
                                         <option value="ach">ACH</option>
                                         <option value="fedwire">FED WIRE</option>
                                         <option value="swift">SWIFT</option>
                                     </select>
+                                </div>
+                                <div id="achNotice" class="p-4 bg-amber-50 rounded-2xl border border-amber-100 hidden">
+                                    <p class="text-[10px] font-bold text-amber-800 uppercase leading-relaxed">Please note: We only support SWIFT payouts to individuals outside US who are classified as either Contractors or Employees.</p>
+                                </div>
+                                <div id="swiftCountryGroup" class="hidden">
+                                    <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Country / region of recipient's account*</label>
+                                    <select name="recipient_country" id="swiftCountrySelect" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none border-2 border-transparent focus:border-billpay-green"></select>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Routing Number / SWIFT Code</label>
+                                    <input type="text" name="routing_number" placeholder="Enter routing or swift code" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none">
                                 </div>
                             </div>
                             <div>
@@ -338,6 +364,13 @@ require_once __DIR__ . '/includes/header.php';
                         <div id="cryptoFields" class="hidden space-y-6">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
+                                    <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Select Crypto Currency</label>
+                                    <select name="crypto_asset" id="cryptoAssetSelect" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none border-2 border-transparent focus:border-billpay-green">
+                                        <option value="USDT">Tether (USDT)</option>
+                                        <option value="USDC">USD Coin (USDC)</option>
+                                    </select>
+                                </div>
+                                <div>
                                     <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Network</label>
                                     <select name="network" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none border-2 border-transparent focus:border-billpay-green">
                                         <option value="trc20">TRON (TRC20)</option>
@@ -346,10 +379,10 @@ require_once __DIR__ . '/includes/header.php';
                                         <option value="solana">SOLANA</option>
                                     </select>
                                 </div>
-                                <div>
-                                    <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Wallet Address</label>
-                                    <input type="text" name="address" placeholder="Enter crypto address" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none">
-                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Wallet Address</label>
+                                <input type="text" name="address" placeholder="Enter crypto address" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none">
                             </div>
                         </div>
 
@@ -359,8 +392,14 @@ require_once __DIR__ . '/includes/header.php';
                                 <input type="text" name="description" placeholder="What is this for?" class="w-full p-5 bg-gray-50 rounded-[24px] font-bold text-sm outline-none" required>
                             </div>
                             <div>
-                                <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Fund Password</label>
-                                <input type="password" name="fund_password" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none" required>
+                                <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Security PIN (Fund Password)</label>
+                                <?php if (empty($currentUser['fundPassword'])): ?>
+                                    <div class="flex items-center gap-3">
+                                        <a href="/login-settings" class="flex-1 p-5 bg-orange-50 text-orange-600 rounded-[24px] font-black text-xs uppercase text-center border border-orange-100">Set Security PIN First</a>
+                                    </div>
+                                <?php else: ?>
+                                    <input type="password" name="fund_password" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none" required>
+                                <?php endif; ?>
                             </div>
                         </div>
 
@@ -669,25 +708,53 @@ require_once __DIR__ . '/includes/header.php';
         const internalFields = document.getElementById('internalFields');
         const cryptoFields = document.getElementById('cryptoFields');
 
-        // Default hide
+        // Default hide all special fields
         [bankFields, internalFields, cryptoFields].forEach(f => f.classList.add('hidden'));
 
         if (['USDT', 'USDC'].includes(curr)) {
             setTransferType('crypto');
+            document.getElementById('cryptoAssetSelect').value = curr;
+            document.getElementById('cryptoFields').classList.remove('hidden');
         } else if (curr === 'CAD') {
             setTransferType('interac');
             document.getElementById('internalFields').classList.remove('hidden');
         } else {
             setTransferType('bank');
             document.getElementById('bankFields').classList.remove('hidden');
-            document.getElementById('bankSelectGroup').classList.toggle('hidden', !['NGN'].includes(curr));
+
+            // Per Network/Currency logic
+            const isNgn = (curr === 'NGN');
+            const isUsd = (curr === 'USD');
+            const isGbp = (curr === 'GBP');
+
+            document.getElementById('bankSelectGroup').classList.toggle('hidden', !isNgn);
             document.getElementById('bankNameGroup').classList.toggle('hidden', !['GBP', 'EUR', 'USD'].includes(curr));
-            document.getElementById('usdFields').classList.toggle('hidden', curr !== 'USD');
+            document.getElementById('usdFields').classList.toggle('hidden', !isUsd);
+
+            if (isUsd) onUsdTypeChange();
 
             // Map currency to country for bank fetching
             const countryMap = { 'NGN': 'NG', 'USD': 'US', 'GBP': 'GB', 'EUR': 'EU', 'CAD': 'CA' };
-            if (countryMap[curr]) fetchBanks(countryMap[curr]);
+            if (countryMap[curr] && isNgn) fetchBanks(countryMap[curr]);
         }
+    }
+
+    function onUsdTypeChange() {
+        const type = document.getElementById('usdTypeSelect').value;
+        document.getElementById('achNotice').classList.toggle('hidden', type !== 'ach');
+        document.getElementById('swiftCountryGroup').classList.toggle('hidden', type !== 'swift');
+        if (type === 'swift') fetchSwiftCountries();
+    }
+
+    function fetchSwiftCountries() {
+        const sel = document.getElementById('swiftCountrySelect');
+        if (sel.options.length > 0) return;
+        fetch('?ajax=getCountries')
+            .then(r => r.json())
+            .then(res => {
+                sel.innerHTML = '<option value="">Select Country</option>';
+                res.data.forEach(c => sel.innerHTML += `<option value="${c.code}">${c.name}</option>`);
+            });
     }
 
     function fetchBanks(country) {
@@ -769,14 +836,26 @@ require_once __DIR__ . '/includes/header.php';
                     //    We want to find how many units of TO we get for 1 unit of FROM.
 
                     let targetAmount;
-                    if (data.target_amount !== undefined) {
+                    if (data.target_amount !== undefined && data.target_amount > 0) {
                         targetAmount = data.target_amount / 100;
+
+                        // SANITY CHECK: If NGN -> USD and target > source, JuicyWay might have returned NGN amount in minor units as target.
+                        // e.g. 5000 NGN -> 739 million USD (Incorrect)
+                        // Correct: 5000 NGN -> ~3.33 USD
+                        if (from === 'NGN' && ['USD', 'GBP', 'EUR', 'USDT', 'USDC'].includes(to) && targetAmount > amount) {
+                             if (data.rate) {
+                                 let r = parseFloat(data.rate);
+                                 targetAmount = (r > 50) ? (amount / r) : (amount * r);
+                             } else {
+                                 targetAmount = amount / 1500; // Emergency fallback rate
+                             }
+                        }
                     } else {
                         // Symbol logic: if symbol is "TO-FROM" (e.g. USD-NGN) and we are NGN->USD, rate is FROM/TO.
                         // So 1 FROM = 1/Rate TO.
                         let isReverse = (symbol.includes(to) && symbol.includes(from) && symbol.indexOf(to) < symbol.indexOf(from));
 
-                        // Heuristic: if rate > 100 and we are going NGN to USD/GBP/EUR/USDT/USDC, it's definitely reversed.
+                        // Heuristic: if rate > 50 and we are going NGN to USD/GBP/EUR/USDT/USDC, it's definitely reversed.
                         if (from === 'NGN' && ['USD', 'GBP', 'EUR', 'USDT', 'USDC'].includes(to) && rate > 50) {
                             isReverse = true;
                         }
@@ -785,7 +864,7 @@ require_once __DIR__ . '/includes/header.php';
                         targetAmount = amount * effectiveRate;
                     }
 
-                    document.getElementById('toAmountDisplay').innerText = targetAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 4});
+                    document.getElementById('toAmountDisplay').innerText = targetAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 6});
                     document.getElementById('quoteId').value = data.id || data.quote_id || data.reference;
 
                     // Display Rate (Always 1 SOURCE ~ X TARGET)

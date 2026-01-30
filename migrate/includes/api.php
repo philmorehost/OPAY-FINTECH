@@ -65,7 +65,9 @@ function callApi($url, $method = 'GET', $data = [], $headers = []) {
     }
 
     if ($err) return ['status' => 'error', 'message' => $err, 'debug' => $info];
-    return json_decode($response, true) ?: $response;
+    $decoded = json_decode($response, true);
+    if (json_last_error() === JSON_ERROR_NONE) return $decoded;
+    return $response;
 }
 }
 
@@ -197,26 +199,32 @@ function testGenericConnection($pdo, $provider, $creds) {
         case 'datagifting':
             $res = callApi("https://v6.datagifting.com.ng/web/api/user.php?api_key=" . ($creds['apiKey'] ?? ''));
             if (is_array($res)) {
-                if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => 'Connected! Balance: ' . ($res['wallet'] ?? $res['balance'] ?? 'N/A')];
-                if (isset($res['status']) && $res['status'] === 'fail') return ['status' => 'error', 'message' => $res['msg'] ?? 'Auth Failed'];
+                if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => 'Connected! Balance: ₦' . number_format((float)($res['wallet'] ?? $res['balance'] ?? 0), 2)];
+                if (isset($res['status']) && $res['status'] === 'fail') return ['status' => 'error', 'message' => $res['msg'] ?? 'Authentication Failed'];
+                if (isset($res['status']) && $res['status'] === 'error') return ['status' => 'error', 'message' => $res['message'] ?? $res['msg'] ?? 'Provider Error'];
             }
-            return ['status' => 'error', 'message' => 'Connection Failed: ' . print_r($res, true)];
+            return ['status' => 'error', 'message' => 'Connection Failed: ' . (is_string($res) ? $res : json_encode($res))];
         case 'nellobyte':
             $res = callApi("https://www.nellobytesystems.com/APIWalletV1.asp?UserID=" . ($creds['userId'] ?? '') . "&APIKey=" . ($creds['apiKey'] ?? ''));
             if (is_array($res)) {
-                if (isset($res['status']) && strpos($res['status'], 'SUCCESS') !== false) return ['status' => 'success', 'message' => 'Connected! Balance: ' . ($res['balance'] ?? 'N/A')];
-                if (isset($res['walletbalance'])) return ['status' => 'success', 'message' => 'Connected! Balance: ' . $res['walletbalance']];
+                if (isset($res['status']) && strpos(strtoupper($res['status']), 'SUCCESS') !== false) return ['status' => 'success', 'message' => 'Connected! Balance: ₦' . number_format((float)($res['balance'] ?? $res['walletbalance'] ?? 0), 2)];
+                if (isset($res['walletbalance'])) return ['status' => 'success', 'message' => 'Connected! Balance: ₦' . number_format((float)$res['walletbalance'], 2)];
                 if (isset($res['status'])) return ['status' => 'error', 'message' => $res['status']];
             }
-            if (is_string($res) && strpos($res, 'Balance') !== false) return ['status' => 'success', 'message' => 'Connected! ' . $res];
-            return ['status' => 'error', 'message' => 'Connection Failed: ' . (is_string($res) ? $res : print_r($res, true))];
+            if (is_string($res)) {
+                if (strpos($res, 'Balance:') !== false) return ['status' => 'success', 'message' => 'Connected! ' . $res];
+                if (strpos($res, 'INVALID_USER') !== false) return ['status' => 'error', 'message' => 'Invalid User ID or API Key'];
+                return ['status' => 'error', 'message' => 'Response: ' . substr($res, 0, 100)];
+            }
+            return ['status' => 'error', 'message' => 'Connection Failed: ' . json_encode($res)];
         case 'datastation':
             $res = callApi("https://datastationapi.com/api/user/", 'GET', [], ["Authorization: Token " . ($creds['token'] ?? '')]);
             if (is_array($res)) {
-                if (isset($res['user']['wallet_balance'])) return ['status' => 'success', 'message' => 'Connected! Balance: ' . $res['user']['wallet_balance']];
-                if (isset($res['wallet_balance'])) return ['status' => 'success', 'message' => 'Connected! Balance: ' . $res['wallet_balance']];
+                if (isset($res['user']['wallet_balance'])) return ['status' => 'success', 'message' => 'Connected! Balance: ₦' . number_format((float)$res['user']['wallet_balance'], 2)];
+                if (isset($res['wallet_balance'])) return ['status' => 'success', 'message' => 'Connected! Balance: ₦' . number_format((float)$res['wallet_balance'], 2)];
+                if (isset($res['detail'])) return ['status' => 'error', 'message' => $res['detail']];
             }
-            return ['status' => 'error', 'message' => 'Connection Failed: ' . print_r($res, true)];
+            return ['status' => 'error', 'message' => 'Connection Failed: ' . (is_string($res) ? $res : json_encode($res))];
         case 'vtpass':
             $headers = ["Content-Type: application/json"];
             if (!empty($creds['username']) && !empty($creds['password'])) {
@@ -225,13 +233,16 @@ function testGenericConnection($pdo, $provider, $creds) {
                 $headers[] = "api-key: " . $creds['apiKey'];
                 $headers[] = "public-key: " . ($creds['publicKey'] ?? '');
             }
-            $url = (!empty($creds['sandbox'])) ? "https://sandbox.vtpass.com/api/balance" : "https://vtpass.com/api/balance";
+            $url = (!empty($creds['sandbox']) || (!empty($settings['liveMode']) && !$settings['liveMode'])) ? "https://sandbox.vtpass.com/api/balance" : "https://vtpass.com/api/balance";
             $res = callApi($url, 'GET', [], $headers);
             if (is_array($res)) {
-                if (isset($res['code']) && $res['code'] === '000') return ['status' => 'success', 'message' => 'Connected! Balance: ' . ($res['contents']['balance'] ?? 'N/A')];
-                return ['status' => 'error', 'message' => $res['response_description'] ?? 'Auth Failed'];
+                if (isset($res['code']) && $res['code'] === '000') {
+                    $bal = $res['content']['balance'] ?? $res['contents']['balance'] ?? 'N/A';
+                    return ['status' => 'success', 'message' => "Connected! Balance: ₦" . (is_numeric($bal) ? number_format($bal, 2) : $bal)];
+                }
+                return ['status' => 'error', 'message' => $res['response_description'] ?? 'Auth Failed: ' . json_encode($res)];
             }
-            return ['status' => 'error', 'message' => 'Connection Failed: ' . print_r($res, true)];
+            return ['status' => 'error', 'message' => 'Connection Failed: ' . (is_string($res) ? $res : json_encode($res))];
         case 'naijaresultpins':
             // Hypothetical test for NaijaResultPins
             return ['status' => 'success', 'message' => 'NaijaResultPins (Simulated Connection)'];
@@ -549,9 +560,10 @@ if (!function_exists('juicywayGetQuote')) {
 function juicywayGetQuote($pdo, $amount, $from, $to) {
     $from = strtoupper($from);
     $to = strtoupper($to);
-    // JuicyWay exchange/quote endpoint provides a rate based on currency pair.
-    // Sending 'amount' or 'source_amount' here often results in "This field is unknown" error.
-    $url = "exchange/quote?source_currency=$from&target_currency=$to&lock=true";
+    // Ensure amount is in minor units for JuicyWay if they support it in query
+    $minorAmount = (int)($amount * 100);
+    // Try both source_amount and amount just in case, but prioritize the one known to work for rates
+    $url = "exchange/quote?source_currency=$from&target_currency=$to&source_amount=$minorAmount&lock=true";
     return callJuicyWay($pdo, $url, 'GET');
 }
 }

@@ -369,7 +369,7 @@ require_once __DIR__ . '/header.php';
         </div>
 
         <!-- Add Plan Form -->
-        <form method="POST" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-12 p-8 bg-gray-50 rounded-[32px] border border-gray-100">
+        <form method="POST" x-data="{ api: 0, user: 0 }" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-12 p-8 bg-gray-50 rounded-[32px] border border-gray-100">
             <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
             <input type="hidden" name="action" value="add_plan">
             <div>
@@ -405,13 +405,19 @@ require_once __DIR__ . '/header.php';
             </div>
             <div>
                 <label class="text-[10px] font-black text-gray-400 uppercase">API Cost (₦)</label>
-                <input type="number" step="0.01" name="plan_apiPrice" required class="w-full p-3 bg-white rounded-xl font-bold mt-1 outline-none text-xs">
+                <input type="number" step="0.01" name="plan_apiPrice" x-model="api" required class="w-full p-3 bg-white rounded-xl font-bold mt-1 outline-none text-xs">
             </div>
             <div>
                 <label class="text-[10px] font-black text-gray-400 uppercase">User Price (₦)</label>
-                <input type="number" step="0.01" name="plan_userPrice" required class="w-full p-3 bg-white rounded-xl font-bold mt-1 outline-none text-xs">
+                <input type="number" step="0.01" name="plan_userPrice" x-model="user" required class="w-full p-3 bg-white rounded-xl font-bold mt-1 outline-none text-xs">
             </div>
-            <div class="md:col-span-3 lg:col-span-2 flex items-end">
+            <div class="flex items-end">
+                <div class="w-full p-3 bg-indigo-50 rounded-xl border border-indigo-100 flex flex-col items-center justify-center">
+                    <span class="text-[8px] font-black text-indigo-400 uppercase">Est. Profit</span>
+                    <span class="text-xs font-black text-indigo-600" x-text="'₦' + (parseFloat(user || 0) - parseFloat(api || 0)).toFixed(2)"></span>
+                </div>
+            </div>
+            <div class="flex items-end">
                 <button type="submit" class="w-full bg-orange-500 text-white py-3 rounded-xl font-black uppercase text-xs shadow-lg hover:bg-orange-600 transition-all">Add New Plan</button>
             </div>
         </form>

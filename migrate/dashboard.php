@@ -23,6 +23,18 @@ $templateId = $settings['templateId'] ?? 1;
 ?>
 
 <div class="mx-auto bg-gray-50 min-h-screen pb-24 relative">
+    <?php if (defined('SECURITY_COMPLIANCE_ERROR')): ?>
+    <div class="px-4 pt-6">
+        <div class="p-6 bg-amber-50 text-amber-800 rounded-[32px] border border-amber-100 flex items-center gap-4 shadow-sm">
+            <div class="w-10 h-10 bg-amber-100 rounded-2xl flex items-center justify-center text-amber-600 flex-shrink-0">
+                <i data-lucide="shield-alert" class="w-6 h-6"></i>
+            </div>
+            <p class="text-[10px] font-black uppercase leading-relaxed"><?php echo SECURITY_COMPLIANCE_ERROR; ?></p>
+            <a href="/login-settings" class="ml-auto bg-amber-600 text-white px-4 py-2 rounded-xl text-[8px] font-black uppercase whitespace-nowrap">Configure</a>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <?php if ($templateId == 1): ?>
     <!-- Balance Card Section - Template 1 -->
     <div class="bg-billpay-green p-6 text-white rounded-b-[40px] shadow-lg mb-6">

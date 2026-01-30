@@ -49,6 +49,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([$hashedPin, $currentUser['id']]);
     }
 
+    if (!empty($_POST['fundPassword'])) {
+        $hashedFund = password_hash(sanitize($_POST['fundPassword']), PASSWORD_DEFAULT);
+        $stmt = $pdo->prepare("UPDATE users SET fundPassword = ? WHERE id = ?");
+        $stmt->execute([$hashedFund, $currentUser['id']]);
+    }
+
+    $vtuEnabled = isset($_POST['fundPasswordVtuEnabled']) ? 1 : 0;
+    $stmt = $pdo->prepare("UPDATE users SET fundPasswordVtuEnabled = ? WHERE id = ?");
+    $stmt->execute([$vtuEnabled, $currentUser['id']]);
+
+    if (isset($_POST['action']) && $_POST['action'] === 'reset_fund_pin') {
+        $code = rand(100000, 999999);
+        $expiry = date('Y-m-d H:i:s', strtotime('+15 minutes'));
+        $pdo->prepare("UPDATE users SET fundPasswordResetCode = ?, fundPasswordResetExpiry = ? WHERE id = ?")->execute([$code, $expiry, $currentUser['id']]);
+        sendMail($pdo, $currentUser['email'], "Fund Password Reset Code", "Your reset code is: <b>$code</b>. Valid for 15 mins.");
+        $success = "Reset code sent to your email!";
+    }
+
+    if (isset($_POST['action']) && $_POST['action'] === 'complete_reset' && !empty($_POST['reset_code'])) {
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ? AND fundPasswordResetCode = ? AND fundPasswordResetExpiry > NOW()");
+        $stmt->execute([$currentUser['id'], $_POST['reset_code']]);
+        if ($stmt->fetch()) {
+            $hashedFund = password_hash(sanitize($_POST['new_fund_pin']), PASSWORD_DEFAULT);
+            $pdo->prepare("UPDATE users SET fundPassword = ?, fundPasswordResetCode = NULL WHERE id = ?")->execute([$hashedFund, $currentUser['id']]);
+            $success = "Fund Password reset successful!";
+        } else {
+            $error = "Invalid or expired reset code.";
+        }
+    }
+
     // Update Configured Methods Cache
     $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?"); $stmt->execute([$currentUser['id']]);
     $u = $stmt->fetch();
@@ -94,8 +124,10 @@ require_once __DIR__ . '/includes/header.php';
 
         <form method="POST" class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100 space-y-8">
             <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+            <input type="hidden" name="action" id="formAction" value="save">
 
             <div class="space-y-6">
+                <h3 class="text-xs font-black uppercase tracking-widest text-indigo-500 border-b border-gray-50 pb-2">Login Security</h3>
                 <div class="flex items-center justify-between">
                     <div>
                         <div class="text-sm font-black text-gray-800">Login Alerts</div>
@@ -176,12 +208,62 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-billpay-green"></div>
                     </label>
                 </div>
+
+                <h3 class="text-xs font-black uppercase tracking-widest text-indigo-500 border-b border-gray-50 pb-2 mt-8">Transaction Security</h3>
+
+                <div class="space-y-4">
+                    <label class="text-[10px] font-black text-gray-400 uppercase ml-1"><?php echo !empty($currentUser['fundPassword']) ? 'Change' : 'Set'; ?> Security PIN (Fund Password)</label>
+                    <input type="password" name="fundPassword" maxlength="6" placeholder="Enter 6-digit PIN" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none text-center tracking-[0.5em] border-2 border-transparent focus:border-billpay-green">
+                    <?php if (!empty($currentUser['fundPassword'])): ?>
+                        <button type="button" onclick="requestReset()" class="text-[9px] font-black text-indigo-500 uppercase hover:underline">Forgot Fund Password?</button>
+                    <?php endif; ?>
+                </div>
+
+                <div class="flex items-center justify-between p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
+                    <div>
+                        <div class="text-[11px] font-black text-indigo-900 uppercase">Enforce PIN for Pay Hub</div>
+                        <div class="text-[9px] text-indigo-400 font-bold uppercase">Require PIN for Airtime/Data/Bills</div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" name="fundPasswordVtuEnabled" class="sr-only peer" <?php echo !empty($currentUser['fundPasswordVtuEnabled']) ? 'checked' : ''; ?>>
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    </label>
+                </div>
+            </div>
+
+            <div id="reset-group" class="hidden animate-slide-up bg-amber-50 p-6 rounded-[32px] border border-amber-100 space-y-6">
+                <div class="text-center">
+                    <h4 class="text-[11px] font-black text-amber-900 uppercase">Reset Security PIN</h4>
+                    <p class="text-[9px] text-amber-600 font-bold uppercase mt-1">Verify with email code</p>
+                </div>
+                <input type="text" name="reset_code" placeholder="ENTER CODE" class="w-full p-4 bg-white rounded-xl font-black text-center text-lg tracking-widest outline-none">
+                <input type="password" name="new_fund_pin" maxlength="6" placeholder="NEW 6-DIGIT PIN" class="w-full p-4 bg-white rounded-xl font-black text-center text-lg tracking-widest outline-none">
+                <button type="button" onclick="completeReset()" class="w-full py-4 bg-amber-600 text-white rounded-xl font-black uppercase text-[10px]">Verify & Update</button>
             </div>
 
             <button type="submit" class="w-full bg-gray-900 text-white font-black py-5 rounded-[24px] shadow-xl active:scale-95 transition-all uppercase">Save Preferences</button>
         </form>
     </div>
 </div>
+<script>
+    function requestReset() {
+        if (confirm("Send a reset code to your email?")) {
+            document.getElementById('formAction').value = 'reset_fund_pin';
+            document.querySelector('form').submit();
+        }
+    }
+
+    function completeReset() {
+        document.getElementById('formAction').value = 'complete_reset';
+        document.querySelector('form').submit();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('action') === 'reset_sent') {
+            document.getElementById('reset-group').classList.remove('hidden');
+        }
+    });
 <script>
     function toggle2faVerification(cb) {
         const group = document.getElementById('2fa-verify-group');
