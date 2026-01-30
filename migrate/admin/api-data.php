@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ];
 
     if (isset($_POST['action']) && $_POST['action'] === 'add_plan') {
-        $stmt = $pdo->prepare("INSERT INTO data_plans (network, plan_id, data_size, type, api_price, user_price, gateway) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt = $pdo->prepare("INSERT INTO data_plans (network, plan_id, data_size, type, api_price, user_price, gateway) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE data_size = VALUES(data_size), user_price = VALUES(user_price), api_price = VALUES(api_price)");
         $stmt->execute([
             sanitize($_POST['plan_network']),
             sanitize($_POST['plan_apiCode']),
@@ -48,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (is_array($vars)) {
             $count = 0;
             foreach ($vars as $v) {
-                $stmt = $pdo->prepare("INSERT INTO data_plans (network, plan_id, data_size, type, api_price, user_price, gateway) VALUES (?, ?, ?, ?, ?, ?, 'vtpass') ON DUPLICATE KEY UPDATE data_size = VALUES(data_size), api_price = VALUES(api_price)");
+                $stmt = $pdo->prepare("INSERT INTO data_plans (network, plan_id, data_size, type, api_price, user_price, gateway) VALUES (?, ?, ?, ?, ?, ?, 'vtpass') ON DUPLICATE KEY UPDATE data_size = VALUES(data_size), api_price = VALUES(api_price), gateway = VALUES(gateway)");
                 $stmt->execute([
                     $network,
                     $v['variation_code'] ?? $v['id'] ?? '',
@@ -67,15 +67,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $res = nellobyteGetDataPlans($pdo);
         if (is_array($res) && isset($res['MOBILE_NETWORK'])) {
             $count = 0;
-            $networks = ['MTN', 'AIRTEL', 'GLO', '9MOBILE'];
-            foreach ($networks as $net) {
-                if (isset($res['MOBILE_NETWORK'][$net]) && is_array($res['MOBILE_NETWORK'][$net])) {
-                    foreach ($res['MOBILE_NETWORK'][$net] as $cat) {
+            $nb_map = [
+                'MTN' => 'MTN',
+                'Airtel' => 'Airtel',
+                'Glo' => 'Glo',
+                '9mobile' => 'm_9mobile'
+            ];
+            foreach ($nb_map as $db_net => $api_key) {
+                if (isset($res['MOBILE_NETWORK'][$api_key]) && is_array($res['MOBILE_NETWORK'][$api_key])) {
+                    foreach ($res['MOBILE_NETWORK'][$api_key] as $cat) {
                         if (isset($cat['PRODUCT']) && is_array($cat['PRODUCT'])) {
                             foreach ($cat['PRODUCT'] as $p) {
-                                $stmt = $pdo->prepare("INSERT INTO data_plans (network, plan_id, data_size, type, api_price, user_price, gateway) VALUES (?, ?, ?, ?, ?, ?, 'nellobyte') ON DUPLICATE KEY UPDATE data_size = VALUES(data_size), api_price = VALUES(api_price)");
+                                $stmt = $pdo->prepare("INSERT INTO data_plans (network, plan_id, data_size, type, api_price, user_price, gateway) VALUES (?, ?, ?, ?, ?, ?, 'nellobyte') ON DUPLICATE KEY UPDATE data_size = VALUES(data_size), api_price = VALUES(api_price), gateway = VALUES(gateway)");
                                 $stmt->execute([
-                                    ucfirst(strtolower($net)),
+                                    $db_net,
                                     $p['PRODUCT_CODE'] ?? '',
                                     $p['PRODUCT_NAME'] ?? '',
                                     'DataBundle',

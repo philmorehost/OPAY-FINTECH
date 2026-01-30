@@ -17,6 +17,19 @@ function addColumnIfNotExists($pdo, $table, $column, $definition) {
 }
 }
 
+if (!function_exists('addIndexIfNotExists')) {
+function addIndexIfNotExists($pdo, $table, $indexName, $definition) {
+    try {
+        $stmt = $pdo->query("SHOW INDEX FROM `$table` WHERE Key_name = '$indexName'");
+        if ($stmt->rowCount() == 0) {
+            $pdo->exec("ALTER TABLE `$table` ADD $definition");
+        }
+    } catch (PDOException $e) {
+        // Silent fail
+    }
+}
+}
+
 try {
     // Settings Table Updates
     addColumnIfNotExists($pdo, 'settings', 'templateId', "INT DEFAULT 1");
@@ -156,6 +169,10 @@ try {
     )");
     addColumnIfNotExists($pdo, 'data_plans', 'api_discount', "DECIMAL(5, 2) DEFAULT 0.00");
     addColumnIfNotExists($pdo, 'data_plans', 'user_discount', "DECIMAL(5, 2) DEFAULT 0.00");
+    addIndexIfNotExists($pdo, 'data_plans', 'gateway_net_plan', "UNIQUE KEY gateway_net_plan (gateway, network, plan_id)");
+
+    // Data cleanup
+    $pdo->exec("UPDATE data_plans SET gateway = 'manual' WHERE gateway IS NULL OR gateway = ''");
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS utility_packages (
         id INT AUTO_INCREMENT PRIMARY KEY,

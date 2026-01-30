@@ -21,8 +21,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $stmt->execute([$planId]);
     $selectedPlan = $stmt->fetch(PDO::FETCH_ASSOC);
     if ($selectedPlan) {
-        $selectedPlan['userPrice'] = $selectedPlan['user_price'];
-        $selectedPlan['apiPrice'] = $selectedPlan['api_price'];
+        $selectedPlan['userPrice'] = (float)$selectedPlan['user_price'] * (1 - ((float)$selectedPlan['user_discount'] / 100));
+        $selectedPlan['apiPrice'] = (float)$selectedPlan['api_price'] * (1 - ((float)$selectedPlan['api_discount'] / 100));
         $selectedPlan['size'] = $selectedPlan['data_size'];
         $selectedPlan['apiCode'] = $selectedPlan['plan_id'];
     }

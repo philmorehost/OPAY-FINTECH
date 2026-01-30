@@ -61,6 +61,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             (float)$_POST['user_p']
         ]);
         $success = "Manual package added!";
+    } elseif (isset($_POST['action']) && $_POST['action'] === 'clear_utility_data') {
+        $category = sanitize($_POST['clear_cat']);
+        $provider = sanitize($_POST['clear_prov']);
+        $stmt = $pdo->prepare("DELETE FROM utility_packages WHERE category = ? AND provider = ?");
+        $stmt->execute([$category, $provider]);
+        $success = "Cleared all $category packages for $provider!";
     } elseif (isset($_POST['action']) && $_POST['action'] === 'delete_package') {
         $stmt = $pdo->prepare("DELETE FROM utility_packages WHERE id = ?");
         $stmt->execute([$_POST['package_id']]);
@@ -281,6 +287,20 @@ require_once __DIR__ . '/header.php';
                     <button type="submit" class="px-4 py-2 bg-orange-500 text-white rounded-lg font-black uppercase text-[8px] whitespace-nowrap">Fetch Nellobyte</button>
                 </form>
                 <?php endif; ?>
+
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                    <input type="hidden" name="action" value="clear_utility_data">
+                    <input type="hidden" name="clear_cat" value="<?php echo $cat['id']; ?>">
+                    <div class="flex items-center gap-1">
+                        <select name="clear_prov" class="p-2 bg-red-50 text-red-600 rounded-lg font-bold outline-none text-[8px] border border-red-100">
+                            <option value="vtpass">VTpass</option>
+                            <option value="nellobyte">Nellobyte</option>
+                            <option value="naijaresultpins">NaijaResultPins</option>
+                        </select>
+                        <button type="submit" onclick="return confirm('Clear?')" class="px-3 py-2 bg-red-500 text-white rounded-lg font-black uppercase text-[8px]">Clear</button>
+                    </div>
+                </form>
             </div>
         </div>
 
