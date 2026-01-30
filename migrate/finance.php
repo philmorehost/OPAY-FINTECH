@@ -384,7 +384,10 @@ require_once __DIR__ . '/includes/header.php';
                             <label for="saveBen" class="text-[10px] font-black uppercase text-gray-500">Save to Beneficiaries</label>
                         </div>
 
-                        <button type="submit" class="w-full bg-gray-900 text-white font-black py-6 rounded-[32px] shadow-xl hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-widest">Execute Transfer</button>
+                        <button type="submit" class="submit-btn w-full bg-gray-900 text-white font-black py-6 rounded-[32px] shadow-xl hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-widest flex items-center justify-center gap-3">
+                            <span class="btn-text">Execute Transfer</span>
+                            <div class="btn-loader hidden w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        </button>
                     </form>
 
                     <!-- Beneficiaries List -->
@@ -462,7 +465,10 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
                         </div>
 
-                        <button type="submit" id="btnSwapSubmit" class="w-full bg-billpay-green text-white font-black py-6 rounded-[32px] shadow-xl uppercase tracking-widest hidden">Confirm Swap</button>
+                        <button type="submit" id="btnSwapSubmit" class="submit-btn w-full bg-billpay-green text-white font-black py-6 rounded-[32px] shadow-xl uppercase tracking-widest hidden flex items-center justify-center gap-3">
+                            <span class="btn-text">Confirm Swap</span>
+                            <div class="btn-loader hidden w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        </button>
                     </form>
                 </div>
 
@@ -498,7 +504,10 @@ require_once __DIR__ . '/includes/header.php';
                                 <input type="password" name="fund_password" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none" required>
                             </div>
                         </div>
-                        <button type="submit" class="w-full bg-gray-900 text-white font-black py-6 rounded-[32px] shadow-xl uppercase tracking-widest">Generate Link</button>
+                        <button type="submit" class="submit-btn w-full bg-gray-900 text-white font-black py-6 rounded-[32px] shadow-xl uppercase tracking-widest flex items-center justify-center gap-3">
+                            <span class="btn-text">Generate Link</span>
+                            <div class="btn-loader hidden w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        </button>
                     </form>
                 </div>
 
@@ -816,6 +825,20 @@ require_once __DIR__ . '/includes/header.php';
                 alert('Connection Error. Please try again.');
             });
     }
+
+    document.querySelectorAll('form').forEach(form => {
+        form.addEventListener('submit', function() {
+            const btn = this.querySelector('.submit-btn');
+            if (!btn) return;
+            const text = btn.querySelector('.btn-text');
+            const loader = btn.querySelector('.btn-loader');
+
+            btn.disabled = true;
+            btn.classList.add('opacity-70', 'cursor-not-allowed');
+            if (text) text.innerText = 'Processing...';
+            if (loader) loader.classList.remove('hidden');
+        });
+    });
 </script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

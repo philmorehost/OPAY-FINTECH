@@ -112,7 +112,7 @@ require_once __DIR__ . '/includes/header.php';
         <?php endif; ?>
 
         <?php if (!$success): ?>
-        <form method="POST" class="bg-white p-6 rounded-[40px] shadow-sm space-y-8 border border-gray-100">
+        <form method="POST" id="purchaseForm" class="bg-white p-6 rounded-[40px] shadow-sm space-y-8 border border-gray-100">
             <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
             <input type="hidden" name="action" value="purchase">
 
@@ -154,7 +154,10 @@ require_once __DIR__ . '/includes/header.php';
                 <input type="number" name="amount" placeholder="Enter amount" min="500" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" required>
             </div>
 
-            <button type="submit" class="w-full bg-billpay-green text-white font-black py-5 rounded-[24px] shadow-xl active:scale-95 transition-all uppercase">Recharge Electricity</button>
+            <button type="submit" id="submitBtn" class="w-full bg-billpay-green text-white font-black py-5 rounded-[24px] shadow-xl active:scale-95 transition-all uppercase flex items-center justify-center gap-3">
+                <span id="btnText">Recharge Electricity</span>
+                <div id="btnLoader" class="hidden w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+            </button>
         </form>
         <?php endif; ?>
     </div>
@@ -199,5 +202,16 @@ require_once __DIR__ . '/includes/header.php';
     }
 
     document.getElementById('meterNumber').addEventListener('input', verifyMeter);
+
+    document.getElementById('purchaseForm').addEventListener('submit', function() {
+        const btn = document.getElementById('submitBtn');
+        const text = document.getElementById('btnText');
+        const loader = document.getElementById('btnLoader');
+
+        btn.disabled = true;
+        btn.classList.add('opacity-70', 'cursor-not-allowed');
+        text.innerText = 'Processing...';
+        loader.classList.remove('hidden');
+    });
 </script>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

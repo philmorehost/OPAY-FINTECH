@@ -151,7 +151,10 @@ require_once __DIR__ . '/includes/header.php';
                 <input type="hidden" name="planId" id="planInput" required>
             </div>
 
-            <button type="submit" class="w-full bg-billpay-green text-white font-black py-5 rounded-[24px] shadow-xl active:scale-95 transition-all uppercase">Proceed to Pay</button>
+            <button type="submit" id="submitBtn" class="w-full bg-billpay-green text-white font-black py-5 rounded-[24px] shadow-xl active:scale-95 transition-all uppercase flex items-center justify-center gap-3">
+                <span id="btnText">Proceed to Pay</span>
+                <div id="btnLoader" class="hidden w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+            </button>
         </form>
     </div>
 </div>
@@ -177,11 +180,12 @@ require_once __DIR__ . '/includes/header.php';
     $allPlansRaw = $allPlansStmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($allPlansRaw as &$p) {
         $p['size'] = $p['data_size'];
-        $p['userPrice'] = $p['user_price'];
+        $p['userPrice'] = (float)$p['user_price'] * (1 - ((float)($p['user_discount'] ?? 0) / 100));
         $p['enabled'] = true;
     }
     ?>
     const allPlans = <?php echo json_encode($allPlansRaw); ?>;
+    const dataRouting = <?php echo json_encode($settings['dataSettings']['routing'] ?? []); ?>;
     function setBulk(isBulk) {
         document.getElementById('isBulkInput').value = isBulk;
         document.getElementById('singlePhoneGroup').classList.toggle('hidden', isBulk);
@@ -204,8 +208,15 @@ require_once __DIR__ . '/includes/header.php';
     }
     function renderPlans(net) {
         const list = document.getElementById('plansList');
-        const filtered = allPlans.filter(p => p.network.toUpperCase() === net.toUpperCase() && p.enabled);
-        if (!filtered.length) { list.innerHTML = `<div class="py-12 text-center text-gray-300 font-black text-[9px] uppercase border-2 border-dashed border-gray-100 rounded-[32px] flex flex-col items-center gap-3"><i data-lucide="wifi" class="w-6 h-6 opacity-20"></i>No plans</div>`; lucide.createIcons(); return; }
+        const activeProvider = (dataRouting[net] || 'datagifting').toLowerCase();
+
+        const filtered = allPlans.filter(p =>
+            p.network.toUpperCase() === net.toUpperCase() &&
+            p.enabled &&
+            (p.gateway || 'manual').toLowerCase() === activeProvider
+        );
+
+        if (!filtered.length) { list.innerHTML = `<div class="py-12 text-center text-gray-300 font-black text-[9px] uppercase border-2 border-dashed border-gray-100 rounded-[32px] flex flex-col items-center gap-3"><i data-lucide="wifi" class="w-6 h-6 opacity-20"></i>No active plans via ${activeProvider}</div>`; lucide.createIcons(); return; }
         list.innerHTML = filtered.map(p => `
             <div onclick="selectPlan('${p.id}')" id="plan_${p.id}" class="plan-item p-5 rounded-[24px] border-2 cursor-pointer transition-all active:scale-[0.98] flex items-center justify-between border-gray-50 bg-gray-50">
                 <div class="flex items-center gap-4">
@@ -221,6 +232,17 @@ require_once __DIR__ . '/includes/header.php';
         const active = document.getElementById('plan_' + id);
         active.className = 'plan-item p-5 rounded-[24px] border-2 cursor-pointer transition-all active:scale-[0.98] flex items-center justify-between border-billpay-green bg-green-50 shadow-md';
     }
+
+    document.getElementById('dataForm').addEventListener('submit', function() {
+        const btn = document.getElementById('submitBtn');
+        const text = document.getElementById('btnText');
+        const loader = document.getElementById('btnLoader');
+
+        btn.disabled = true;
+        btn.classList.add('opacity-70', 'cursor-not-allowed');
+        text.innerText = 'Processing...';
+        loader.classList.remove('hidden');
+    });
 </script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

@@ -187,7 +187,10 @@ require_once __DIR__ . '/includes/header.php';
                             <input type="password" name="fund_password" placeholder="••••••" class="w-full bg-white/5 border-none rounded-2xl p-5 text-sm font-black focus:ring-2 focus:ring-amber-500">
                         </div>
 
-                        <button type="submit" class="w-full bg-amber-500 text-white py-6 rounded-[32px] font-black uppercase tracking-widest shadow-xl shadow-amber-500/20 hover:scale-[1.02] active:scale-95 transition-all">Execute Buy Order</button>
+                        <button type="submit" class="submit-btn w-full bg-amber-500 text-white py-6 rounded-[32px] font-black uppercase tracking-widest shadow-xl shadow-amber-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3">
+                            <span class="btn-text">Execute Buy Order</span>
+                            <div class="btn-loader hidden w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        </button>
                     </form>
 
                     <!-- Sell Form -->
@@ -213,7 +216,10 @@ require_once __DIR__ . '/includes/header.php';
                             <input type="password" name="fund_password" placeholder="••••••" class="w-full bg-white/5 border-none rounded-2xl p-5 text-sm font-black focus:ring-2 focus:ring-red-500">
                         </div>
 
-                        <button type="submit" class="w-full bg-red-500 text-white py-6 rounded-[32px] font-black uppercase tracking-widest shadow-xl shadow-red-500/20 hover:scale-[1.02] active:scale-95 transition-all">Execute Sell Order</button>
+                        <button type="submit" class="submit-btn w-full bg-red-500 text-white py-6 rounded-[32px] font-black uppercase tracking-widest shadow-xl shadow-red-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3">
+                            <span class="btn-text">Execute Sell Order</span>
+                            <div class="btn-loader hidden w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        </button>
                     </form>
 
                     <!-- Withdraw Section (P2P) -->
@@ -248,7 +254,10 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
                         </div>
 
-                        <button type="submit" class="w-full bg-white text-gray-900 py-6 rounded-[32px] font-black uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all">Submit Withdrawal</button>
+                        <button type="submit" class="submit-btn w-full bg-white text-gray-900 py-6 rounded-[32px] font-black uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3">
+                            <span class="btn-text">Submit Withdrawal</span>
+                            <div class="btn-loader hidden w-5 h-5 border-2 border-gray-900/30 border-t-gray-900 rounded-full animate-spin"></div>
+                        </button>
                     </form>
                 </div>
             </div>
@@ -292,6 +301,20 @@ require_once __DIR__ . '/includes/header.php';
         const active = document.getElementById(tab + 'Tab');
         active.className = 'px-8 py-3 rounded-full text-[10px] font-black uppercase bg-white text-gray-900 shadow-xl';
     }
+
+    document.querySelectorAll('form').forEach(form => {
+        form.addEventListener('submit', function() {
+            const btn = this.querySelector('.submit-btn');
+            if (!btn) return;
+            const text = btn.querySelector('.btn-text');
+            const loader = btn.querySelector('.btn-loader');
+
+            btn.disabled = true;
+            btn.classList.add('opacity-70', 'cursor-not-allowed');
+            if (text) text.innerText = 'Processing...';
+            if (loader) loader.classList.remove('hidden');
+        });
+    });
 </script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

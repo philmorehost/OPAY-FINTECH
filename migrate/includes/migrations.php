@@ -147,11 +147,15 @@ try {
         data_size VARCHAR(50),
         api_price DECIMAL(10,2),
         user_price DECIMAL(10,2),
+        api_discount DECIMAL(5, 2) DEFAULT 0.00,
+        user_discount DECIMAL(5, 2) DEFAULT 0.00,
         duration VARCHAR(50),
         gateway VARCHAR(50),
         type VARCHAR(50) DEFAULT 'sme',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
+    addColumnIfNotExists($pdo, 'data_plans', 'api_discount', "DECIMAL(5, 2) DEFAULT 0.00");
+    addColumnIfNotExists($pdo, 'data_plans', 'user_discount', "DECIMAL(5, 2) DEFAULT 0.00");
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS utility_packages (
         id INT AUTO_INCREMENT PRIMARY KEY,

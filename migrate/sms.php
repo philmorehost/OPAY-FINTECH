@@ -100,7 +100,7 @@ require_once __DIR__ . '/includes/header.php';
                    </div>
                 </div>
 
-                <form method="POST" class="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100 space-y-6">
+                <form method="POST" id="purchaseForm" class="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100 space-y-6">
                     <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                     <input type="hidden" name="action" value="send">
 
@@ -122,8 +122,9 @@ require_once __DIR__ . '/includes/header.php';
                         <textarea name="message" id="message" class="w-full p-4 bg-gray-50 text-gray-900 border-2 border-transparent focus:border-billpay-green outline-none rounded-2xl font-medium min-h-[150px] text-sm" placeholder="Message content..." required></textarea>
                     </div>
 
-                    <button type="submit" class="w-full bg-billpay-green text-white font-black py-5 rounded-[24px] shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 uppercase">
-                        <i data-lucide="send" class="w-5 h-5"></i> BROADCAST SMS
+                    <button type="submit" id="submitBtn" class="w-full bg-billpay-green text-white font-black py-5 rounded-[24px] shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 uppercase">
+                        <span id="btnText" class="flex items-center gap-3"><i data-lucide="send" class="w-5 h-5"></i> BROADCAST SMS</span>
+                        <div id="btnLoader" class="hidden w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                     </button>
                 </form>
             </div>
@@ -142,6 +143,17 @@ require_once __DIR__ . '/includes/header.php';
         const len = e.target.value.length;
         const pages = Math.ceil(len / 160) || 1;
         document.getElementById('pageCount').innerText = pages + (pages > 1 ? " Pages" : " Page");
+    });
+
+    document.getElementById('purchaseForm')?.addEventListener('submit', function() {
+        const btn = document.getElementById('submitBtn');
+        const text = document.getElementById('btnText');
+        const loader = document.getElementById('btnLoader');
+
+        btn.disabled = true;
+        btn.classList.add('opacity-70', 'cursor-not-allowed');
+        text.innerText = 'Processing...';
+        loader.classList.remove('hidden');
     });
 </script>
 

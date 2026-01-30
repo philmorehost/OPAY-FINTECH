@@ -97,7 +97,7 @@ require_once __DIR__ . '/includes/header.php';
         <?php if ($error): ?><div class="p-4 bg-red-50 text-red-800 rounded-2xl text-xs font-black border border-red-100 uppercase text-center"><?php echo $error; ?></div><?php endif; ?>
         <?php if ($success): ?><div class="p-4 bg-green-50 text-green-800 rounded-2xl text-xs font-black border border-green-100 uppercase text-center">Funding Successful!</div><?php endif; ?>
 
-        <form method="POST" class="bg-white p-6 rounded-[40px] shadow-sm space-y-8 border border-gray-100">
+        <form method="POST" id="purchaseForm" class="bg-white p-6 rounded-[40px] shadow-sm space-y-8 border border-gray-100">
             <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
             <input type="hidden" name="action" value="purchase">
 
@@ -128,7 +128,10 @@ require_once __DIR__ . '/includes/header.php';
                 <input type="number" name="amount" placeholder="Min ₦100" min="100" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-xl outline-none" required>
             </div>
 
-            <button type="submit" class="w-full bg-billpay-green text-white font-black py-5 rounded-[24px] shadow-xl active:scale-95 transition-all uppercase">Fund Account</button>
+            <button type="submit" id="submitBtn" class="w-full bg-billpay-green text-white font-black py-5 rounded-[24px] shadow-xl active:scale-95 transition-all uppercase flex items-center justify-center gap-3">
+                <span id="btnText">Fund Account</span>
+                <div id="btnLoader" class="hidden w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+            </button>
         </form>
     </div>
 </div>
@@ -160,5 +163,16 @@ require_once __DIR__ . '/includes/header.php';
         } else { info.innerHTML = ''; }
     }
     document.getElementById('customerId').addEventListener('input', verifyID);
+
+    document.getElementById('purchaseForm').addEventListener('submit', function() {
+        const btn = document.getElementById('submitBtn');
+        const text = document.getElementById('btnText');
+        const loader = document.getElementById('btnLoader');
+
+        btn.disabled = true;
+        btn.classList.add('opacity-70', 'cursor-not-allowed');
+        text.innerText = 'Processing...';
+        loader.classList.remove('hidden');
+    });
 </script>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

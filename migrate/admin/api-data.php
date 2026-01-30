@@ -29,14 +29,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ];
 
     if (isset($_POST['action']) && $_POST['action'] === 'add_plan') {
-        $stmt = $pdo->prepare("INSERT INTO data_plans (network, plan_id, data_size, type, api_price, user_price) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt = $pdo->prepare("INSERT INTO data_plans (network, plan_id, data_size, type, api_price, user_price, gateway) VALUES (?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
             sanitize($_POST['plan_network']),
             sanitize($_POST['plan_apiCode']),
             sanitize($_POST['plan_size']),
             sanitize($_POST['plan_type']),
             (float)$_POST['plan_apiPrice'],
-            (float)$_POST['plan_userPrice']
+            (float)$_POST['plan_userPrice'],
+            sanitize($_POST['plan_gateway'] ?: 'manual')
         ]);
         $success = "New data plan added!";
     } elseif (isset($_POST['action']) && $_POST['action'] === 'fetch_vtpass_data') {
@@ -47,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (is_array($vars)) {
             $count = 0;
             foreach ($vars as $v) {
-                $stmt = $pdo->prepare("INSERT INTO data_plans (network, plan_id, data_size, type, api_price, user_price) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE data_size = VALUES(data_size), api_price = VALUES(api_price)");
+                $stmt = $pdo->prepare("INSERT INTO data_plans (network, plan_id, data_size, type, api_price, user_price, gateway) VALUES (?, ?, ?, ?, ?, ?, 'vtpass') ON DUPLICATE KEY UPDATE data_size = VALUES(data_size), api_price = VALUES(api_price)");
                 $stmt->execute([
                     $network,
                     $v['variation_code'] ?? $v['id'] ?? '',
@@ -72,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     foreach ($res['MOBILE_NETWORK'][$net] as $cat) {
                         if (isset($cat['PRODUCT']) && is_array($cat['PRODUCT'])) {
                             foreach ($cat['PRODUCT'] as $p) {
-                                $stmt = $pdo->prepare("INSERT INTO data_plans (network, plan_id, data_size, type, api_price, user_price) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE data_size = VALUES(data_size), api_price = VALUES(api_price)");
+                                $stmt = $pdo->prepare("INSERT INTO data_plans (network, plan_id, data_size, type, api_price, user_price, gateway) VALUES (?, ?, ?, ?, ?, ?, 'nellobyte') ON DUPLICATE KEY UPDATE data_size = VALUES(data_size), api_price = VALUES(api_price)");
                                 $stmt->execute([
                                     ucfirst(strtolower($net)),
                                     $p['PRODUCT_CODE'] ?? '',
@@ -92,6 +93,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $desc = is_array($res) ? ($res['status'] ?? 'Invalid Response') : (is_string($res) ? substr($res, 0, 100) : 'Unknown error');
             $error = "Failed to fetch from Nellobyte: " . $desc;
         }
+    } elseif (isset($_POST['action']) && $_POST['action'] === 'clear_provider_data') {
+        $provider = sanitize($_POST['clear_provider']);
+        $stmt = $pdo->prepare("DELETE FROM data_plans WHERE gateway = ?");
+        $stmt->execute([$provider]);
+        $success = "Cleared all data plans for $provider!";
+    } elseif (isset($_POST['action']) && $_POST['action'] === 'update_plan') {
+        $id = (int)$_POST['plan_id'];
+        $stmt = $pdo->prepare("UPDATE data_plans SET api_discount = ?, user_discount = ?, user_price = ? WHERE id = ?");
+        $stmt->execute([(float)$_POST['api_discount'], (float)$_POST['user_discount'], (float)$_POST['user_price'], $id]);
+        $success = "Data plan updated!";
     } elseif (isset($_POST['action']) && $_POST['action'] === 'delete_plan') {
         $stmt = $pdo->prepare("DELETE FROM data_plans WHERE id = ?");
         $stmt->execute([$_POST['plan_id']]);
@@ -224,23 +235,38 @@ require_once __DIR__ . '/header.php';
         <div class="flex items-center justify-between mb-8">
             <h3 class="text-sm font-black uppercase tracking-widest flex items-center gap-3"><i data-lucide="package" class="text-orange-500"></i> Data Package Manager</h3>
 
-            <form method="POST" class="flex items-center gap-2">
-                <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
-                <input type="hidden" name="action" value="fetch_vtpass_data">
-                <select name="fetch_network" class="p-2 bg-gray-50 rounded-lg font-bold outline-none text-[10px] border border-gray-100">
-                    <option value="MTN">MTN</option>
-                    <option value="Airtel">Airtel</option>
-                    <option value="Glo">Glo</option>
-                    <option value="9mobile">9mobile</option>
-                </select>
-                <button type="submit" class="px-4 py-2 bg-billpay-green text-white rounded-lg font-black uppercase text-[8px] whitespace-nowrap">Fetch VTpass</button>
-            </form>
+            <div class="flex items-center gap-4">
+                <form method="POST" class="flex items-center gap-2 border-r pr-4">
+                    <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                    <input type="hidden" name="action" value="clear_provider_data">
+                    <select name="clear_provider" class="p-2 bg-red-50 text-red-600 rounded-lg font-bold outline-none text-[10px] border border-red-100">
+                        <option value="vtpass">VTpass</option>
+                        <option value="nellobyte">Nellobyte</option>
+                        <option value="datagifting">DataGifting</option>
+                        <option value="datastation">Datastationapi</option>
+                        <option value="manual">Manual</option>
+                    </select>
+                    <button type="submit" onclick="return confirm('Clear all plans for this provider?')" class="px-4 py-2 bg-red-500 text-white rounded-lg font-black uppercase text-[8px] whitespace-nowrap">Clear Data</button>
+                </form>
 
-            <form method="POST" class="flex items-center gap-2">
-                <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
-                <input type="hidden" name="action" value="fetch_nb_data">
-                <button type="submit" class="px-4 py-2 bg-orange-500 text-white rounded-lg font-black uppercase text-[8px] whitespace-nowrap">Fetch All Nellobyte</button>
-            </form>
+                <form method="POST" class="flex items-center gap-2">
+                    <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                    <input type="hidden" name="action" value="fetch_vtpass_data">
+                    <select name="fetch_network" class="p-2 bg-gray-50 rounded-lg font-bold outline-none text-[10px] border border-gray-100">
+                        <option value="MTN">MTN</option>
+                        <option value="Airtel">Airtel</option>
+                        <option value="Glo">Glo</option>
+                        <option value="9mobile">9mobile</option>
+                    </select>
+                    <button type="submit" class="px-4 py-2 bg-billpay-green text-white rounded-lg font-black uppercase text-[8px] whitespace-nowrap">Fetch VTpass</button>
+                </form>
+
+                <form method="POST" class="flex items-center gap-2">
+                    <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                    <input type="hidden" name="action" value="fetch_nb_data">
+                    <button type="submit" class="px-4 py-2 bg-orange-500 text-white rounded-lg font-black uppercase text-[8px] whitespace-nowrap">Fetch All Nellobyte</button>
+                </form>
+            </div>
         </div>
 
         <!-- Add Plan Form -->
@@ -254,6 +280,16 @@ require_once __DIR__ . '/header.php';
                     <option value="Airtel">Airtel</option>
                     <option value="Glo">Glo</option>
                     <option value="9mobile">9mobile</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-[10px] font-black text-gray-400 uppercase">Gateway</label>
+                <select name="plan_gateway" class="w-full p-3 bg-white rounded-xl font-bold mt-1 outline-none text-xs">
+                    <option value="manual">Manual</option>
+                    <option value="vtpass">VTpass</option>
+                    <option value="nellobyte">Nellobyte</option>
+                    <option value="datagifting">DataGifting</option>
+                    <option value="datastation">Datastationapi</option>
                 </select>
             </div>
             <div>
@@ -286,44 +322,53 @@ require_once __DIR__ . '/header.php';
             <table class="w-full text-left">
                 <thead>
                     <tr class="text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">
-                        <th class="pb-6">Network</th>
-                        <th class="pb-6">Size/Type</th>
+                        <th class="pb-6">Info</th>
                         <th class="pb-6">API Code</th>
-                        <th class="pb-6">Cost</th>
+                        <th class="pb-6">API Disc (%)</th>
                         <th class="pb-6">User Price</th>
+                        <th class="pb-6">User Disc (%)</th>
                         <th class="pb-6">Profit</th>
-                        <th class="pb-6">Action</th>
+                        <th class="pb-6 text-right">Action</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-50">
                     <?php
-                    $stmt = $pdo->query("SELECT * FROM data_plans ORDER BY network ASC, user_price ASC");
+                    $stmt = $pdo->query("SELECT * FROM data_plans ORDER BY network ASC, gateway ASC, user_price ASC");
                     $allPlansCount = 0;
                     while ($p = $stmt->fetch()):
                         $allPlansCount++;
-                        $profit = (float)$p['user_price'] - (float)$p['api_price'];
+                        $apiCost = $p['api_price'] * (1 - ($p['api_discount'] / 100));
+                        $sellingPrice = $p['user_price'] * (1 - ($p['user_discount'] / 100));
+                        $profitVal = $sellingPrice - $apiCost;
                     ?>
-                    <tr>
-                        <td class="py-6 font-black text-sm uppercase"><?php echo $p['network']; ?></td>
-                        <td class="py-6">
-                            <div class="font-black text-xs"><?php echo $p['data_size']; ?></div>
-                            <div class="text-[8px] font-bold text-gray-400 uppercase"><?php echo $p['type']; ?></div>
-                        </td>
-                        <td class="py-6 font-mono text-xs"><?php echo $p['plan_id']; ?></td>
-                        <td class="py-6 text-xs font-bold text-gray-500">₦<?php echo number_format($p['api_price'], 2); ?></td>
-                        <td class="py-6 text-xs font-black">₦<?php echo number_format($p['user_price'], 2); ?></td>
-                        <td class="py-6">
-                            <span class="px-2 py-1 bg-green-50 text-green-600 text-[9px] font-black rounded-md">₦<?php echo number_format($profit, 2); ?></span>
-                        </td>
-                        <td class="py-6">
-                            <form method="POST" onsubmit="return confirm('Delete this plan?')">
-                                <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
-                                <input type="hidden" name="action" value="delete_plan">
-                                <input type="hidden" name="plan_id" value="<?php echo $p['id']; ?>">
-                                <button type="submit" class="text-red-500 hover:text-red-700 transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                            </form>
-                        </td>
-                    </tr>
+                    <form method="POST">
+                        <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                        <input type="hidden" name="action" value="update_plan">
+                        <input type="hidden" name="plan_id" value="<?php echo $p['id']; ?>">
+                        <tr>
+                            <td class="py-6">
+                                <div class="font-black text-sm uppercase"><?php echo $p['network']; ?> - <?php echo $p['gateway']; ?></div>
+                                <div class="font-black text-xs text-gray-400"><?php echo $p['data_size']; ?> (<?php echo $p['type']; ?>)</div>
+                            </td>
+                            <td class="py-6 font-mono text-xs"><?php echo $p['plan_id']; ?></td>
+                            <td class="py-6">
+                                <input type="number" step="0.01" name="api_discount" value="<?php echo $p['api_discount']; ?>" class="w-16 p-2 bg-gray-50 rounded-lg text-[10px] font-black outline-none border border-transparent focus:border-billpay-green">
+                            </td>
+                            <td class="py-6">
+                                <input type="number" step="0.01" name="user_price" value="<?php echo $p['user_price']; ?>" class="w-24 p-2 bg-gray-50 rounded-lg text-[10px] font-black outline-none border border-transparent focus:border-billpay-green">
+                            </td>
+                            <td class="py-6">
+                                <input type="number" step="0.01" name="user_discount" value="<?php echo $p['user_discount']; ?>" class="w-16 p-2 bg-gray-50 rounded-lg text-[10px] font-black outline-none border border-transparent focus:border-billpay-green">
+                            </td>
+                            <td class="py-6">
+                                <span class="px-2 py-1 <?php echo $profitVal >= 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'; ?> text-[9px] font-black rounded-md">₦<?php echo number_format($profitVal, 2); ?></span>
+                            </td>
+                            <td class="py-6 text-right space-x-2">
+                                <button type="submit" class="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-[8px] font-black uppercase">Save</button>
+                                <button type="submit" name="action" value="delete_plan" onclick="return confirm('Delete?')" class="text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                            </td>
+                        </tr>
+                    </form>
                     <?php endwhile; if($allPlansCount === 0) echo '<tr><td colspan="7" class="py-10 text-center text-[10px] font-black text-gray-300 uppercase">No data plans configured</td></tr>'; ?>
                 </tbody>
             </table>
