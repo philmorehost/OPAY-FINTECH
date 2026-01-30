@@ -548,9 +548,9 @@ if (!function_exists('juicywayGetQuote')) {
 function juicywayGetQuote($pdo, $amount, $from, $to) {
     $from = strtoupper($from);
     $to = strtoupper($to);
-    $minorAmount = (int)($amount * 100);
-    // Adding multiple variations of amount for maximum compatibility
-    $url = "exchange/quote?source_currency=$from&target_currency=$to&amount=$minorAmount&source_amount=$minorAmount&lock=true";
+    // JuicyWay exchange/quote endpoint provides a rate based on currency pair.
+    // Sending 'amount' or 'source_amount' here often results in "This field is unknown" error.
+    $url = "exchange/quote?source_currency=$from&target_currency=$to&lock=true";
     return callJuicyWay($pdo, $url, 'GET');
 }
 }
@@ -562,10 +562,11 @@ function juicywaySwap($pdo, $amount, $from, $to, $quoteId = null) {
     if (!empty($quoteId) && $quoteId !== 'null' && $quoteId !== 'undefined') {
         $data = ['quote_id' => $quoteId];
     } else {
-        // Direct swaps without a quote_id use source_amount, source_currency, and target_currency
+        // Direct swaps without a quote_id use amount, source_currency, and target_currency
+        // Note: JuicyWay may require a quote_id for most swap operations.
         $minorAmount = (int)($amount * 100);
         $data = [
-            'source_amount' => $minorAmount,
+            'amount' => $minorAmount,
             'source_currency' => strtoupper($from),
             'target_currency' => strtoupper($to)
         ];
