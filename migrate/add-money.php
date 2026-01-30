@@ -62,21 +62,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 <script>
                     window.onload = function() {
                         const handler = PaystackPop.setup({
-                            key: '$paystackKey',
-                            email: '$userEmail',
-                            amount: $payAmount,
-                            ref: '$ref',
-                            onClose: function() {
-                                window.location.href = '/add-money?error=Payment cancelled';
-                            },
-                            callback: function(response) {
-                                window.location.href = '/verify-payment?reference=' + response.reference;
-                            }
+                            key: '$paystackKey', email: '$userEmail', amount: $payAmount, ref: '$ref',
+                            onClose: function() { window.location.href = '/add-money?error=Payment cancelled'; },
+                            callback: function(response) { window.location.href = '/verify-payment?reference=' + response.reference; }
                         });
                         handler.openIframe();
                     };
-                </script>
-            ";
+                </script>";
+        } elseif ($method === 'flutterwave') {
+            $res = flutterwaveInitiate($pdo, $amount, $currentUser['email'], $id);
+            if (isset($res['status']) && $res['status'] === 'success') {
+                header("Location: " . $res['data']['link']);
+                exit;
+            } else $error = "Flutterwave Error: " . ($res['message'] ?? '');
+        } elseif ($method === 'paypal') {
+            $res = paypalInitiate($pdo, $amount / 1600, $id);
+            if (isset($res['id'])) {
+                $links = $res['links'] ?? [];
+                $approve = array_filter($links, fn($l) => $l['rel'] === 'approve');
+                if (!empty($approve)) {
+                    header("Location: " . reset($approve)['href']);
+                    exit;
+                }
+            } else $error = "PayPal Error: " . ($res['message'] ?? '');
         }
     }
 }
@@ -115,14 +123,22 @@ if (isset($script)) echo $script;
 
             <div>
                 <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Funding Method</label>
-                <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <button type="button" onclick="setMethod('manual')" id="methManual" class="meth-btn p-4 rounded-2xl border-2 transition-all border-billpay-green bg-green-50 flex flex-col items-center gap-2">
                         <i data-lucide="landmark" class="w-6 h-6 text-billpay-green"></i>
-                        <span class="text-[9px] font-black uppercase text-gray-800">Transfer</span>
+                        <span class="text-[8px] font-black uppercase text-gray-800">Transfer</span>
                     </button>
                     <button type="button" onclick="setMethod('paystack')" id="methPaystack" class="meth-btn p-4 rounded-2xl border-2 transition-all border-transparent bg-gray-50 flex flex-col items-center gap-2 opacity-50">
                         <i data-lucide="credit-card" class="w-6 h-6 text-gray-400"></i>
-                        <span class="text-[9px] font-black uppercase text-gray-400">Card</span>
+                        <span class="text-[8px] font-black uppercase text-gray-400">Paystack</span>
+                    </button>
+                    <button type="button" onclick="setMethod('flutterwave')" id="methFlutterwave" class="meth-btn p-4 rounded-2xl border-2 transition-all border-transparent bg-gray-50 flex flex-col items-center gap-2 opacity-50">
+                        <i data-lucide="zap" class="w-6 h-6 text-gray-400"></i>
+                        <span class="text-[8px] font-black uppercase text-gray-400">Flutterwave</span>
+                    </button>
+                    <button type="button" onclick="setMethod('paypal')" id="methPaypal" class="meth-btn p-4 rounded-2xl border-2 transition-all border-transparent bg-gray-50 flex flex-col items-center gap-2 opacity-50">
+                        <i data-lucide="globe" class="w-6 h-6 text-gray-400"></i>
+                        <span class="text-[8px] font-black uppercase text-gray-400">PayPal</span>
                     </button>
                 </div>
                 <input type="hidden" name="method" id="methodInput" value="manual">

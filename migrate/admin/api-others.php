@@ -25,6 +25,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'clientId' => $_POST['rl_clientId'],
         'clientSecret' => $_POST['rl_clientSecret']
     ];
+    $os['paypal'] = [
+        'clientId' => $_POST['pp_clientId'],
+        'clientSecret' => $_POST['pp_clientSecret'],
+        'liveMode' => isset($_POST['pp_liveMode']) ? 1 : 0
+    ];
+    $os['flutterwave'] = [
+        'publicKey' => $_POST['fw_publicKey'],
+        'secretKey' => $_POST['fw_secretKey'],
+        'encryptionKey' => $_POST['fw_encryptionKey']
+    ];
     $os['coingecko'] = [
         'apiKey' => $_POST['cg_apiKey']
     ];
@@ -86,6 +96,57 @@ require_once __DIR__ . '/header.php';
                             <label class="text-[10px] font-black text-gray-400 uppercase ml-1">User Rate (Sale)</label>
                             <input type="number" step="0.01" name="smsRate" value="<?php echo $settings['smsRate'] ?? 4.50; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PayPal -->
+            <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-sm font-black uppercase tracking-widest flex items-center gap-3 text-blue-700">
+                        <i data-lucide="credit-card" class="w-5 h-5"></i> PayPal (Global)
+                    </h3>
+                    <button type="submit" name="action" value="test_api" onclick="this.form.provider.value='paypal'" class="text-[10px] font-black text-blue-700 uppercase hover:underline">Test</button>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Client ID</label>
+                        <input type="text" name="pp_clientId" value="<?php echo $os['paypal']['clientId'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Client Secret</label>
+                        <input type="password" name="pp_clientSecret" value="<?php echo $os['paypal']['clientSecret'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
+                    </div>
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
+                        <span class="text-[10px] font-black uppercase text-gray-500">Live Mode</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" name="pp_liveMode" value="1" class="sr-only peer" <?php echo ($os['paypal']['liveMode'] ?? 0) ? 'checked' : ''; ?>>
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-billpay-green"></div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Flutterwave -->
+            <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-sm font-black uppercase tracking-widest flex items-center gap-3 text-orange-500">
+                        <i data-lucide="zap" class="w-5 h-5"></i> Flutterwave
+                    </h3>
+                    <button type="submit" name="action" value="test_api" onclick="this.form.provider.value='flutterwave'" class="text-[10px] font-black text-orange-500 uppercase hover:underline">Test</button>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Public Key</label>
+                        <input type="text" name="fw_publicKey" value="<?php echo $os['flutterwave']['publicKey'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Secret Key</label>
+                        <input type="password" name="fw_secretKey" value="<?php echo $os['flutterwave']['secretKey'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Encryption Key</label>
+                        <input type="password" name="fw_encryptionKey" value="<?php echo $os['flutterwave']['encryptionKey'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
                     </div>
                 </div>
             </div>

@@ -108,8 +108,9 @@ function purchaseAirtime($pdo, $network, $amount, $phone) {
 
     switch ($provider) {
         case 'datagifting':
-            $res = callApi("https://v6.datagifting.com.ng/web/api/airtime.php", 'POST', [
-                'api_key' => $creds['apiKey'] ?? '',
+            $apiKey = $creds['apiKey'] ?? '';
+            $res = callApi("https://v6.datagifting.com.ng/web/api/airtime.php?api_key=$apiKey", 'POST', [
+                'api_key' => $apiKey,
                 'network' => $netCode,
                 'amount' => $amount,
                 'phone_number' => $phone
@@ -150,6 +151,16 @@ function purchaseAirtime($pdo, $network, $amount, $phone) {
                 return ['status' => 'pending', 'message' => 'Processing', 'ref' => $res['requestId'] ?? $requestId];
             }
             return ['status' => 'failed', 'message' => $res['response_description'] ?? 'Provider Error'];
+        case 'hdkdata':
+            $res = callApi("https://hdkdata.com/api/topup/", 'POST', [
+                'network' => getNetworkCode('datastation', $network),
+                'amount' => $amount,
+                'mobile_number' => $phone,
+                'Ported_number' => true,
+                'airtime_type' => 'VTU'
+            ], ["Authorization: Token " . ($creds['token'] ?? '')]);
+            if (empty($res) || (isset($res['Status']) && $res['Status'] === 'successful')) return ['status' => 'success', 'message' => 'Successful', 'ref' => uniqid()];
+            return ['status' => 'failed', 'message' => 'Provider Error'];
     }
     return ['status' => 'failed', 'message' => 'No provider'];
 }
@@ -243,6 +254,19 @@ function testGenericConnection($pdo, $provider, $creds) {
                 return ['status' => 'error', 'message' => $res['response_description'] ?? 'Auth Failed: ' . json_encode($res)];
             }
             return ['status' => 'error', 'message' => 'Connection Failed: ' . (is_string($res) ? $res : json_encode($res))];
+        case 'flutterwave':
+            $res = callApi("https://api.flutterwave.com/v3/balances/NGN", 'GET', [], ["Authorization: Bearer " . ($creds['secretKey'] ?? '')]);
+            if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => 'Connected! Balance: ₦' . number_format($res['data']['available_balance'], 2)];
+            return ['status' => 'error', 'message' => $res['message'] ?? 'Connection Failed'];
+        case 'paypal':
+            $auth = base64_encode(($creds['clientId'] ?? '') . ":" . ($creds['clientSecret'] ?? ''));
+            $mode = !empty($creds['liveMode']) ? 'api' : 'api-m.sandbox';
+            $res = callApi("https://$mode.paypal.com/v1/oauth2/token", 'POST', "grant_type=client_credentials", [
+                "Authorization: Basic $auth",
+                "Content-Type: application/x-www-form-urlencoded"
+            ]);
+            if (isset($res['access_token'])) return ['status' => 'success', 'message' => 'Connected! Access Token Generated.'];
+            return ['status' => 'error', 'message' => $res['error_description'] ?? 'PayPal Auth Failed'];
         case 'naijaresultpins':
             // Hypothetical test for NaijaResultPins
             return ['status' => 'success', 'message' => 'NaijaResultPins (Simulated Connection)'];
@@ -255,7 +279,15 @@ if (!function_exists('purchaseData')) {
 function purchaseData($pdo, $network, $planId, $phone) {
     $settings = fetchSettings($pdo);
     $ds = $settings['dataSettings'] ?? [];
-    $provider = $ds['routing'][$network] ?? 'datagifting';
+
+    // Fetch plan to get its specific gateway (independent routing)
+    $stmt = $pdo->prepare("SELECT gateway, plan_id, type, data_size FROM data_plans WHERE id = ? OR plan_id = ? LIMIT 1");
+    $stmt->execute([$planId, $planId]);
+    $p = $stmt->fetch();
+
+    // Priority: Plan Specific Gateway > Global Network Routing > Default
+    $provider = $p['gateway'] ?? ($ds['routing'][$network] ?? 'datagifting');
+
     $creds = $ds['providers'][$provider] ?? [];
     $netCode = getNetworkCode($provider, $network);
     switch ($provider) {
@@ -267,8 +299,9 @@ function purchaseData($pdo, $network, $planId, $phone) {
             $type = $p ? $p['type'] : 'sme';
             $qty = $p ? $p['data_size'] : '1gb';
 
-            $res = callApi("https://v6.datagifting.com.ng/web/api/data.php", 'POST', [
-                'api_key' => $creds['apiKey'] ?? '',
+            $apiKey = $creds['apiKey'] ?? '';
+            $res = callApi("https://v6.datagifting.com.ng/web/api/data.php?api_key=$apiKey", 'POST', [
+                'api_key' => $apiKey,
                 'network' => $netCode,
                 'phone_number' => $phone,
                 'type' => $type,
@@ -282,6 +315,15 @@ function purchaseData($pdo, $network, $planId, $phone) {
             return ['status' => 'failed', 'message' => $res['msg'] ?? 'Provider Error'];
         case 'datastation':
             $res = callApi("https://datastationapi.com/api/data/", 'POST', [
+                'network' => $netCode,
+                'plan' => $planId,
+                'mobile_number' => $phone,
+                'Ported_number' => true
+            ], ["Authorization: Token " . ($creds['token'] ?? '')]);
+            if (empty($res) || (isset($res['Status']) && $res['Status'] === 'successful')) return ['status' => 'success', 'message' => 'Successful', 'ref' => uniqid()];
+            return ['status' => 'failed', 'message' => 'Provider Error'];
+        case 'hdkdata':
+            $res = callApi("https://hdkdata.com/api/data/", 'POST', [
                 'network' => $netCode,
                 'plan' => $planId,
                 'mobile_number' => $phone,
@@ -560,10 +602,9 @@ if (!function_exists('juicywayGetQuote')) {
 function juicywayGetQuote($pdo, $amount, $from, $to) {
     $from = strtoupper($from);
     $to = strtoupper($to);
-    // Ensure amount is in minor units for JuicyWay if they support it in query
-    $minorAmount = (int)($amount * 100);
-    // Try both source_amount and amount just in case, but prioritize the one known to work for rates
-    $url = "exchange/quote?source_currency=$from&target_currency=$to&source_amount=$minorAmount&lock=true";
+    // JuicyWay quote endpoint often fails if 'amount' or 'source_amount' is sent.
+    // We fetch the base rate and calculate locally if needed, or use the response rate.
+    $url = "exchange/quote?source_currency=$from&target_currency=$to&lock=true";
     return callJuicyWay($pdo, $url, 'GET');
 }
 }

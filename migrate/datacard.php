@@ -38,33 +38,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $pdo->beginTransaction();
                 try {
                     $batchId = 'BATCH-' . strtoupper(bin2hex(random_bytes(4)));
-                    $netCodeMap = ['MTN' => '01', 'Glo' => '02', '9mobile' => '03', 'Airtel' => '04'];
-                    $netCode = $netCodeMap[$networkName] ?? '01';
+                    // INTERNAL EPIN GENERATION
+                    // As per user request: "Generating of the EPIN does not require API from thirdparty API"
+                    // Admin will process it manually later via the Manage EPINs panel.
 
-                    $res = purchaseDataEPIN($pdo, $netCode, $selectedPlan['plan_id'], $quantity);
+                    updateWallet($pdo, $currentUser['id'], $totalCost, 'debit');
 
-                    if (isset($res['status']) && ($res['status'] === 'ORDER_RECEIVED' || $res['status'] === 'ORDER_COMPLETED' || $res['status'] === 'SUCCESS')) {
-                        updateWallet($pdo, $currentUser['id'], $totalCost, 'debit');
+                    for ($i = 0; $i < $quantity; $i++) {
+                        // Generate a secure unique PIN
+                        $pin = strtoupper(bin2hex(random_bytes(2))) . '-' . rand(1000, 9999) . '-' . strtoupper(bin2hex(random_bytes(2)));
+                        $serial = 'SN' . date('ymd') . strtoupper(bin2hex(random_bytes(3)));
 
-                        // If immediate PINs are returned (rare for bulk), or we need to query
-                        // For now, we'll generate the placeholders and the admin will process or they'll be fetched via query
-                        // Actually, if we want to print, we NEED the PINs now.
-                        // I'll simulate receiving them if it's successful for demo,
-                        // but in reality we'd query APIQueryV1.
-
-                        for ($i = 0; $i < $quantity; $i++) {
-                            $pin = rand(1000, 9999) . '-' . rand(1000, 9999) . '-' . rand(1000, 9999);
-                            $serial = 'S/N: ' . rand(1000000, 9999999);
-                            $stmt = $pdo->prepare("INSERT INTO data_epins (userId, network, planId, planName, pin, serial, batchId) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                            $stmt->execute([$currentUser['id'], $networkName, $selectedPlan['plan_id'], $selectedPlan['data_size'] . ' ' . $selectedPlan['type'], $pin, $serial, $batchId]);
-                        }
-
-                        logTransaction($pdo, $currentUser['id'], 'Data EPIN', $totalCost, 'successful', "Purchased $quantity Data PINs for $networkName", 'System', 'Nellobyte');
-                        $pdo->commit();
-                        $success = true;
-                    } else {
-                        throw new Exception($res['status'] ?? $res['message'] ?? 'API Provider Error');
+                        $stmt = $pdo->prepare("INSERT INTO data_epins (userId, network, planId, planName, pin, serial, batchId, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'active')");
+                        $stmt->execute([$currentUser['id'], $networkName, $selectedPlan['plan_id'], $selectedPlan['data_size'] . ' ' . $selectedPlan['type'], $pin, $serial, $batchId]);
                     }
+
+                    logTransaction($pdo, $currentUser['id'], 'Data EPIN', $totalCost, 'successful', "Generated $quantity Data EPINs for $networkName", 'System', 'Internal');
+                    $pdo->commit();
+                    $success = true;
                     // Refresh balance
                     $stmt = $pdo->prepare("SELECT walletBalance FROM users WHERE id = ?"); $stmt->execute([$currentUser['id']]);
                     $currentUser['walletBalance'] = $stmt->fetchColumn();

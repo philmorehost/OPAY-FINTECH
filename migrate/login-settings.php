@@ -264,7 +264,7 @@ require_once __DIR__ . '/includes/header.php';
             document.getElementById('reset-group').classList.remove('hidden');
         }
     });
-<script>
+
     function toggle2faVerification(cb) {
         const group = document.getElementById('2fa-verify-group');
         const isEnabled = <?php echo $currentUser['google2faEnabled'] ? 'true' : 'false'; ?>;

@@ -228,16 +228,18 @@ require_once __DIR__ . '/header.php';
                     'crypto_buy' => 'Crypto Buy',
                     'crypto_sell' => 'Crypto Sell',
                     'crypto_swap' => 'Crypto Swap',
-                    'crypto_withdraw' => 'Crypto Withdraw'
+                    'crypto_withdraw' => 'Crypto Withdraw',
+                    'vcard_deposit_fee' => 'VCard Deposit (NGN)'
                 ];
                 // Maintain hidden values for removed keys to prevent settings wipe
                 $removedKeys = ['airtime', 'data', 'cable', 'electric', 'betting', 'exam'];
                 foreach($removedKeys as $rk) echo '<input type="hidden" name="charge_'.$rk.'" value="'.($fs['globalCharges'][$rk] ?? 0).'">';
 
                 foreach ($chargeKeys as $key => $label):
+                    $isFlat = ($key === 'vcard_deposit_fee');
                 ?>
                 <div>
-                    <label class="text-[10px] font-black text-gray-400 uppercase ml-1"><?php echo $label; ?> (%)</label>
+                    <label class="text-[10px] font-black text-gray-400 uppercase ml-1"><?php echo $label; ?> <?php echo $isFlat ? '(Flat ₦)' : '(%)'; ?></label>
                     <input type="number" step="0.01" name="charge_<?php echo $key; ?>" value="<?php echo $fs['globalCharges'][$key] ?? 0; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-black mt-1 outline-none border-2 border-transparent focus:border-indigo-500 text-center">
                 </div>
                 <?php endforeach; ?>

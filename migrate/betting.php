@@ -31,8 +31,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $apiDisc = (float)($pkg['api_discount'] ?? 0);
     $userDisc = (float)($pkg['user_discount'] ?? 0);
 
+    $ls = $settings['loginSecuritySettings'] ?? [];
+    $isPinForced = !empty($ls['pin']['forced']);
+    $userPinEnabled = !empty($currentUser['fundPasswordVtuEnabled']);
+
     if (isKycRejected($currentUser)) {
         $error = 'Account restricted. Please update your KYC.';
+    } elseif (($isPinForced || $userPinEnabled) && !verifyFundPassword($pdo, $currentUser['id'], $_POST['fund_password'] ?? '')) {
+        $error = 'Invalid Security PIN';
     } elseif ($currentUser['walletBalance'] < $amount) {
         $error = 'Insufficient balance';
     } elseif (!checkDailyLimit($pdo, $currentUser['id'], $customerId, $settings['maxDailyTxPerId'] ?? 50)) {
@@ -123,9 +129,15 @@ require_once __DIR__ . '/includes/header.php';
                 <div id="verifyInfo" class="mt-2 ml-1"></div>
             </div>
 
-            <div>
-                <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Amount (₦)</label>
-                <input type="number" name="amount" placeholder="Min ₦100" min="100" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-xl outline-none" required>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Amount (₦)</label>
+                    <input type="number" name="amount" placeholder="Min ₦100" min="100" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-xl outline-none" required>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Security PIN</label>
+                    <input type="password" name="fund_password" maxlength="6" placeholder="••••••" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" <?php echo ($isPinForced || $userPinEnabled) ? 'required' : ''; ?>>
+                </div>
             </div>
 
             <button type="submit" id="submitBtn" disabled class="w-full bg-billpay-green text-white font-black py-5 rounded-[24px] shadow-xl active:scale-95 transition-all uppercase flex items-center justify-center gap-3 disabled:opacity-40 disabled:cursor-not-allowed">

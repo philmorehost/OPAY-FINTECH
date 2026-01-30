@@ -209,6 +209,40 @@ try {
     // Settings for EPIN Phone Numbers
     addColumnIfNotExists($pdo, 'settings', 'epinSettings', "TEXT");
 
+    // Anti-Bruteforce Settings
+    addColumnIfNotExists($pdo, 'settings', 'bruteforceSettings', "TEXT");
+
+    // Fix missing fundPassword columns if any (based on error report)
+    addColumnIfNotExists($pdo, 'users', 'fundPassword', "VARCHAR(255)");
+    addColumnIfNotExists($pdo, 'users', 'fundPasswordVtuEnabled', "TINYINT(1) DEFAULT 0");
+    addColumnIfNotExists($pdo, 'users', 'fundPasswordResetCode', "VARCHAR(20)");
+    addColumnIfNotExists($pdo, 'users', 'fundPasswordResetExpiry', "DATETIME");
+
+    // Brute Force Logs & Control
+    $pdo->exec("CREATE TABLE IF NOT EXISTS login_history (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        userId VARCHAR(50),
+        ip VARCHAR(45),
+        userAgent TEXT,
+        status ENUM('success', 'failed') DEFAULT 'success',
+        attemptedUsername VARCHAR(100),
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS access_control (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        type ENUM('ip', 'user', 'country') NOT NULL,
+        value VARCHAR(255) NOT NULL,
+        status ENUM('whitelisted', 'blacklisted', 'not_specified') DEFAULT 'not_specified',
+        successCount INT DEFAULT 0,
+        expiry DATETIME,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY type_value (type, value)
+    )");
+
+    // Ensure all countries are initialized in access_control if not present
+    // (We'll do this lazily or in the admin page)
+
 } catch (PDOException $e) {
     // Silent fail
 }

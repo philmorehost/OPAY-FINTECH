@@ -12,6 +12,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         die('CSRF token validation failed');
     }
 
+    $ip = $_SERVER['REMOTE_ADDR'];
+    $bs = $settings['bruteforceSettings'] ?? [];
+    if (is_string($bs)) $bs = json_decode($bs, true) ?: [];
+
+    // Check if IP is blacklisted
+    $stmt = $pdo->prepare("SELECT status FROM access_control WHERE type = 'ip' AND value = ?");
+    $stmt->execute([$ip]);
+    if ($stmt->fetchColumn() === 'blacklisted') die('Access Denied: Your IP is restricted.');
+
+    // Check for IP block
+    $stmt = $pdo->prepare("SELECT expiry FROM access_control WHERE type = 'ip' AND value = ? AND status = 'blacklisted' AND expiry > NOW()");
+    $stmt->execute([$ip]);
+    if ($stmt->fetch()) die('Access Denied: Temporarily blocked due to security reasons.');
+
     if (isset($_POST['action']) && $_POST['action'] === 'biometric') {
         /**
          * SECURITY WARNING:
@@ -64,6 +78,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($user['isSuspended']) {
             $error = 'ACCOUNT SUSPENDED. CONTACT SUPPORT.';
         } else {
+            // Success: Reset failed attempts for IP/User if any, or increment success count
+            $pdo->prepare("INSERT INTO access_control (type, value, successCount) VALUES ('ip', ?, 1) ON DUPLICATE KEY UPDATE successCount = successCount + 1")->execute([$ip]);
+
+            // Log History
+            $pdo->prepare("INSERT INTO login_history (userId, ip, userAgent, status) VALUES (?, ?, ?, 'success')")->execute([$user['id'], $ip, $_SERVER['HTTP_USER_AGENT']]);
+
             $_SESSION['pending_login_id'] = $user['id'];
 
             // Store user info in script for JS to save to localStorage
@@ -81,6 +101,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } else {
         $error = 'Invalid username or password';
+
+        // Brute Force Tracking
+        $pdo->prepare("INSERT INTO login_history (ip, userAgent, status, attemptedUsername) VALUES (?, ?, 'failed', ?)")->execute([$ip, $_SERVER['HTTP_USER_AGENT'], $username]);
+
+        if ($user) {
+            // Track failures for existing user
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM login_history WHERE userId = ? AND status = 'failed' AND createdAt > DATE_SUB(NOW(), INTERVAL 15 MINUTE)");
+            $stmt->execute([$user['id']]);
+            $failedRetries = (int)($bs['failed_retries'] ?? 3);
+            if ($stmt->fetchColumn() >= $failedRetries) {
+                $pdo->prepare("UPDATE users SET isSuspended = 1 WHERE id = ?")->execute([$user['id']]);
+                $error = 'ACCOUNT SUSPENDED DUE TO MULTIPLE FAILED ATTEMPTS.';
+            }
+        } else {
+            // Non-existent user: Block IP (Configurable duration)
+            $durationMap = ['one-day' => '1 DAY', 'one-week' => '7 DAY', 'one-month' => '1 MONTH', 'one-year' => '1 YEAR'];
+            $interval = $durationMap[$bs['block_duration'] ?? 'one-day'] ?? '1 DAY';
+
+            $pdo->prepare("INSERT INTO access_control (type, value, status, expiry) VALUES ('ip', ?, 'blacklisted', DATE_ADD(NOW(), INTERVAL $interval)) ON DUPLICATE KEY UPDATE status = 'blacklisted', expiry = DATE_ADD(NOW(), INTERVAL $interval)")->execute([$ip]);
+            $error = 'Security Alert: Access restricted due to suspicious activity.';
+        }
     }
     }
 }

@@ -18,7 +18,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'providers' => [
             'datagifting' => ['apiKey' => $_POST['dg_apiKey']],
             'nellobyte' => ['userId' => $_POST['nb_userId'], 'apiKey' => $_POST['nb_apiKey']],
-            'datastation' => ['token' => $_POST['ds_token']]
+            'datastation' => ['token' => $_POST['ds_token']],
+            'hdkdata' => ['token' => $_POST['hdk_token']]
         ],
         'routing' => [
             'MTN' => $_POST['route_mtn'],
@@ -249,6 +250,17 @@ require_once __DIR__ . '/header.php';
                 <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Token</label>
                 <input type="password" name="ds_token" value="<?php echo $ds['providers']['datastation']['token'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
             </div>
+
+            <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-sm font-black uppercase tracking-widest flex items-center gap-3 text-cyan-600">
+                        <i data-lucide="key" class="w-5 h-5"></i> HDKData (4)
+                    </h3>
+                    <button type="submit" name="action" value="test_api" onclick="this.form.provider.value='hdkdata'" class="text-[10px] font-black text-cyan-600 uppercase hover:underline">Test</button>
+                </div>
+                <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Token</label>
+                <input type="password" name="hdk_token" value="<?php echo $ds['providers']['hdkdata']['token'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
+            </div>
         </div>
         <input type="hidden" name="provider" value="">
 
@@ -265,6 +277,7 @@ require_once __DIR__ . '/header.php';
                         <option value="datagifting" <?php echo ($ds['routing'][$net] ?? '') === 'datagifting' ? 'selected' : ''; ?>>DataGifting</option>
                         <option value="nellobyte" <?php echo ($ds['routing'][$net] ?? '') === 'nellobyte' ? 'selected' : ''; ?>>Nellobyte</option>
                         <option value="datastation" <?php echo ($ds['routing'][$net] ?? '') === 'datastation' ? 'selected' : ''; ?>>Datastationapi</option>
+                        <option value="hdkdata" <?php echo ($ds['routing'][$net] ?? '') === 'hdkdata' ? 'selected' : ''; ?>>HDKData</option>
                     </select>
                 </div>
                 <?php endforeach; ?>
@@ -389,6 +402,7 @@ require_once __DIR__ . '/header.php';
                     <option value="nellobyte">Nellobyte</option>
                     <option value="datagifting">DataGifting</option>
                     <option value="datastation">Datastationapi</option>
+                    <option value="hdkdata">HDKData</option>
                 </select>
             </div>
             <div>

@@ -35,8 +35,7 @@ if (!class_exists('TOTP')) {
         }
 
         public static function getQrCodeUrl($name, $title, $secret) {
-            $urlencoded = urlencode('otpauth://totp/'.$name.'?secret='.$secret.'&issuer='.urlencode($title));
-            return 'https://api.qrserver.com/v1/create-qr-code/?data='.$urlencoded.'&size=200x200';
+            return 'otpauth://totp/'.$name.'?secret='.$secret.'&issuer='.urlencode($title);
         }
 
         public static function verifyCode($secret, $code, $discrepancy = 1, $currentTimeSlice = null) {

@@ -8,79 +8,105 @@ $pageTitle = 'Virtual Cards';
 $success = '';
 $error = '';
 
+if (isset($_GET['ajax'])) {
+    header('Content-Type: application/json');
+    if ($_GET['ajax'] === 'getQuote') {
+        $amount = (float)$_GET['amount'];
+        $rate = 1600; // Mock Market Rate
+        $fee = (float)($settings['financialSettings']['vcard_deposit_fee'] ?? 500);
+        $target = ($amount - $fee) / $rate;
+        echo json_encode(['status' => 'success', 'rate' => $rate, 'fee' => $fee, 'target' => max(0, $target)]);
+        exit;
+    }
+    if ($_GET['ajax'] === 'sendOTP') {
+        sendEmail2fa($pdo, $currentUser);
+        echo json_encode(['status' => 'success']);
+        exit;
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if (!verifyCsrfToken($_POST['csrf_token'])) die('CSRF Failed');
 
     $action = $_POST['action'];
 
-    // Security Verification
-    if (!verifyFundPassword($pdo, $currentUser['id'], $_POST['fund_password'] ?? '')) {
+    // 1. Email Auth Verification (Requested)
+    if (empty($_POST['otp']) || $_POST['otp'] != $_SESSION['email_2fa_code'] || time() > $_SESSION['email_2fa_expiry']) {
+        $error = "Invalid or expired Email verification code.";
+    }
+    // 2. Fund Password Verification
+    elseif (!verifyFundPassword($pdo, $currentUser['id'], $_POST['fund_password'] ?? '')) {
         $error = "Incorrect Fund Password. Action denied.";
     } elseif ($action === 'request_card') {
         $type = $_POST['type'] ?? 'Visa';
         $issuanceFee = (float)($settings['vcardIssuanceFee'] ?? 1500);
+        $gateway = $_POST['gateway'] ?? 'paystack';
 
-        if ($currentUser['walletBalance'] < $issuanceFee) {
-            $error = "Insufficient balance. Card request costs " . formatCurrency($issuanceFee);
-        } else {
-            $pdo->beginTransaction();
-            try {
-                updateWallet($pdo, $currentUser['id'], $issuanceFee, 'debit');
+        // Online Payment Linking (Forcefully online only)
+        $ref = 'VC-' . bin2hex(random_bytes(4));
+        $_SESSION['pending_vcard_request'] = ['type' => $type, 'fee' => $issuanceFee, 'ref' => $ref];
 
-                // Call JuicyWay API
-                $jwRes = callJuicyWay($pdo, 'cards', 'POST', [
-                    'userId' => $currentUser['id'],
-                    'type' => $type,
-                    'amount' => 0
-                ]);
-
-                if (isset($jwRes['status']) && $jwRes['status'] === 'success') {
-                    $cardData = $jwRes['data'];
-                    $cardId = $cardData['id'];
-                    $cardNumber = $cardData['card_number'];
-                    $expiry = $cardData['expiry'];
-                    $cvv = $cardData['cvv'];
-
-                    $stmt = $pdo->prepare("INSERT INTO virtual_cards (id, userId, cardNumber, expiry, cvv, type, balance) VALUES (?, ?, ?, ?, ?, ?, 0)");
-                    $stmt->execute([$cardId, $currentUser['id'], $cardNumber, $expiry, $cvv, $type]);
-
-                    logTransaction($pdo, $currentUser['id'], 'Virtual Card', $issuanceFee, 'successful', "New Virtual $type Card issued: $cardNumber", 'System', 'CardIssuer');
-                    $success = "Virtual Card issued successfully!";
-                } else {
-                    updateWallet($pdo, $currentUser['id'], $issuanceFee, 'credit');
-                    throw new Exception($jwRes['message'] ?? 'Failed to issue card from provider. Balance refunded.');
+        if ($gateway === 'paystack') {
+            $paystackKey = $settings['paystackPublicKey'];
+            $payAmount = $issuanceFee * 100;
+            echo "<script src='https://js.paystack.co/v1/inline.js'></script>
+            <script>
+                window.onload = function() {
+                    const handler = PaystackPop.setup({
+                        key: '$paystackKey', email: '{$currentUser['email']}', amount: $payAmount, ref: '$ref',
+                        callback: function(res) { window.location.href = '/verify-payment?reference=' + res.reference + '&type=vcard'; },
+                        onClose: function() { window.location.href = '/vcard?error=Payment cancelled'; }
+                    });
+                    handler.openIframe();
+                };
+            </script>";
+            exit;
+        } elseif ($gateway === 'flutterwave') {
+            $res = flutterwaveInitiate($pdo, $issuanceFee, $currentUser['email'], $ref);
+            if (isset($res['status']) && $res['status'] === 'success') {
+                $link = $res['data']['link'] ?? '';
+                header("Location: $link");
+                exit;
+            } else $error = "Flutterwave Init Failed: " . ($res['message'] ?? '');
+        } elseif ($gateway === 'paypal') {
+            $res = paypalInitiate($pdo, $issuanceFee / 1600, $ref);
+            if (isset($res['id'])) {
+                $links = $res['links'] ?? [];
+                $approve = array_filter($links, fn($l) => $l['rel'] === 'approve');
+                if (!empty($approve)) {
+                    header("Location: " . reset($approve)['href']);
+                    exit;
                 }
-
-                claimDailyRewardIfEligible($pdo, $currentUser['id']);
-                $pdo->commit();
-            } catch (Exception $e) {
-                if ($pdo->inTransaction()) $pdo->rollBack();
-                $error = $e->getMessage();
-            }
+            } else $error = "PayPal Init Failed: " . ($res['message'] ?? '');
         }
     } elseif ($action === 'fund_card') {
         $cardId = $_POST['cardId'];
-        $amount = (float)$_POST['amount'];
+        $amountNgn = (float)$_POST['amount'];
+        $rate = 1600; // Mock Rate
+        $feeNgn = (float)($settings['financialSettings']['vcard_deposit_fee'] ?? 500);
+        $amountToVenc = ($amountNgn - $feeNgn) / $rate;
 
-        if ($currentUser['walletBalance'] < $amount) {
-            $error = "Insufficient balance to fund card.";
+        if ($currentUser['walletBalance'] < $amountNgn) {
+            $error = "Insufficient balance. Total: " . formatCurrency($amountNgn);
+        } elseif ($amountNgn <= $feeNgn) {
+            $error = "Amount must be greater than service fee.";
         } else {
             $pdo->beginTransaction();
             try {
-                updateWallet($pdo, $currentUser['id'], $amount, 'debit');
+                updateWallet($pdo, $currentUser['id'], $amountNgn, 'debit');
 
-                // Call JuicyWay API
-                $jwRes = callJuicyWay($pdo, "cards/$cardId/fund", 'POST', ['amount' => $amount]);
+                // Call JuicyWay API (Amount in USD for the card)
+                $jwRes = callJuicyWay($pdo, "cards/$cardId/fund", 'POST', ['amount' => $amountToVenc]);
 
                 if (isset($jwRes['status']) && $jwRes['status'] === 'success') {
                     $stmt = $pdo->prepare("UPDATE virtual_cards SET balance = balance + ? WHERE id = ? AND userId = ?");
-                    $stmt->execute([$amount, $cardId, $currentUser['id']]);
+                    $stmt->execute([$amountToVenc, $cardId, $currentUser['id']]);
 
-                    logTransaction($pdo, $currentUser['id'], 'Card Funding', $amount, 'successful', "Funded Virtual Card ($cardId)", $cardId, 'System');
-                    $success = "Card funded successfully!";
+                    logTransaction($pdo, $currentUser['id'], 'Card Funding', $amountNgn, 'successful', "Funded Virtual Card: +$" . number_format($amountToVenc, 2), $cardId, 'System', null, $amountToVenc, $feeNgn);
+                    $success = "Card funded successfully with $" . number_format($amountToVenc, 2);
                 } else {
-                    updateWallet($pdo, $currentUser['id'], $amount, 'credit');
-                    throw new Exception($jwRes['message'] ?? 'Failed to fund card. Balance refunded.');
+                    updateWallet($pdo, $currentUser['id'], $amountNgn, 'credit');
+                    throw new Exception($jwRes['message'] ?? 'Failed to fund card via provider. Balance refunded.');
                 }
                 $pdo->commit();
             } catch (Exception $e) {
@@ -231,6 +257,10 @@ require_once __DIR__ . '/includes/header.php';
             <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
             <input type="hidden" name="action" value="request_card">
 
+            <div class="mb-6 p-4 bg-amber-50 rounded-2xl border border-amber-100">
+                <p class="text-[9px] font-black uppercase text-amber-700 leading-relaxed">Online Only: Payments are routed via secure gateways. Wallet balance is not used for card issuance.</p>
+            </div>
+
             <div class="space-y-4">
                 <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Choose Card Type</label>
                 <div class="grid grid-cols-2 gap-4">
@@ -251,17 +281,42 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
             </div>
 
-            <div>
-                <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Fund Password</label>
-                <input type="password" name="fund_password" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-2xl font-black outline-none" required>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase ml-1">Fund Password</label>
+                    <input type="password" name="fund_password" placeholder="••••••" class="w-full p-4 bg-gray-50 rounded-2xl font-black outline-none" required>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase ml-1">Email Code</label>
+                    <div class="flex gap-2">
+                        <input type="text" name="otp" placeholder="000000" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-center outline-none" required>
+                        <button type="button" onclick="sendOTP(this)" class="px-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase">Send</button>
+                    </div>
+                </div>
             </div>
 
-            <div class="bg-gray-50 p-6 rounded-3xl flex justify-between items-center">
-                <span class="text-[10px] font-black uppercase text-gray-400">Issuance Fee</span>
-                <span class="text-lg font-black"><?php echo formatCurrency($settings['vcardIssuanceFee'] ?? 1500); ?></span>
+            <div class="bg-gray-50 p-6 rounded-3xl space-y-4">
+                <div class="flex justify-between items-center">
+                    <span class="text-[10px] font-black uppercase text-gray-400">Issuance Fee</span>
+                    <span class="text-lg font-black"><?php echo formatCurrency($settings['vcardIssuanceFee'] ?? 1500); ?></span>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <button type="submit" name="gateway" value="paystack" class="p-3 bg-white rounded-xl border border-gray-100 flex flex-col items-center gap-1 hover:border-billpay-green transition-all group">
+                        <i data-lucide="credit-card" class="w-4 h-4 text-blue-500"></i>
+                        <span class="text-[7px] font-black uppercase text-gray-400 group-hover:text-gray-900">Paystack</span>
+                    </button>
+                    <button type="submit" name="gateway" value="flutterwave" class="p-3 bg-white rounded-xl border border-gray-100 flex flex-col items-center gap-1 hover:border-billpay-green transition-all group">
+                        <i data-lucide="zap" class="w-4 h-4 text-orange-500"></i>
+                        <span class="text-[7px] font-black uppercase text-gray-400 group-hover:text-gray-900">Flutterwave</span>
+                    </button>
+                    <button type="submit" name="gateway" value="paypal" class="p-3 bg-white rounded-xl border border-gray-100 flex flex-col items-center gap-1 hover:border-billpay-green transition-all group">
+                        <i data-lucide="globe" class="w-4 h-4 text-blue-700"></i>
+                        <span class="text-[7px] font-black uppercase text-gray-400 group-hover:text-gray-900">PayPal</span>
+                    </button>
+                </div>
             </div>
 
-            <button type="submit" class="w-full bg-gray-900 text-white font-black py-5 rounded-[24px] shadow-xl hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-widest">Confirm & Pay</button>
+            <button type="button" onclick="alert('Select a gateway above to pay')" class="w-full bg-gray-900 text-white font-black py-5 rounded-[24px] shadow-xl transition-all uppercase tracking-widest">Proceed to Payment</button>
         </form>
     </div>
 </div>
@@ -281,11 +336,27 @@ require_once __DIR__ . '/includes/header.php';
             <div class="space-y-6">
                 <div>
                     <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Amount (₦)</label>
-                    <input type="number" name="amount" placeholder="0.00" class="w-full p-6 bg-gray-50 rounded-3xl font-black text-2xl outline-none focus:ring-4 focus:ring-billpay-green/5" required>
+                    <input type="number" name="amount" id="fundAmount" oninput="updateQuote()" placeholder="0.00" class="w-full p-6 bg-gray-50 rounded-3xl font-black text-2xl outline-none focus:ring-4 focus:ring-billpay-green/5" required>
                 </div>
-                <div>
-                    <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Fund Password</label>
-                    <input type="password" name="fund_password" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-2xl font-black outline-none" required>
+
+                <div id="fundQuote" class="hidden p-6 bg-indigo-50 rounded-3xl border border-indigo-100 space-y-3">
+                    <div class="flex justify-between text-[9px] font-black uppercase text-indigo-400"><span>Exchange Rate</span><span id="quoteRate">₦0 / $1</span></div>
+                    <div class="flex justify-between text-[9px] font-black uppercase text-indigo-400"><span>Service Fee</span><span id="quoteFee">₦0.00</span></div>
+                    <div class="flex justify-between text-xs font-black uppercase text-indigo-900 pt-2 border-t border-indigo-100"><span>Card Receives</span><span id="quoteTarget">$0.00</span></div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase ml-1">Fund Password</label>
+                        <input type="password" name="fund_password" placeholder="••••••" class="w-full p-4 bg-gray-50 rounded-2xl font-black outline-none" required>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase ml-1">Email Code</label>
+                        <div class="flex gap-2">
+                            <input type="text" name="otp" placeholder="000000" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-center outline-none" required>
+                            <button type="button" onclick="sendOTP(this)" class="px-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase">Send</button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -298,6 +369,30 @@ require_once __DIR__ . '/includes/header.php';
     function openFundModal(id) {
         document.getElementById('fundCardId').value = id;
         document.getElementById('fundModal').classList.remove('hidden');
+    }
+
+    function sendOTP(btn) {
+        btn.disabled = true;
+        btn.innerText = 'Sending...';
+        fetch('?ajax=sendOTP')
+            .then(r => r.json())
+            .then(res => {
+                btn.innerText = 'Sent!';
+                setTimeout(() => { btn.disabled = false; btn.innerText = 'Resend'; }, 60000);
+            });
+    }
+
+    function updateQuote() {
+        const amt = document.getElementById('fundAmount').value;
+        if (amt < 1000) { document.getElementById('fundQuote').classList.add('hidden'); return; }
+        fetch('?ajax=getQuote&amount=' + amt)
+            .then(r => r.json())
+            .then(res => {
+                document.getElementById('fundQuote').classList.remove('hidden');
+                document.getElementById('quoteRate').innerText = '₦' + res.rate.toLocaleString() + ' / $1';
+                document.getElementById('quoteFee').innerText = '₦' + res.fee.toLocaleString();
+                document.getElementById('quoteTarget').innerText = '$' + res.target.toFixed(2);
+            });
     }
 </script>
 

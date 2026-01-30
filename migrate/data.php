@@ -34,8 +34,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $recipients = array_unique($recipients);
     } else { $recipients[] = sanitize($_POST['phoneNumber']); }
 
+    $ls = $settings['loginSecuritySettings'] ?? [];
+    $isPinForced = !empty($ls['pin']['forced']);
+    $userPinEnabled = !empty($currentUser['fundPasswordVtuEnabled']);
+
     if (isKycRejected($currentUser)) {
         $error = 'Account restricted. Please update your KYC.';
+    } elseif (($isPinForced || $userPinEnabled) && !verifyFundPassword($pdo, $currentUser['id'], $_POST['fund_password'] ?? '')) {
+        $error = 'Invalid Security PIN';
     } elseif (!$selectedPlan) {
         $error = 'Invalid data plan selected';
     } elseif (empty($recipients)) {
@@ -143,12 +149,18 @@ require_once __DIR__ . '/includes/header.php';
                 <input type="hidden" name="networkName" id="networkInput">
             </div>
 
-            <div>
-                <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest ml-1">Available Packages</label>
-                <div id="plansList" class="flex flex-col gap-3 max-h-80 overflow-y-auto pr-1 scrollbar-hide">
-                    <div class="py-12 text-center text-gray-300 font-black text-[9px] uppercase border-2 border-dashed border-gray-100 rounded-[32px] flex flex-col items-center gap-3"><i data-lucide="wifi" class="w-6 h-6 opacity-20"></i>Select provider</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest ml-1">Available Packages</label>
+                    <div id="plansList" class="flex flex-col gap-3 max-h-80 overflow-y-auto pr-1 scrollbar-hide">
+                        <div class="py-12 text-center text-gray-300 font-black text-[9px] uppercase border-2 border-dashed border-gray-100 rounded-[32px] flex flex-col items-center gap-3"><i data-lucide="wifi" class="w-6 h-6 opacity-20"></i>Select provider</div>
+                    </div>
+                    <input type="hidden" name="planId" id="planInput" required>
                 </div>
-                <input type="hidden" name="planId" id="planInput" required>
+                <div class="flex flex-col justify-end">
+                    <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest ml-1">Security PIN</label>
+                    <input type="password" name="fund_password" maxlength="6" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" <?php echo ($isPinForced || $userPinEnabled) ? 'required' : ''; ?>>
+                </div>
             </div>
 
             <button type="submit" id="submitBtn" class="w-full bg-billpay-green text-white font-black py-5 rounded-[24px] shadow-xl active:scale-95 transition-all uppercase flex items-center justify-center gap-3">
