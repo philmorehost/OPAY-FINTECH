@@ -46,6 +46,9 @@ try {
     addColumnIfNotExists($pdo, 'settings', 'loginSecuritySettings', "TEXT");
     addColumnIfNotExists($pdo, 'settings', 'siteVersion', "VARCHAR(50) DEFAULT '1.0.0'");
     addColumnIfNotExists($pdo, 'settings', 'vcardIssuanceFee', "DECIMAL(15, 2) DEFAULT 1500.00");
+    addColumnIfNotExists($pdo, 'settings', 'googleClientId', "VARCHAR(255)");
+    addColumnIfNotExists($pdo, 'settings', 'googleClientSecret', "VARCHAR(255)");
+    addColumnIfNotExists($pdo, 'settings', 'googleAuthEnabled', "TINYINT(1) DEFAULT 0");
 
     // API Hub Restructured Settings
     addColumnIfNotExists($pdo, 'settings', 'airtimeSettings', "TEXT");
@@ -60,11 +63,14 @@ try {
     addColumnIfNotExists($pdo, 'transactions', 'provider', "VARCHAR(50)");
     addColumnIfNotExists($pdo, 'transactions', 'apiAmount', "DECIMAL(15, 2) DEFAULT 0.00");
     addColumnIfNotExists($pdo, 'transactions', 'profit', "DECIMAL(15, 2) DEFAULT 0.00");
+    addColumnIfNotExists($pdo, 'transactions', 'last_queried_at', "DATETIME");
+    addColumnIfNotExists($pdo, 'transactions', 'query_count', "INT DEFAULT 0");
 
     // KYC Submissions Table Updates
     addColumnIfNotExists($pdo, 'kyc_submissions', 'selfieImageUrl', "VARCHAR(255)");
 
     // Users Table Updates
+    addColumnIfNotExists($pdo, 'users', 'googleId', "VARCHAR(255)");
     addColumnIfNotExists($pdo, 'users', 'hasCompletedInitialDeposit', "TINYINT(1) DEFAULT 0");
     addColumnIfNotExists($pdo, 'users', 'biometricEnabled', "TINYINT(1) DEFAULT 0");
     addColumnIfNotExists($pdo, 'users', 'biometricCredentialId', "TEXT");

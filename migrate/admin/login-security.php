@@ -26,8 +26,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]
     ];
 
-    $stmt = $pdo->prepare("UPDATE settings SET loginSecuritySettings = ? WHERE id = 1");
-    $stmt->execute([json_encode($securitySettings)]);
+    $stmt = $pdo->prepare("UPDATE settings SET loginSecuritySettings = ?, googleClientId = ?, googleClientSecret = ?, googleAuthEnabled = ? WHERE id = 1");
+    $stmt->execute([
+        json_encode($securitySettings),
+        sanitize($_POST['google_client_id']),
+        sanitize($_POST['google_client_secret']),
+        isset($_POST['google_auth_enabled']) ? 1 : 0
+    ]);
 
     $success = "Login security settings updated successfully!";
     $settings = fetchSettings($pdo);
@@ -59,6 +64,43 @@ require_once __DIR__ . '/header.php';
         <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- Google Login API -->
+            <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100 col-span-1 md:col-span-2">
+                <div class="flex items-center justify-between mb-6">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center">
+                            <i data-lucide="chrome" class="w-6 h-6"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-black uppercase tracking-widest">Google Auth (SSO)</h3>
+                            <p class="text-[9px] font-bold text-gray-400 uppercase">One-Tap Login & Registration</p>
+                        </div>
+                    </div>
+                    <a href="google-auth-guide.php" class="text-[10px] font-black text-billpay-green uppercase hover:underline flex items-center gap-1">
+                        <i data-lucide="help-circle" class="w-3 h-3"></i> Setup Guide
+                    </a>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-1">
+                        <div class="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100 h-full">
+                            <span class="text-[10px] font-black uppercase text-gray-500">Enable Google Login</span>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" name="google_auth_enabled" class="sr-only peer" <?php echo !empty($settings['googleAuthEnabled']) ? 'checked' : ''; ?>>
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-billpay-green"></div>
+                            </label>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Client ID</label>
+                        <input type="text" name="google_client_id" value="<?php echo $settings['googleClientId'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-bold text-xs mt-1">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Client Secret</label>
+                        <input type="password" name="google_client_secret" value="<?php echo $settings['googleClientSecret'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-bold text-xs mt-1">
+                    </div>
+                </div>
+            </div>
+
             <!-- Biometric -->
             <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
                 <div class="flex items-center gap-4 mb-6">

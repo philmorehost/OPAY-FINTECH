@@ -693,6 +693,113 @@ function sendKudiSms($pdo, $senderId, $message, $to) {
 }
 }
 
+/**
+ * REQUERY SERVICE
+ */
+if (!function_exists('requeryTransaction')) {
+function requeryTransaction($pdo, $txId) {
+    $stmt = $pdo->prepare("SELECT * FROM transactions WHERE id = ?");
+    $stmt->execute([$txId]);
+    $tx = $stmt->fetch();
+    if (!$tx) return ['status' => 'error', 'message' => 'Transaction not found'];
+
+    $settings = fetchSettings($pdo);
+    $provider = $tx['provider'] ?: 'manual';
+    $ref = $tx['token']; // Using 'token' column for original provider reference
+
+    if (!$ref || $provider === 'manual' || $provider === 'Internal' || $provider === 'System') {
+        return ['status' => 'error', 'message' => 'Transaction not requeryable'];
+    }
+
+    $newStatus = null;
+    $apiMsg = '';
+
+    switch ($provider) {
+        case 'vtpass':
+            $us = $settings['utilitySettings']['vtpass'] ?? [];
+            $headers = ["Content-Type: application/json"];
+            if (!empty($us['username']) && !empty($us['password'])) {
+                $headers[] = "Authorization: Basic " . base64_encode($us['username'] . ":" . $us['password']);
+            } elseif (!empty($us['apiKey'])) {
+                $headers[] = "api-key: " . $us['apiKey'];
+                $headers[] = "public-key: " . ($us['publicKey'] ?? '');
+            }
+            $url = (!empty($us['sandbox'])) ? "https://sandbox.vtpass.com/api/requery" : "https://vtpass.com/api/requery";
+            $res = callApi($url, 'POST', ['request_id' => $ref], $headers);
+            if (isset($res['code']) && $res['code'] === '000') {
+                $apiStatus = $res['content']['transactions']['status'] ?? '';
+                if ($apiStatus === 'delivered' || $apiStatus === 'successful') $newStatus = 'successful';
+                elseif ($apiStatus === 'failed') $newStatus = 'failed';
+                $apiMsg = $res['response_description'] ?? $apiStatus;
+            }
+            break;
+
+        case 'nellobyte':
+            // Try to find if it was Airtime/Data to get correct creds
+            $creds = [];
+            if ($tx['type'] === 'Airtime') $creds = $settings['airtimeSettings']['providers']['nellobyte'] ?? [];
+            else $creds = $settings['dataSettings']['providers']['nellobyte'] ?? [];
+
+            $url = "https://www.nellobytesystems.com/APIQueryV1.asp?UserID=" . ($creds['userId'] ?? '') . "&APIKey=" . ($creds['apiKey'] ?? '') . "&OrderID=" . $ref;
+            $res = callApi($url);
+            if (isset($res['status'])) {
+                if (strpos($res['status'], 'COMPLETED') !== false || strpos($res['status'], 'SUCCESSFUL') !== false) $newStatus = 'successful';
+                elseif (strpos($res['status'], 'FAILED') !== false) $newStatus = 'failed';
+                $apiMsg = $res['status'];
+            }
+            break;
+
+        case 'datagifting':
+            $creds = [];
+            if ($tx['type'] === 'Airtime') $creds = $settings['airtimeSettings']['providers']['datagifting'] ?? [];
+            else $creds = $settings['dataSettings']['providers']['datagifting'] ?? [];
+            $apiKey = $creds['apiKey'] ?? '';
+
+            $res = callApi("https://v6.datagifting.com.ng/web/api/query.php?api_key=$apiKey&ref=$ref");
+            if (isset($res['status'])) {
+                if ($res['status'] === 'success') $newStatus = 'successful';
+                elseif ($res['status'] === 'fail' || $res['status'] === 'failed') $newStatus = 'failed';
+                $apiMsg = $res['desc'] ?? $res['msg'] ?? $res['status'];
+            }
+            break;
+
+        case 'datastation':
+        case 'hdkdata':
+            $creds = [];
+            $baseUrl = ($provider === 'datastation') ? 'https://datastationapi.com' : 'https://hdkdata.com';
+            if ($tx['type'] === 'Airtime') $creds = $settings['airtimeSettings']['providers'][$provider] ?? [];
+            else $creds = $settings['dataSettings']['providers'][$provider] ?? [];
+
+            $res = callApi("$baseUrl/api/status/$ref", 'GET', [], ["Authorization: Token " . ($creds['token'] ?? '')]);
+            if (isset($res['Status'])) {
+                if ($res['Status'] === 'successful') $newStatus = 'successful';
+                elseif ($res['Status'] === 'failed') $newStatus = 'failed';
+                $apiMsg = $res['Status'];
+            }
+            break;
+    }
+
+    if ($newStatus && $newStatus !== $tx['status']) {
+        $pdo->beginTransaction();
+        try {
+            // If it was failed (and refunded) but now successful -> Re-debit
+            if ($tx['status'] === 'failed' && $tx['refunded'] && $newStatus === 'successful') {
+                updateWallet($pdo, $tx['userId'], $tx['amount'], 'debit');
+                $pdo->prepare("UPDATE transactions SET refunded = 0 WHERE id = ?")->execute([$tx['id']]);
+            }
+
+            $pdo->prepare("UPDATE transactions SET status = ?, details = CONCAT(details, ' | Requery: ', ?), last_queried_at = NOW(), query_count = query_count + 1 WHERE id = ?")
+                ->execute([$newStatus, $apiMsg, $txId]);
+            $pdo->commit();
+            return ['status' => 'success', 'new_status' => $newStatus, 'message' => "Updated to $newStatus"];
+        } catch (Exception $e) { $pdo->rollBack(); return ['status' => 'error', 'message' => $e->getMessage()]; }
+    }
+
+    $pdo->prepare("UPDATE transactions SET last_queried_at = NOW(), query_count = query_count + 1 WHERE id = ?")->execute([$txId]);
+    return ['status' => 'no_change', 'current_status' => $tx['status'], 'message' => $apiMsg ?: 'No change detected'];
+}
+}
+
 if (!function_exists('nellobyteGetBettingCompanies')) {
 function nellobyteGetBettingCompanies($pdo) {
     $settings = fetchSettings($pdo);

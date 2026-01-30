@@ -299,7 +299,8 @@ require_once __DIR__ . '/header.php';
 
     <!-- EPIN Phone Settings -->
     <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100 mt-10">
-        <h3 class="text-sm font-black uppercase tracking-widest mb-8 flex items-center gap-3"><i data-lucide="smartphone" class="text-indigo-500"></i> EPIN Instruction Phone Numbers</h3>
+        <h3 class="text-sm font-black uppercase tracking-widest mb-4 flex items-center gap-3"><i data-lucide="smartphone" class="text-indigo-500"></i> EPIN Instruction Phone Numbers</h3>
+        <p class="text-[10px] font-bold text-gray-400 uppercase mb-8">Set the destination phone numbers that users will send their EPIN codes to for activation per network.</p>
         <?php
             $es = $settings['epinSettings'] ?? [];
             if (is_string($es)) $es = json_decode($es, true) ?: [];

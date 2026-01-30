@@ -131,19 +131,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             <div class="space-y-1">
                 <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Password</label>
-                <input type="password" name="password" class="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-bold text-sm" required>
+                <div class="relative">
+                    <input type="password" name="password" id="passwordInput" class="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-bold text-sm" required>
+                    <button type="button" onclick="togglePassword('passwordInput', this)" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-billpay-green transition-colors">
+                        <i data-lucide="eye" class="w-4 h-4"></i>
+                    </button>
+                </div>
             </div>
             <div class="space-y-1">
                 <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Confirm Password</label>
-                <input type="password" name="confirm_password" class="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-bold text-sm" required>
+                <div class="relative">
+                    <input type="password" name="confirm_password" id="confirmPasswordInput" class="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-bold text-sm" required>
+                    <button type="button" onclick="togglePassword('confirmPasswordInput', this)" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-billpay-green transition-colors">
+                        <i data-lucide="eye" class="w-4 h-4"></i>
+                    </button>
+                </div>
             </div>
 
             <button type="submit" class="w-full py-5 bg-billpay-green text-white rounded-[24px] font-black uppercase tracking-widest shadow-xl shadow-green-100 mt-4">Sign Up</button>
         </form>
 
+        <?php if (!empty($settings['googleAuthEnabled']) && !empty($settings['googleClientId'])): ?>
+            <?php
+            $googleAuthUrl = "https://accounts.google.com/o/oauth2/v2/auth?" . http_build_query([
+                'client_id' => $settings['googleClientId'],
+                'redirect_uri' => (isset($_SERVER['HTTPS']) ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . '/google-callback.php',
+                'response_type' => 'code',
+                'scope' => 'email profile',
+                'access_type' => 'online',
+                'prompt' => 'select_account'
+            ]);
+            ?>
+            <div class="mt-6">
+                <a href="<?php echo $googleAuthUrl; ?>" class="w-full py-5 bg-white border-2 border-gray-100 rounded-[24px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-gray-50 transition-all text-xs">
+                    <img src="https://www.google.com/favicon.ico" class="w-4 h-4">
+                    Sign up with Google
+                </a>
+            </div>
+        <?php endif; ?>
+
         <div class="mt-8 text-center">
             <p class="text-[10px] font-black text-gray-400 uppercase">Already have an account? <a href="/login" class="text-billpay-green">Login</a></p>
         </div>
     </div>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        lucide.createIcons();
+        function togglePassword(inputId, btn) {
+            const input = document.getElementById(inputId);
+            const icon = btn.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.setAttribute('data-lucide', 'eye-off');
+            } else {
+                input.type = 'password';
+                icon.setAttribute('data-lucide', 'eye');
+            }
+            lucide.createIcons();
+        }
+    </script>
 </body>
 </html>

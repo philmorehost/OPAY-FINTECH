@@ -25,6 +25,11 @@ if ($search) {
     $params[] = $searchParam;
 }
 
+if (!empty($_GET['date'])) {
+    $sql .= " AND DATE(t.date) = ?";
+    $params[] = $_GET['date'];
+}
+
 $sql .= " ORDER BY t.date DESC LIMIT 100";
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
@@ -37,18 +42,35 @@ require_once __DIR__ . '/header.php';
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
             <h2 class="text-2xl font-black uppercase tracking-tighter">Live Audit Log</h2>
 
-            <form method="GET" class="flex flex-col md:flex-row gap-4 w-full md:w-auto">
-                <input type="text" name="search" value="<?php echo sanitize($search); ?>" placeholder="Search ID, User, Number..." class="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold outline-none focus:border-billpay-green w-full md:w-64">
-                <select name="type" class="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold outline-none focus:border-billpay-green">
-                    <option value="">All Services</option>
-                    <?php
-                    $types = ['Airtime', 'Data', 'Transfer', 'Cable TV', 'Electricity', 'Betting', 'Bulk SMS', 'Deposit'];
-                    foreach ($types as $t):
-                    ?>
-                        <option value="<?php echo $t; ?>" <?php echo $typeFilter === $t ? 'selected' : ''; ?>><?php echo $t; ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <button type="submit" class="p-3 bg-gray-900 text-white rounded-xl text-xs font-black uppercase px-6">Filter</button>
+            <form method="GET" class="flex flex-wrap gap-4 w-full">
+                <div class="flex-1 min-w-[200px]">
+                    <label class="text-[8px] font-black text-gray-400 uppercase ml-1">Search ID/User/Recipient</label>
+                    <input type="text" name="search" value="<?php echo sanitize($search); ?>" placeholder="Search ID, Phone, IUC..." class="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold outline-none focus:border-billpay-green">
+                </div>
+                <div class="w-40">
+                    <label class="text-[8px] font-black text-gray-400 uppercase ml-1">Service</label>
+                    <select name="type" class="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold outline-none focus:border-billpay-green">
+                        <option value="">All Services</option>
+                        <?php
+                        $types = ['Airtime', 'Data', 'Transfer', 'Cable TV', 'Electricity', 'Betting', 'Bulk SMS', 'Deposit'];
+                        foreach ($types as $t):
+                        ?>
+                            <option value="<?php echo $t; ?>" <?php echo $typeFilter === $t ? 'selected' : ''; ?>><?php echo $t; ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="w-40">
+                    <label class="text-[8px] font-black text-gray-400 uppercase ml-1">Filter Date</label>
+                    <input type="date" name="date" value="<?php echo sanitize($_GET['date'] ?? ''); ?>" class="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold outline-none focus:border-billpay-green">
+                </div>
+                <div class="flex items-end">
+                    <button type="submit" class="p-3 bg-gray-900 text-white rounded-xl text-xs font-black uppercase px-8 shadow-lg hover:scale-105 transition-all">Filter</button>
+                </div>
+                <div class="flex items-end">
+                    <button type="button" onclick="triggerRequery(event)" class="p-3 bg-indigo-600 text-white rounded-xl text-xs font-black uppercase px-6 shadow-lg hover:scale-105 transition-all flex items-center gap-2">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i> Run Auto-Requery
+                    </button>
+                </div>
             </form>
         </div>
 
@@ -89,4 +111,27 @@ require_once __DIR__ . '/header.php';
         </div>
     </div>
 </div>
+<script>
+function triggerRequery(e) {
+    const btn = e.currentTarget;
+    const icon = btn.querySelector('i');
+    btn.disabled = true;
+    icon.classList.add('animate-spin');
+
+    fetch('/cron-requery.php?ajax=1&force=1')
+        .then(r => r.json())
+        .then(data => {
+            alert('Requery completed. Found ' + data.queried + ' transactions to check.');
+            window.location.reload();
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Requery failed. Check console for details.');
+        })
+        .finally(() => {
+            btn.disabled = false;
+            icon.classList.remove('animate-spin');
+        });
+}
+</script>
 <?php require_once __DIR__ . '/footer.php'; ?>
