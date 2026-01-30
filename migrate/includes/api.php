@@ -297,8 +297,9 @@ function vtpassGetVariations($pdo, $serviceId) {
 }
 
 if (!function_exists('vtpassVerifyMerchant')) {
-function vtpassVerifyMerchant($pdo, $serviceId, $billersCode) {
+function vtpassVerifyMerchant($pdo, $serviceId, $billersCode, $type = null) {
     $data = ['serviceID' => $serviceId, 'billersCode' => $billersCode];
+    if ($type) $data['variation_code'] = $type;
     $url = "https://vtpass.com/api/merchant-verify";
     $settings = fetchSettings($pdo);
     $creds = $settings['utilitySettings']['vtpass'] ?? [];

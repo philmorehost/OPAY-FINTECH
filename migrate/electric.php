@@ -13,7 +13,7 @@ if (isset($_GET['ajax'])) {
         $serviceId = sanitize($_GET['serviceId']);
         $meter = sanitize($_GET['meter']);
         $type = sanitize($_GET['type']);
-        echo json_encode(vtpassVerifyMerchant($pdo, $serviceId, $meter));
+        echo json_encode(vtpassVerifyMerchant($pdo, $serviceId, $meter, $type));
         exit;
     }
 }
@@ -128,9 +128,9 @@ require_once __DIR__ . '/includes/header.php';
                     ];
                     foreach ($discos as $id => $name):
                     ?>
-                    <button type="button" onclick="setService('<?php echo $id; ?>')" id="svc_<?php echo $id; ?>" class="svc-btn flex flex-col items-center gap-2 p-2 rounded-2xl border-2 transition-all border-transparent bg-gray-50">
-                        <div class="w-10 h-10 rounded-full bg-orange-500 flex items-center justify-center text-white text-[10px] font-black"><?php echo substr($name, 0, 2); ?></div>
-                        <span class="text-[8px] font-black uppercase text-gray-800"><?php echo $name; ?></span>
+                    <button type="button" onclick="setService('<?php echo $id; ?>')" id="svc_<?php echo $id; ?>" class="svc-btn flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all border-transparent bg-gray-50 hover:bg-gray-100">
+                        <div class="w-12 h-12 rounded-2xl bg-orange-500 flex items-center justify-center text-white text-xs font-black shadow-sm group-hover:scale-110 transition-transform"><?php echo substr($name, 0, 2); ?></div>
+                        <span class="text-[9px] font-black uppercase text-gray-800 tracking-tighter"><?php echo $name; ?></span>
                     </button>
                     <?php endforeach; ?>
                 </div>
@@ -154,7 +154,7 @@ require_once __DIR__ . '/includes/header.php';
                 <input type="number" name="amount" placeholder="Enter amount" min="500" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" required>
             </div>
 
-            <button type="submit" id="submitBtn" class="w-full bg-billpay-green text-white font-black py-5 rounded-[24px] shadow-xl active:scale-95 transition-all uppercase flex items-center justify-center gap-3">
+            <button type="submit" id="submitBtn" disabled class="w-full bg-billpay-green text-white font-black py-5 rounded-[24px] shadow-xl active:scale-95 transition-all uppercase flex items-center justify-center gap-3 disabled:opacity-40 disabled:cursor-not-allowed">
                 <span id="btnText">Recharge Electricity</span>
                 <div id="btnLoader" class="hidden w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
             </button>
@@ -165,9 +165,9 @@ require_once __DIR__ . '/includes/header.php';
 <script>
     function setService(id) {
         document.getElementById('serviceInput').value = id;
-        document.querySelectorAll('.svc-btn').forEach(btn => btn.classList.remove('border-billpay-green', 'bg-green-50'));
+        document.querySelectorAll('.svc-btn').forEach(btn => btn.classList.remove('border-gray-900', 'bg-billpay-green/10', 'ring-2', 'ring-billpay-green/20'));
         const active = document.getElementById('svc_' + id);
-        if (active) active.classList.add('border-billpay-green', 'bg-green-50');
+        if (active) active.classList.add('border-gray-900', 'bg-billpay-green/10', 'ring-2', 'ring-billpay-green/20');
         verifyMeter();
     }
     function setType(val) {
@@ -177,27 +177,44 @@ require_once __DIR__ . '/includes/header.php';
         verifyMeter();
     }
 
+    let verifyTimeout;
     async function verifyMeter() {
         const meter = document.getElementById('meterNumber').value;
         const provider = document.getElementById('serviceInput').value;
         const type = document.getElementById('typeInput').value;
         const infoDiv = document.getElementById('meterInfo');
+        const submitBtn = document.getElementById('submitBtn');
 
         if (meter.length >= 8 && provider) {
-            infoDiv.innerHTML = '<div class="text-[9px] font-black text-amber-500 uppercase animate-pulse">Verifying Meter...</div>';
-            try {
-                const res = await fetch(`?ajax=verify&serviceId=${provider}&meter=${meter}&type=${type}`);
-                const data = await res.json();
-                if (data.code === '000' && data.content && data.content.Customer_Name) {
-                    infoDiv.innerHTML = `<div class="text-[9px] font-black text-green-500 uppercase">Verified: ${data.content.Customer_Name}</div><div class="text-[8px] font-bold text-gray-400 uppercase">${data.content.Address || ''}</div>`;
-                } else {
-                    infoDiv.innerHTML = `<div class="text-[9px] font-black text-red-500 uppercase">Verification Failed: ${data.response_description || 'Invalid Meter'}</div>`;
+            submitBtn.disabled = true;
+            infoDiv.innerHTML = '<div class="text-xs font-black text-amber-500 uppercase animate-pulse flex items-center gap-2"><div class="w-2 h-2 bg-amber-500 rounded-full animate-bounce"></div> Verifying Meter Security...</div>';
+
+            clearTimeout(verifyTimeout);
+            verifyTimeout = setTimeout(async () => {
+                try {
+                    const res = await fetch(`?ajax=verify&serviceId=${provider}&meter=${meter}&type=${type}`);
+                    const data = await res.json();
+                    if (data.code === '000' && data.content && data.content.Customer_Name) {
+                        infoDiv.innerHTML = `
+                            <div class="p-3 bg-green-50 rounded-xl border border-green-100 animate-fade-in">
+                                <div class="text-[11px] font-black text-green-600 uppercase">Customer Verified</div>
+                                <div class="text-sm font-black text-gray-900 mt-1">${data.content.Customer_Name}</div>
+                                <div class="text-[9px] font-bold text-gray-400 uppercase mt-0.5">${data.content.Address || 'Address Confirmed'}</div>
+                            </div>
+                        `;
+                        submitBtn.disabled = false;
+                    } else {
+                        infoDiv.innerHTML = `<div class="p-3 bg-red-50 rounded-xl border border-red-100 text-[11px] font-black text-red-500 uppercase animate-shake">Verification Failed: ${data.response_description || 'Invalid Meter Number'}</div>`;
+                        submitBtn.disabled = true;
+                    }
+                } catch (e) {
+                    infoDiv.innerHTML = '<div class="text-[10px] font-black text-red-400 uppercase">Connection failed. Retrying...</div>';
+                    submitBtn.disabled = true;
                 }
-            } catch (e) {
-                infoDiv.innerHTML = '';
-            }
+            }, 500); // Debounce to prevent API spam
         } else {
             infoDiv.innerHTML = '';
+            submitBtn.disabled = true;
         }
     }
 
