@@ -124,7 +124,7 @@ require_once __DIR__ . '/includes/header.php';
                         'ikeja-electric' => 'IKEDC', 'eko-electric' => 'EKEDC', 'kano-electric' => 'KEDCO',
                         'portharcourt-electric' => 'PHED', 'jos-electric' => 'JED', 'ibadan-electric' => 'IBEDC',
                         'kaduna-electric' => 'KAEDCO', 'abuja-electric' => 'AEDC', 'enugu-electric' => 'EEDC',
-                        'benin-electric' => 'BEDC', 'yola-electric' => 'YEDC'
+                        'benin-electric' => 'BEDC', 'yola-electric' => 'YEDC', 'aba-electric' => 'APEDC'
                     ];
                     foreach ($discos as $id => $name):
                     ?>
