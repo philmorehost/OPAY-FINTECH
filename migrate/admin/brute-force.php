@@ -64,12 +64,12 @@ require_once __DIR__ . '/header.php';
 ?>
 
 <div class="space-y-10 animate-fade-in pb-20 text-gray-900" x-data="{ bfTab: 'settings', countrySearch: '' }">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <h2 class="text-2xl font-black uppercase tracking-tight">Brute Force Protection</h2>
-        <div class="flex gap-2 p-1 bg-white rounded-2xl border border-gray-100 shadow-sm">
-            <button @click="bfTab = 'settings'" :class="bfTab === 'settings' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400'" class="px-6 py-2.5 rounded-xl font-black text-[10px] uppercase transition-all">Settings</button>
-            <button @click="bfTab = 'lists'" :class="bfTab === 'lists' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400'" class="px-6 py-2.5 rounded-xl font-black text-[10px] uppercase transition-all">White/Black Lists</button>
-            <button @click="bfTab = 'history'" :class="bfTab === 'history' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400'" class="px-6 py-2.5 rounded-xl font-black text-[10px] uppercase transition-all">History</button>
+        <div class="flex gap-2 p-1 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-x-auto no-scrollbar max-w-full">
+            <button @click="bfTab = 'settings'" :class="bfTab === 'settings' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400'" class="px-6 py-2.5 rounded-xl font-black text-[10px] uppercase transition-all whitespace-nowrap">Settings</button>
+            <button @click="bfTab = 'lists'" :class="bfTab === 'lists' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400'" class="px-6 py-2.5 rounded-xl font-black text-[10px] uppercase transition-all whitespace-nowrap">White/Black Lists</button>
+            <button @click="bfTab = 'history'" :class="bfTab === 'history' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400'" class="px-6 py-2.5 rounded-xl font-black text-[10px] uppercase transition-all whitespace-nowrap">History</button>
         </div>
     </div>
 
