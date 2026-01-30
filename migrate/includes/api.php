@@ -638,6 +638,18 @@ function sendKudiSms($pdo, $senderId, $message, $to) {
 }
 }
 
+if (!function_exists('datagiftingGetDataPlans')) {
+function datagiftingGetDataPlans($pdo) {
+    $settings = fetchSettings($pdo);
+    $ds = $settings['dataSettings'] ?? [];
+    $creds = $ds['providers']['datagifting'] ?? [];
+    $apiKey = $creds['apiKey'] ?? '';
+
+    $url = "https://v6.datagifting.com.ng/web/api/data-plans.php?api_key=$apiKey";
+    return callApi($url);
+}
+}
+
 if (!function_exists('nellobyteGetDataPlans')) {
 function nellobyteGetDataPlans($pdo) {
     $settings = fetchSettings($pdo);

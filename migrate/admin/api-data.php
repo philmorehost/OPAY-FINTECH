@@ -98,6 +98,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $desc = is_array($res) ? ($res['status'] ?? 'Invalid Response') : (is_string($res) ? substr($res, 0, 100) : 'Unknown error');
             $error = "Failed to fetch from Nellobyte: " . $desc;
         }
+    } elseif (isset($_POST['action']) && $_POST['action'] === 'fetch_dg_data') {
+        $res = datagiftingGetDataPlans($pdo);
+        if (is_array($res) && isset($res['MOBILE_NETWORK'])) {
+            $count = 0;
+            $dg_map = [
+                'MTN' => 'MTN',
+                'Airtel' => 'AIRTEL',
+                'Glo' => 'GLO',
+                '9mobile' => '9MOBILE'
+            ];
+            foreach ($dg_map as $db_net => $api_key) {
+                if (isset($res['MOBILE_NETWORK'][$api_key]) && is_array($res['MOBILE_NETWORK'][$api_key])) {
+                    foreach ($res['MOBILE_NETWORK'][$api_key] as $p) {
+                        $stmt = $pdo->prepare("INSERT INTO data_plans (network, plan_id, data_size, type, api_price, user_price, gateway) VALUES (?, ?, ?, ?, ?, ?, 'datagifting') ON DUPLICATE KEY UPDATE data_size = VALUES(data_size), api_price = VALUES(api_price), gateway = VALUES(gateway)");
+                        $stmt->execute([
+                            $db_net,
+                            $p['PRODUCT_CODE'] ?? '',
+                            $p['PRODUCT_NAME'] ?? '',
+                            $p['DATA_TYPE_CODE'] ?? 'DataBundle',
+                            (float)($p['AMOUNT'] ?? 0),
+                            (float)($p['AMOUNT'] ?? 0)
+                        ]);
+                        $count++;
+                    }
+                }
+            }
+            $success = "Successfully fetched and updated $count DataGifting plans across all networks!";
+        } else {
+            $desc = is_array($res) ? ($res['desc'] ?? 'Invalid Response') : (is_string($res) ? substr($res, 0, 100) : 'Unknown error');
+            $error = "Failed to fetch from DataGifting: " . $desc;
+        }
     } elseif (isset($_POST['action']) && $_POST['action'] === 'clear_provider_data') {
         $provider = sanitize($_POST['clear_provider']);
         $stmt = $pdo->prepare("DELETE FROM data_plans WHERE gateway = ?");
@@ -270,6 +301,12 @@ require_once __DIR__ . '/header.php';
                     <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                     <input type="hidden" name="action" value="fetch_nb_data">
                     <button type="submit" class="px-4 py-2 bg-orange-500 text-white rounded-lg font-black uppercase text-[8px] whitespace-nowrap">Fetch All Nellobyte</button>
+                </form>
+
+                <form method="POST" class="flex items-center gap-2">
+                    <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                    <input type="hidden" name="action" value="fetch_dg_data">
+                    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-lg font-black uppercase text-[8px] whitespace-nowrap">Fetch All DataGifting</button>
                 </form>
             </div>
         </div>
