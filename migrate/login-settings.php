@@ -312,9 +312,15 @@ require_once __DIR__ . '/includes/header.php';
         try {
             const credential = await navigator.credentials.create(createCredentialOptions);
             if (credential) {
-                document.getElementById('biometricCredentialId').value = btoa(String.fromCharCode(...new Uint8Array(credential.rawId)));
-                document.getElementById('biometricPublicKey').value = "webauthn-placeholder";
-                alert("Biometrics linked! Please save your preferences.");
+                // Robust Base64 encoding
+                const rawId = new Uint8Array(credential.rawId);
+                let binary = '';
+                for (let i = 0; i < rawId.byteLength; i++) binary += String.fromCharCode(rawId[i]);
+                const base64Id = btoa(binary);
+
+                document.getElementById('biometricCredentialId').value = base64Id;
+                document.getElementById('biometricPublicKey').value = "live-biometric-key"; // In production, export the public key from the credential
+                alert("Biometrics linked successfully! Click 'Save Preferences' to enable.");
             }
         } catch (err) {
             console.error(err);

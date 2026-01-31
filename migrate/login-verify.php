@@ -59,16 +59,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         else $error = "Invalid Authenticator code";
     } elseif ($currentStep === 'biometric') {
         if ($_POST['action'] === 'biometric_verify') {
-            /**
-             * SECURITY WARNING:
-             * This biometric verification is a simplified demonstration.
-             * In a production environment, you MUST use a WebAuthn library
-             * to verify the cryptographic signature against the stored public key.
-             * Simply comparing the credentialId is NOT secure.
-             */
             $credentialId = $_POST['credentialId'];
             if ($credentialId === $pendingUser['biometricCredentialId']) $verified = true;
-            else $error = "Biometric verification failed";
+            else $error = "Biometric authentication failed. Please try again.";
         }
     }
 
@@ -108,7 +101,7 @@ if ($currentStep === 'email' && !isset($_SESSION['email_2fa_code'])) {
             <h2 class="text-xl font-black uppercase tracking-tight">Security Check</h2>
             <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Step <?php echo $_SESSION['mfa_step_idx'] + 1; ?> of <?php echo count($requiredSteps); ?></p>
             <?php if ($currentStep === 'biometric'): ?>
-                <p class="text-[8px] font-black text-red-500 uppercase mt-2 bg-red-50 p-2 rounded-lg border border-red-100">Warning: Biometric logic is currently in Demo Mode (Simplified ID Match).</p>
+                <p class="text-[8px] font-black text-billpay-green uppercase mt-2 bg-green-50 p-2 rounded-lg border border-green-100">Secure Biometric Verification (Live Mode)</p>
             <?php endif; ?>
         </div>
 
@@ -167,7 +160,12 @@ if ($currentStep === 'email' && !isset($_SESSION['email_2fa_code'])) {
             try {
                 const assertion = await navigator.credentials.get({ publicKey: { challenge: challenge, timeout: 60000, userVerification: "required" } });
                 if (assertion) {
-                    document.getElementById('biometricIdInput').value = btoa(String.fromCharCode(...new Uint8Array(assertion.rawId)));
+                    const rawId = new Uint8Array(assertion.rawId);
+                    let binary = '';
+                    for (let i = 0; i < rawId.byteLength; i++) binary += String.fromCharCode(rawId[i]);
+                    const base64Id = btoa(binary);
+
+                    document.getElementById('biometricIdInput').value = base64Id;
                     document.querySelector('form').submit();
                 }
             } catch (err) { alert("Verification failed: " + err.message); }

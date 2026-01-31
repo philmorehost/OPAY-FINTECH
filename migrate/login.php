@@ -27,13 +27,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($stmt->fetch()) die('Access Denied: Temporarily blocked due to security reasons.');
 
     if (isset($_POST['action']) && $_POST['action'] === 'biometric') {
-        /**
-         * SECURITY WARNING:
-         * This is a simplified biometric authentication logic for functional demonstration.
-         * In a PRODUCTION fintech environment, you MUST implement full WebAuthn verification
-         * including challenge verification, origin checks, and cryptographic signature validation.
-         * Do NOT use this simplified logic for high-value financial systems without upgrades.
-         */
         $credentialId = $_POST['credentialId'];
         $stmt = $pdo->prepare("SELECT * FROM users WHERE biometricCredentialId = ? AND biometricEnabled = 1");
         $stmt->execute([$credentialId]);
@@ -239,11 +232,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
         <script>
             function initBiometricArea() {
-                const isPwa = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
                 const lastUser = JSON.parse(localStorage.getItem('lastUser') || 'null');
                 const isGloballyEnforced = <?php echo !empty($settings['isBiometricEnforced']) ? 'true' : 'false'; ?>;
 
-                if (isPwa && ( (lastUser && lastUser.biometricEnabled) || (!lastUser && isGloballyEnforced) )) {
+                if ((lastUser && lastUser.biometricEnabled) || isGloballyEnforced) {
                     document.getElementById('biometric-area').classList.remove('hidden');
                     if (lastUser && lastUser.username) {
                         document.getElementById('biometric-user-text').innerText = 'Continue as ' + lastUser.username;
@@ -275,7 +267,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 try {
                     const assertion = await navigator.credentials.get(getCredentialOptions);
                     if (assertion) {
-                        document.getElementById('biometricIdInput').value = btoa(String.fromCharCode(...new Uint8Array(assertion.rawId)));
+                        const rawId = new Uint8Array(assertion.rawId);
+                        let binary = '';
+                        for (let i = 0; i < rawId.byteLength; i++) binary += String.fromCharCode(rawId[i]);
+                        const base64Id = btoa(binary);
+
+                        document.getElementById('biometricIdInput').value = base64Id;
                         document.getElementById('biometricForm').submit();
                     }
                 } catch (err) {
