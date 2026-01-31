@@ -64,7 +64,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrfToken($_POST['csrf_token'])) die('CSRF Failed');
 
     $verified = false;
-    if ($currentStep === 'pin') {
+    $action = $_POST['action'] ?? '';
+
+    if ($action === 'forgot_pin' && $currentStep === 'pin') {
+        // Trigger Email OTP for PIN Reset
+        sendEmail2fa($pdo, $pendingUser);
+        $_SESSION['resetting_pin'] = true;
+        $success = "A verification code has been sent to your email to reset your PIN.";
+    } elseif ($action === 'verify_reset_otp' && !empty($_SESSION['resetting_pin'])) {
+        if (isset($_SESSION['email_2fa_code']) && $_POST['code'] == $_SESSION['email_2fa_code'] && time() < $_SESSION['email_2fa_expiry']) {
+            $_SESSION['pin_reset_authorized'] = true;
+            unset($_SESSION['email_2fa_code'], $_SESSION['email_2fa_expiry']);
+        } else {
+            $error = "Invalid or expired verification code.";
+        }
+    } elseif ($action === 'complete_pin_reset' && !empty($_SESSION['pin_reset_authorized'])) {
+        $newPin = sanitize($_POST['new_pin']);
+        if (strlen($newPin) === 6 && is_numeric($newPin)) {
+            $hashedPin = password_hash($newPin, PASSWORD_DEFAULT);
+            $pdo->prepare("UPDATE users SET loginSecurityPin = ? WHERE id = ?")->execute([$hashedPin, $pendingUser['id']]);
+
+            // Log this security change
+            $pdo->prepare("INSERT INTO login_history (userId, ip, userAgent, status) VALUES (?, ?, ?, 'pin_reset')")->execute([$pendingUser['id'], $_SERVER['REMOTE_ADDR'], $_SERVER['HTTP_USER_AGENT']]);
+
+            unset($_SESSION['resetting_pin'], $_SESSION['pin_reset_authorized']);
+            $success = "PIN reset successful! You can now continue.";
+            $verified = true; // Mark as verified for the current PIN step
+        } else {
+            $error = "PIN must be exactly 6 digits.";
+        }
+    } elseif ($currentStep === 'pin') {
         if (password_verify($_POST['pin'], $pendingUser['loginSecurityPin'])) $verified = true;
         else $error = "Invalid Security PIN";
     } elseif ($currentStep === 'email') {
@@ -128,10 +157,27 @@ if ($currentStep === 'email' && !isset($_SESSION['email_2fa_code'])) {
         <form method="POST" class="space-y-8">
             <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
 
-            <?php if ($currentStep === 'pin'): ?>
+            <?php if ($currentStep === 'pin' && empty($_SESSION['resetting_pin']) && empty($_SESSION['pin_reset_authorized'])): ?>
                 <div class="space-y-4 text-center">
                     <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Enter Security PIN</label>
                     <input type="password" name="pin" maxlength="6" inputmode="numeric" pattern="[0-9]*" autofocus class="w-full text-center p-5 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-black text-3xl tracking-[0.5em]" required>
+                    <button type="submit" name="action" value="forgot_pin" class="text-[9px] font-black text-billpay-green uppercase hover:underline">Forgot PIN?</button>
+                </div>
+
+            <?php elseif (!empty($_SESSION['resetting_pin']) && empty($_SESSION['pin_reset_authorized'])): ?>
+                <div class="space-y-4 text-center">
+                    <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Verify Email OTP</label>
+                    <p class="text-[9px] font-bold text-gray-400 uppercase">Enter the 6-digit code sent to your email to reset your PIN.</p>
+                    <input type="text" name="code" maxlength="6" inputmode="numeric" pattern="[0-9]*" autofocus placeholder="000000" class="w-full text-center p-5 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-black text-3xl tracking-[0.2em]" required>
+                    <input type="hidden" name="action" value="verify_reset_otp">
+                </div>
+
+            <?php elseif (!empty($_SESSION['pin_reset_authorized'])): ?>
+                <div class="space-y-4 text-center">
+                    <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Set New Security PIN</label>
+                    <p class="text-[9px] font-bold text-gray-400 uppercase">Choose a new 6-digit PIN.</p>
+                    <input type="password" name="new_pin" maxlength="6" inputmode="numeric" pattern="[0-9]*" autofocus placeholder="••••••" class="w-full text-center p-5 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-black text-3xl tracking-[0.5em]" required>
+                    <input type="hidden" name="action" value="complete_pin_reset">
                 </div>
 
             <?php elseif ($currentStep === 'email'): ?>
@@ -151,7 +197,7 @@ if ($currentStep === 'email' && !isset($_SESSION['email_2fa_code'])) {
             <?php elseif ($currentStep === 'biometric'): ?>
                 <div class="text-center space-y-6">
                     <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Biometric Identity Check</p>
-                    <button type="button" onclick="verifyBiometrics()" class="w-24 h-24 bg-billpay-green/10 text-billpay-green rounded-3xl flex items-center justify-center mx-auto hover:scale-110 transition-all">
+                    <button type="button" onclick="verifyBiometrics('<?php echo $pendingUser['biometricCredentialId']; ?>')" class="w-24 h-24 bg-billpay-green/10 text-billpay-green rounded-3xl flex items-center justify-center mx-auto hover:scale-110 transition-all">
                         <i data-lucide="fingerprint" class="w-12 h-12"></i>
                     </button>
                     <input type="hidden" name="action" value="biometric_verify">
@@ -170,11 +216,30 @@ if ($currentStep === 'email' && !isset($_SESSION['email_2fa_code'])) {
     <script src="https://unpkg.com/lucide@latest"></script>
     <script>
         lucide.createIcons();
-        async function verifyBiometrics() {
+        async function verifyBiometrics(storedId) {
             if (!window.PublicKeyCredential) { alert("Biometrics not supported"); return; }
+            if (!storedId) { alert("No biometric credential found for this user."); return; }
+
             const challenge = new Uint8Array(32); window.crypto.getRandomValues(challenge);
+
+            // Convert base64 to Uint8Array
+            const binaryId = atob(storedId);
+            const bytes = new Uint8Array(binaryId.length);
+            for (let i = 0; i < binaryId.length; i++) bytes[i] = binaryId.charCodeAt(i);
+
             try {
-                const assertion = await navigator.credentials.get({ publicKey: { challenge: challenge, timeout: 60000, userVerification: "required" } });
+                const assertion = await navigator.credentials.get({
+                    publicKey: {
+                        challenge: challenge,
+                        timeout: 60000,
+                        userVerification: "required",
+                        allowCredentials: [{
+                            id: bytes,
+                            type: 'public-key',
+                            transports: ['internal', 'usb', 'nfc', 'ble']
+                        }]
+                    }
+                });
                 if (assertion) {
                     const rawId = new Uint8Array(assertion.rawId);
                     let binary = '';
@@ -184,7 +249,10 @@ if ($currentStep === 'email' && !isset($_SESSION['email_2fa_code'])) {
                     document.getElementById('biometricIdInput').value = base64Id;
                     document.querySelector('form').submit();
                 }
-            } catch (err) { alert("Verification failed: " + err.message); }
+            } catch (err) {
+                console.error(err);
+                alert("Verification failed: " + err.message);
+            }
         }
     </script>
 </body>

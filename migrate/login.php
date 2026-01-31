@@ -83,7 +83,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $jsUser = [
                 'username' => $user['username'],
                 'biometricEnabled' => (bool)$user['biometricEnabled'],
-                'hasBiometrics' => !empty($user['biometricCredentialId'])
+                'hasBiometrics' => !empty($user['biometricCredentialId']),
+                'biometricId' => $user['biometricCredentialId']
             ];
 
             echo "<script>
@@ -246,21 +247,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             async function loginWithBiometrics() {
                 const lastUser = JSON.parse(localStorage.getItem('lastUser') || 'null');
-                if (!lastUser || !lastUser.hasBiometrics) {
+                if (!lastUser || !lastUser.hasBiometrics || !lastUser.biometricId) {
                     alert("Please login with your username and password first to enable biometric login on this device.");
                     return;
                 }
 
-                if (!window.PublicKeyCredential) return;
+                if (!window.PublicKeyCredential) {
+                    alert("Biometrics not supported by this browser.");
+                    return;
+                }
 
                 const challenge = new Uint8Array(32);
                 window.crypto.getRandomValues(challenge);
+
+                // Convert base64 to Uint8Array
+                const binaryId = atob(lastUser.biometricId);
+                const bytes = new Uint8Array(binaryId.length);
+                for (let i = 0; i < binaryId.length; i++) bytes[i] = binaryId.charCodeAt(i);
 
                 const getCredentialOptions = {
                     publicKey: {
                         challenge: challenge,
                         timeout: 60000,
-                        userVerification: "required"
+                        userVerification: "required",
+                        allowCredentials: [{
+                            id: bytes,
+                            type: 'public-key',
+                            transports: ['internal', 'usb', 'nfc', 'ble']
+                        }]
                     }
                 };
 
