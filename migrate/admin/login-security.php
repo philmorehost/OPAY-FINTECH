@@ -7,6 +7,22 @@ $pageTitle = 'Login Security Management';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrfToken($_POST['csrf_token'])) die('CSRF Failed');
 
+    // Handle Admin Personal PIN Update
+    if (!empty($_POST['admin_personal_pin'])) {
+        $hashedPin = password_hash(sanitize($_POST['admin_personal_pin']), PASSWORD_DEFAULT);
+        $stmt = $pdo->prepare("UPDATE users SET loginSecurityPin = ? WHERE id = ?");
+        $stmt->execute([$hashedPin, $_SESSION['user_id']]);
+        $success = "Your personal Security PIN has been updated!";
+
+        // Update Configured Methods Cache
+        $u = fetchUser($pdo, $_SESSION['user_id']);
+        $configured = $u['configuredSecurityMethods'] ?? [];
+        if (!in_array('pin', $configured)) {
+            $configured[] = 'pin';
+            $pdo->prepare("UPDATE users SET configuredSecurityMethods = ? WHERE id = ?")->execute([json_encode($configured), $_SESSION['user_id']]);
+        }
+    }
+
     $securitySettings = [
         'biometric' => [
             'enabled' => isset($_POST['biometric_enabled']) ? 1 : 0,
@@ -35,16 +51,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]
     ];
 
-    $stmt = $pdo->prepare("UPDATE settings SET loginSecuritySettings = ?, googleClientId = ?, googleClientSecret = ?, googleAuthEnabled = ?, adminSecuritySettings = ? WHERE id = 1");
-    $stmt->execute([
-        json_encode($securitySettings),
-        sanitize($_POST['google_client_id']),
-        sanitize($_POST['google_client_secret']),
-        isset($_POST['google_auth_enabled']) ? 1 : 0,
-        json_encode($adminSecuritySettings)
-    ]);
+    // Safety Check: Preventing Lockout
+    $currentAdmin = fetchUser($pdo, $_SESSION['user_id']);
+    if ($adminSecuritySettings['pin']['enabled'] && empty($currentAdmin['loginSecurityPin']) && empty($_POST['admin_personal_pin'])) {
+        $error = "CRITICAL: You must set a personal Security PIN before enabling mandatory PIN for admins to prevent lockout.";
+    } else {
+        $stmt = $pdo->prepare("UPDATE settings SET loginSecuritySettings = ?, googleClientId = ?, googleClientSecret = ?, googleAuthEnabled = ?, adminSecuritySettings = ? WHERE id = 1");
+        $stmt->execute([
+            json_encode($securitySettings),
+            sanitize($_POST['google_client_id']),
+            sanitize($_POST['google_client_secret']),
+            isset($_POST['google_auth_enabled']) ? 1 : 0,
+            json_encode($adminSecuritySettings)
+        ]);
 
-    $success = "Login security settings updated successfully!";
+        $success = ($success ?? '') . " Login security policy updated successfully!";
+    }
     $settings = fetchSettings($pdo);
 }
 
@@ -77,6 +99,9 @@ require_once __DIR__ . '/header.php';
 
     <?php if (isset($success)): ?>
         <div class="p-4 bg-green-50 text-green-800 rounded-2xl text-xs font-black border border-green-100 uppercase text-center shadow-sm"><?php echo $success; ?></div>
+    <?php endif; ?>
+    <?php if (isset($error)): ?>
+        <div class="p-4 bg-red-50 text-red-800 rounded-2xl text-xs font-black border border-red-100 uppercase text-center shadow-sm"><?php echo $error; ?></div>
     <?php endif; ?>
 
     <form method="POST" class="space-y-10">
@@ -270,6 +295,12 @@ require_once __DIR__ . '/header.php';
                         <input type="checkbox" name="admin_email_enabled" class="sr-only peer" <?php echo !empty($as['email']['enabled']) ? 'checked' : ''; ?>>
                         <div class="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-gray-900 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-billpay-green"></div>
                     </label>
+                </div>
+
+                <div class="col-span-1 md:col-span-2 p-6 bg-white/5 rounded-3xl border border-white/10 space-y-4">
+                    <label class="text-[10px] font-black uppercase text-white/60 ml-1">Your Personal Security PIN (Required to enable Mandatory PIN)</label>
+                    <input type="password" name="admin_personal_pin" maxlength="6" inputmode="numeric" pattern="[0-9]*" placeholder="••••••" class="w-full p-4 bg-white/10 rounded-2xl border border-white/10 text-white font-black text-xl text-center tracking-[0.5em] outline-none focus:border-billpay-green">
+                    <p class="text-[8px] text-white/40 font-bold uppercase text-center italic">Only fill this to set or update your own login PIN.</p>
                 </div>
             </div>
 
