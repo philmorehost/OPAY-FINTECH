@@ -71,11 +71,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     $successCount = 0;
                     foreach ($recipients as $num) {
                         $response = purchaseData($pdo, $networkName, $selectedPlan['apiCode'] ?? $selectedPlan['id'], $num);
-                        $isSuccess = (isset($response['status']) && $response['status'] === 'success');
+                        $status = $response['status'] ?? 'failed';
 
-                        if ($isSuccess) {
+                        if ($status === 'success') {
                             $successCount++;
-                            logTransaction($pdo, $currentUser['id'], 'Data', $userPrice, 'successful', "{$selectedPlan['size']} {$selectedPlan['type']} for $num", $num, $networkName, null, $apiPrice, $profit);
+                            logTransaction($pdo, $currentUser['id'], 'Data', $userPrice, 'successful', "{$selectedPlan['size']} {$selectedPlan['type']} for $num", $num, $networkName, $response['ref'] ?? null, $apiPrice, $profit);
+                        } elseif ($status === 'pending') {
+                            $successCount++;
+                            logTransaction($pdo, $currentUser['id'], 'Data', $userPrice, 'pending', "{$selectedPlan['size']} {$selectedPlan['type']} processing for $num", $num, $networkName, $response['ref'] ?? null, $apiPrice, $profit);
                         } else {
                             updateWallet($pdo, $currentUser['id'], $userPrice, 'credit');
                             logTransaction($pdo, $currentUser['id'], 'Data', $userPrice, 'failed', "{$selectedPlan['size']} failed: " . ($response['message'] ?? 'Error'), $num, $networkName);

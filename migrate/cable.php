@@ -82,14 +82,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     $errMsg = "Gateway $gateway not implemented for Cable";
                 }
 
-                if ($isSuccess) {
+                $status = 'failed';
+                $ref = null;
+                if ($gateway === 'vtpass' && isset($res['code'])) {
+                    if ($res['code'] === '000') {
+                        $apiStatus = $res['content']['transactions']['status'] ?? 'pending';
+                        if ($apiStatus === 'delivered' || $apiStatus === 'successful') $status = 'successful';
+                        else $status = 'pending';
+                        $ref = $res['requestId'] ?? null;
+                    }
+                }
+
+                if ($status === 'successful') {
                     $profitVal = $amount - $apiCost;
-                    logTransaction($pdo, $currentUser['id'], 'Cable TV', $amount, 'successful', "Cable Subscription ($providerId) for $iucNumber", $iucNumber, $providerId, null, $apiCost, $profitVal);
+                    logTransaction($pdo, $currentUser['id'], 'Cable TV', $amount, 'successful', "Cable Subscription ($providerId) for $iucNumber", $iucNumber, $providerId, $ref, $apiCost, $profitVal);
                     // Receipt Email
                     $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Your cable subscription request was processed.<br><br>Provider: $providerId<br>IUC: $iucNumber<br>Amount: " . formatCurrency($amount) . "<br>Status: Successful";
                     sendMail($pdo, $currentUser['email'], "Cable TV Receipt", $receiptMsg, 'successful');
                     claimDailyRewardIfEligible($pdo, $currentUser['id']);
                     $success = true;
+                } elseif ($status === 'pending') {
+                    $profitVal = $amount - $apiCost;
+                    logTransaction($pdo, $currentUser['id'], 'Cable TV', $amount, 'pending', "Cable Subscription ($providerId) processing for $iucNumber", $iucNumber, $providerId, $ref, $apiCost, $profitVal);
+                    $success = true; // Still show success UI as it's being processed
                 } else {
                     // Refund
                     updateWallet($pdo, $currentUser['id'], $amount, 'credit');

@@ -50,8 +50,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     $res = naijaresultpinsExams($pdo, 'buy', ['package' => $pkg['package_id'], 'quantity' => $qty]);
                     $isSuccess = isset($res['status']) && ($res['status'] === 'success' || $res['status'] === true);
                 }
+                $status = 'failed';
+                $ref = null;
+                if ($pkg['provider'] === 'vtpass' && isset($res['code'])) {
+                    if ($res['code'] === '000') {
+                        $apiStatus = $res['content']['transactions']['status'] ?? 'pending';
+                        if ($apiStatus === 'delivered' || $apiStatus === 'successful') $status = 'successful';
+                        else $status = 'pending';
+                        $ref = $res['requestId'] ?? null;
+                    }
+                } elseif ($isSuccess) {
+                    $status = 'successful';
+                }
+
                 $tokenStr = '';
-                if ($isSuccess) {
+                if ($status === 'successful') {
                     if (isset($res['cards'])) {
                         $tokens = [];
                         foreach ($res['cards'] as $card) { $tokens[] = ($card['pin'] ?? $card['pin_code'] ?? ''); }
@@ -63,9 +76,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     }
 
                     $profitVal = $totalCost - ($apiCost * $qty);
-                    logTransaction($pdo, $currentUser['id'], 'Exam PIN', $totalCost, 'successful', "Purchase of $qty " . $pkg['name'] . " PIN(s)", 'Self', $pkg['provider'], $tokenStr, ($apiCost * $qty), $profitVal);
+                    logTransaction($pdo, $currentUser['id'], 'Exam PIN', $totalCost, 'successful', "Purchase of $qty " . $pkg['name'] . " PIN(s)", 'Self', $pkg['provider'], $tokenStr ?: $ref, ($apiCost * $qty), $profitVal);
                     sendMail($pdo, $currentUser['email'], "Exam PIN Receipt", "Successful purchase of $qty PIN(s). <br>Product: {$pkg['name']} <br>PIN: $tokenStr");
                     claimDailyRewardIfEligible($pdo, $currentUser['id']);
+                    $success = true;
+                } elseif ($status === 'pending') {
+                    $profitVal = $totalCost - ($apiCost * $qty);
+                    logTransaction($pdo, $currentUser['id'], 'Exam PIN', $totalCost, 'pending', "Purchase of $qty " . $pkg['name'] . " PIN(s) processing", 'Self', $pkg['provider'], $ref, ($apiCost * $qty), $profitVal);
                     $success = true;
                 } else {
                     updateWallet($pdo, $currentUser['id'], $totalCost, 'credit');

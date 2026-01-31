@@ -64,14 +64,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 'RequestID' => $requestId
             ]);
 
-            $isSuccess = is_array($res) && isset($res['status']) && ($res['status'] === 'ORDER_RECEIVED' || $res['status'] === 'ORDER_COMPLETED');
-            if (!$isSuccess && is_string($res) && (strpos($res, 'ORDER_RECEIVED') !== false || strpos($res, 'ORDER_COMPLETED') !== false)) $isSuccess = true;
+            $status = 'failed';
+            if (is_array($res) && isset($res['status'])) {
+                if ($res['status'] === 'ORDER_COMPLETED') $status = 'successful';
+                elseif ($res['status'] === 'ORDER_RECEIVED') $status = 'pending';
+            } elseif (is_string($res)) {
+                if (strpos($res, 'ORDER_COMPLETED') !== false) $status = 'successful';
+                elseif (strpos($res, 'ORDER_RECEIVED') !== false) $status = 'pending';
+            }
 
-            if ($isSuccess) {
+            if ($status === 'successful') {
                 $profitVal = $chargedAmount - $apiCost;
-                logTransaction($pdo, $currentUser['id'], 'Betting', $chargedAmount, 'successful', "Betting Fund ($providerId) for $customerId", $customerId, 'Nellobyte', null, $apiCost, $profitVal);
+                logTransaction($pdo, $currentUser['id'], 'Betting', $chargedAmount, 'successful', "Betting Fund ($providerId) for $customerId", $customerId, 'Nellobyte', $res['orderid'] ?? $requestId, $apiCost, $profitVal);
                 sendMail($pdo, $currentUser['email'], "Betting Funding Receipt", "Successful funding for $customerId. Amount: " . formatCurrency($chargedAmount));
                 claimDailyRewardIfEligible($pdo, $currentUser['id']);
+                $success = true;
+            } elseif ($status === 'pending') {
+                $profitVal = $chargedAmount - $apiCost;
+                logTransaction($pdo, $currentUser['id'], 'Betting', $chargedAmount, 'pending', "Betting Fund ($providerId) processing for $customerId", $customerId, 'Nellobyte', $res['orderid'] ?? $requestId, $apiCost, $profitVal);
                 $success = true;
             } else {
                 updateWallet($pdo, $currentUser['id'], $chargedAmount, 'credit');
@@ -136,7 +146,7 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
                 <div>
                     <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Security PIN</label>
-                    <input type="password" name="fund_password" maxlength="6" placeholder="••••••" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" <?php echo ($isPinForced || $userPinEnabled) ? 'required' : ''; ?>>
+                    <input type="password" name="fund_password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" <?php echo ($isPinForced || $userPinEnabled) ? 'required' : ''; ?>>
                 </div>
             </div>
 

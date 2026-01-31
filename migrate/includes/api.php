@@ -755,7 +755,7 @@ function requeryTransaction($pdo, $txId) {
             else $creds = $settings['dataSettings']['providers']['datagifting'] ?? [];
             $apiKey = $creds['apiKey'] ?? '';
 
-            $res = callApi("https://v6.datagifting.com.ng/web/api/query.php?api_key=$apiKey&ref=$ref");
+            $res = callApi("https://v6.datagifting.com.ng/web/api/requery.php?api_key=$apiKey&reference=$ref");
             if (isset($res['status'])) {
                 if ($res['status'] === 'success') $newStatus = 'successful';
                 elseif ($res['status'] === 'fail' || $res['status'] === 'failed') $newStatus = 'failed';

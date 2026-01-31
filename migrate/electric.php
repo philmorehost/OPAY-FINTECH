@@ -70,13 +70,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $errMsg = "Gateway $gateway not implemented for Electric";
             }
 
-            if ($isSuccess) {
+            $status = 'failed';
+            if ($gateway === 'vtpass' && isset($res['code'])) {
+                if ($res['code'] === '000') {
+                    $apiStatus = $res['content']['transactions']['status'] ?? 'pending';
+                    if ($apiStatus === 'delivered' || $apiStatus === 'successful') $status = 'successful';
+                    else $status = 'pending';
+                }
+            }
+
+            if ($status === 'successful') {
                 $apiCost = $amount * (1 - ($apiDisc / 100));
                 $profitVal = $chargedAmount - $apiCost;
 
-                logTransaction($pdo, $currentUser['id'], 'Electricity', $chargedAmount, 'successful', "Electric ($serviceId $type) for $meterNumber", $meterNumber, $serviceId, $token, $apiCost, $profitVal);
+                logTransaction($pdo, $currentUser['id'], 'Electricity', $chargedAmount, 'successful', "Electric ($serviceId $type) for $meterNumber", $meterNumber, $serviceId, $token ?: ($res['requestId'] ?? null), $apiCost, $profitVal);
                 sendMail($pdo, $currentUser['email'], "Electricity Receipt", "Successful recharge for $meterNumber. Token: $token");
                 claimDailyRewardIfEligible($pdo, $currentUser['id']);
+                $success = true;
+            } elseif ($status === 'pending') {
+                $apiCost = $amount * (1 - ($apiDisc / 100));
+                $profitVal = $chargedAmount - $apiCost;
+                logTransaction($pdo, $currentUser['id'], 'Electricity', $chargedAmount, 'pending', "Electric ($serviceId $type) processing for $meterNumber", $meterNumber, $serviceId, $res['requestId'] ?? null, $apiCost, $profitVal);
                 $success = true;
             } else {
                 updateWallet($pdo, $currentUser['id'], $chargedAmount, 'credit');

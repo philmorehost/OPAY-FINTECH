@@ -184,7 +184,7 @@ require_once __DIR__ . '/includes/header.php';
 
                         <div>
                             <label class="text-[9px] font-black text-white/40 uppercase tracking-widest mb-3 block ml-4">Fund Password</label>
-                            <input type="password" name="fund_password" placeholder="••••••" class="w-full bg-white/5 border-none rounded-2xl p-5 text-sm font-black focus:ring-2 focus:ring-amber-500">
+                            <input type="password" name="fund_password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••" class="w-full bg-white/5 border-none rounded-2xl p-5 text-sm font-black focus:ring-2 focus:ring-amber-500">
                         </div>
 
                         <button type="submit" class="submit-btn w-full bg-amber-500 text-white py-6 rounded-[32px] font-black uppercase tracking-widest shadow-xl shadow-amber-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3">
@@ -213,7 +213,7 @@ require_once __DIR__ . '/includes/header.php';
 
                         <div>
                             <label class="text-[9px] font-black text-white/40 uppercase tracking-widest mb-3 block ml-4">Fund Password</label>
-                            <input type="password" name="fund_password" placeholder="••••••" class="w-full bg-white/5 border-none rounded-2xl p-5 text-sm font-black focus:ring-2 focus:ring-red-500">
+                            <input type="password" name="fund_password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••" class="w-full bg-white/5 border-none rounded-2xl p-5 text-sm font-black focus:ring-2 focus:ring-red-500">
                         </div>
 
                         <button type="submit" class="submit-btn w-full bg-red-500 text-white py-6 rounded-[32px] font-black uppercase tracking-widest shadow-xl shadow-red-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3">
@@ -250,7 +250,7 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
                             <div>
                                 <label class="text-[9px] font-black text-white/40 uppercase tracking-widest mb-3 block ml-4">Fund Password</label>
-                                <input type="password" name="fund_password" placeholder="••••••" class="w-full bg-white/5 border-none rounded-2xl p-5 text-sm font-black focus:ring-2 focus:ring-amber-500">
+                                <input type="password" name="fund_password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••" class="w-full bg-white/5 border-none rounded-2xl p-5 text-sm font-black focus:ring-2 focus:ring-amber-500">
                             </div>
                         </div>
 

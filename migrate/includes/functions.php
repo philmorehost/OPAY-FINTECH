@@ -245,10 +245,12 @@ function changeTransactionStatus($pdo, $txId, $newStatus) {
                 $pdo->prepare("UPDATE transactions SET refunded = 0 WHERE id = ?")->execute([$txId]);
              }
         }
-        // successful -> failed: REFUND user
-        elseif ($tx['status'] === 'successful' && $newStatus === 'failed') {
-            updateWallet($pdo, $tx['userId'], $tx['amount'], 'credit');
-            $pdo->prepare("UPDATE transactions SET refunded = 1 WHERE id = ?")->execute([$txId]);
+        // any active state -> failed: REFUND user (if not already refunded)
+        elseif (($tx['status'] === 'successful' || $tx['status'] === 'pending') && $newStatus === 'failed') {
+            if (!$tx['refunded']) {
+                updateWallet($pdo, $tx['userId'], $tx['amount'], 'credit');
+                $pdo->prepare("UPDATE transactions SET refunded = 1 WHERE id = ?")->execute([$txId]);
+            }
         }
 
         $stmt = $pdo->prepare("UPDATE transactions SET status = ? WHERE id = ?");
