@@ -88,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div class="space-y-2">
                 <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Phone Number</label>
-                <input type="text" name="phone" id="phoneInput" placeholder="+234..." class="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-bold text-sm" required>
+                <input type="text" name="phone" id="phoneInput" inputmode="numeric" pattern="[0-9]*" placeholder="+234..." class="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-bold text-sm" required>
                 <p id="phoneError" class="hidden text-[8px] font-bold text-red-500 uppercase mt-1">Please enter a valid international phone number (e.g., +234...)</p>
             </div>
 

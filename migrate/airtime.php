@@ -120,7 +120,7 @@ require_once __DIR__ . '/includes/header.php';
 
             <div id="singlePhoneGroup">
                 <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Phone Number</label>
-                <input type="tel" name="phoneNumber" placeholder="08012345678" maxlength="11" class="w-full p-5 bg-gray-50 rounded-2xl font-black text-xl outline-none focus:ring-2 focus:ring-billpay-green/10">
+                <input type="tel" name="phoneNumber" inputmode="numeric" pattern="[0-9]*" placeholder="08012345678" maxlength="11" class="w-full p-5 bg-gray-50 rounded-2xl font-black text-xl outline-none focus:ring-2 focus:ring-billpay-green/10">
             </div>
 
             <div id="bulkPhoneGroup" class="hidden space-y-4">
@@ -159,11 +159,11 @@ require_once __DIR__ . '/includes/header.php';
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Amount (₦)</label>
-                    <input type="number" name="amount" id="amountInput" placeholder="Enter amount" min="50" class="w-full p-5 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" required>
+                    <input type="number" name="amount" id="amountInput" inputmode="numeric" pattern="[0-9]*" placeholder="Enter amount" min="50" class="w-full p-5 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" required>
                 </div>
                 <div>
                     <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Security PIN</label>
-                    <input type="password" name="fund_password" maxlength="6" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" <?php echo ($isPinForced || $userPinEnabled) ? 'required' : ''; ?>>
+                    <input type="password" name="fund_password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" <?php echo ($isPinForced || $userPinEnabled) ? 'required' : ''; ?>>
                 </div>
             </div>
 

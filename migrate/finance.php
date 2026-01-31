@@ -305,7 +305,7 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
                             <div>
                                 <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Amount</label>
-                                <input type="number" name="amount" step="any" placeholder="0.00" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-lg outline-none border-2 border-transparent focus:border-billpay-green" required>
+                                <input type="number" name="amount" step="any" inputmode="numeric" pattern="[0-9]*" placeholder="0.00" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-lg outline-none border-2 border-transparent focus:border-billpay-green" required>
                             </div>
                         </div>
 
@@ -322,7 +322,7 @@ require_once __DIR__ . '/includes/header.php';
                                 </div>
                                 <div>
                                     <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Account Number</label>
-                                    <input type="text" name="account_number" placeholder="0000000000" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none">
+                                    <input type="text" name="account_number" inputmode="numeric" pattern="[0-9]*" placeholder="0000000000" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none">
                                 </div>
                             </div>
                             <div id="usdFields" class="hidden space-y-6">
@@ -398,7 +398,7 @@ require_once __DIR__ . '/includes/header.php';
                                         <a href="/login-settings" class="flex-1 p-5 bg-orange-50 text-orange-600 rounded-[24px] font-black text-xs uppercase text-center border border-orange-100">Set Security PIN First</a>
                                     </div>
                                 <?php else: ?>
-                                    <input type="password" name="fund_password" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none" required>
+                                    <input type="password" name="fund_password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none" required>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -465,7 +465,7 @@ require_once __DIR__ . '/includes/header.php';
                                     </select>
                                     <div class="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none"><i data-lucide="chevron-down" class="w-4 h-4 text-gray-400"></i></div>
                                 </div>
-                                <input type="number" name="amount" id="convertAmount" placeholder="0.00" class="w-full p-8 bg-gray-900 text-white rounded-[32px] font-black text-3xl outline-none" required>
+                                <input type="number" name="amount" id="convertAmount" inputmode="numeric" pattern="[0-9]*" placeholder="0.00" class="w-full p-8 bg-gray-900 text-white rounded-[32px] font-black text-3xl outline-none" required>
                             </div>
 
                             <div class="flex justify-center -my-4 md:my-0">
@@ -500,7 +500,7 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
                             <div>
                                 <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Fund Password</label>
-                                <input type="password" name="fund_password" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none">
+                                <input type="password" name="fund_password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none">
                             </div>
                         </div>
 
@@ -530,7 +530,7 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
                             <div>
                                 <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Amount</label>
-                                <input type="number" name="amount" placeholder="0.00" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-lg outline-none" required>
+                                <input type="number" name="amount" inputmode="numeric" pattern="[0-9]*" placeholder="0.00" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-lg outline-none" required>
                             </div>
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -540,7 +540,7 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
                             <div>
                                 <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Fund Password</label>
-                                <input type="password" name="fund_password" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none" required>
+                                <input type="password" name="fund_password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none" required>
                             </div>
                         </div>
                         <button type="submit" class="submit-btn w-full bg-gray-900 text-white font-black py-6 rounded-[32px] shadow-xl uppercase tracking-widest flex items-center justify-center gap-3">

@@ -141,7 +141,7 @@ require_once __DIR__ . '/includes/header.php';
 
             <div>
                 <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">IUC / Smartcard Number</label>
-                <input type="text" name="iucNumber" placeholder="Enter number" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" required>
+                <input type="text" name="iucNumber" inputmode="numeric" pattern="[0-9]*" placeholder="Enter number" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" required>
                 <div id="iucInfo" class="mt-2 ml-1"></div>
             </div>
 
@@ -155,7 +155,7 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
                 <div>
                     <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Security PIN</label>
-                    <input type="password" name="fund_password" maxlength="6" placeholder="••••••" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" <?php echo ($isPinForced || $userPinEnabled) ? 'required' : ''; ?>>
+                    <input type="password" name="fund_password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" <?php echo ($isPinForced || $userPinEnabled) ? 'required' : ''; ?>>
                 </div>
             </div>
 

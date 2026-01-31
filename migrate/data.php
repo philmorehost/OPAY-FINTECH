@@ -121,7 +121,7 @@ require_once __DIR__ . '/includes/header.php';
 
             <div id="singlePhoneGroup">
                 <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Recipient Number</label>
-                <input type="tel" name="phoneNumber" placeholder="e.g. 08123456789" maxlength="11" class="w-full p-5 bg-gray-50 rounded-2xl font-black text-xl outline-none focus:ring-2 focus:ring-billpay-green/10">
+                <input type="tel" name="phoneNumber" inputmode="numeric" pattern="[0-9]*" placeholder="e.g. 08123456789" maxlength="11" class="w-full p-5 bg-gray-50 rounded-2xl font-black text-xl outline-none focus:ring-2 focus:ring-billpay-green/10">
             </div>
 
             <div id="bulkPhoneGroup" class="hidden space-y-4">
@@ -159,7 +159,7 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
                 <div class="flex flex-col justify-end">
                     <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest ml-1">Security PIN</label>
-                    <input type="password" name="fund_password" maxlength="6" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" <?php echo ($isPinForced || $userPinEnabled) ? 'required' : ''; ?>>
+                    <input type="password" name="fund_password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" <?php echo ($isPinForced || $userPinEnabled) ? 'required' : ''; ?>>
                 </div>
             </div>
 

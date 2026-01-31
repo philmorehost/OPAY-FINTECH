@@ -118,7 +118,7 @@ if (isset($script)) echo $script;
 
             <div>
                 <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Amount to Add (₦)</label>
-                <input type="number" name="amount" placeholder="Min ₦<?php echo $settings['minDepositAmount']; ?>" min="<?php echo $settings['minDepositAmount']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-xl outline-none" required>
+                <input type="number" name="amount" inputmode="numeric" pattern="[0-9]*" placeholder="Min ₦<?php echo $settings['minDepositAmount']; ?>" min="<?php echo $settings['minDepositAmount']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-xl outline-none" required>
             </div>
 
             <div>

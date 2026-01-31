@@ -26,12 +26,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]
     ];
 
-    $stmt = $pdo->prepare("UPDATE settings SET loginSecuritySettings = ?, googleClientId = ?, googleClientSecret = ?, googleAuthEnabled = ? WHERE id = 1");
+    $adminSecuritySettings = [
+        'pin' => [
+            'enabled' => isset($_POST['admin_pin_enabled']) ? 1 : 0,
+        ],
+        'email' => [
+            'enabled' => isset($_POST['admin_email_enabled']) ? 1 : 0,
+        ]
+    ];
+
+    $stmt = $pdo->prepare("UPDATE settings SET loginSecuritySettings = ?, googleClientId = ?, googleClientSecret = ?, googleAuthEnabled = ?, adminSecuritySettings = ? WHERE id = 1");
     $stmt->execute([
         json_encode($securitySettings),
         sanitize($_POST['google_client_id']),
         sanitize($_POST['google_client_secret']),
-        isset($_POST['google_auth_enabled']) ? 1 : 0
+        isset($_POST['google_auth_enabled']) ? 1 : 0,
+        json_encode($adminSecuritySettings)
     ]);
 
     $success = "Login security settings updated successfully!";
@@ -45,6 +55,15 @@ if (empty($ls)) {
         'pin' => ['enabled' => 0, 'forced' => 0],
         'email' => ['enabled' => 0, 'forced' => 0],
         'google2fa' => ['enabled' => 0, 'forced' => 0]
+    ];
+}
+
+$as = $settings['adminSecuritySettings'] ?? [];
+if (is_string($as)) $as = json_decode($as, true) ?: [];
+if (empty($as)) {
+    $as = [
+        'pin' => ['enabled' => 0],
+        'email' => ['enabled' => 0]
     ];
 }
 
@@ -218,7 +237,49 @@ require_once __DIR__ . '/header.php';
             </div>
         </div>
 
-        <button type="submit" class="w-full bg-gray-900 text-white py-6 rounded-[32px] font-black uppercase shadow-xl hover:bg-black transition-all">Save Security Policy</button>
+        <!-- Admin Dashboard Security -->
+        <div class="bg-gray-900 p-10 rounded-[40px] shadow-2xl text-white space-y-8">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-white/10 text-white rounded-2xl flex items-center justify-center">
+                    <i data-lucide="shield-check" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-black uppercase tracking-widest text-white">Admin Account Security</h3>
+                    <p class="text-[9px] font-bold text-white/40 uppercase">Protect the management portal from unauthorized access</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="flex items-center justify-between p-6 bg-white/5 rounded-3xl border border-white/10">
+                    <div>
+                        <div class="text-sm font-black uppercase">Mandatory Security PIN</div>
+                        <p class="text-[8px] text-white/40 font-bold uppercase">Require 6-digit PIN for all admins</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" name="admin_pin_enabled" class="sr-only peer" <?php echo !empty($as['pin']['enabled']) ? 'checked' : ''; ?>>
+                        <div class="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-gray-900 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-billpay-green"></div>
+                    </label>
+                </div>
+
+                <div class="flex items-center justify-between p-6 bg-white/5 rounded-3xl border border-white/10">
+                    <div>
+                        <div class="text-sm font-black uppercase">Mandatory Email Auth</div>
+                        <p class="text-[8px] text-white/40 font-bold uppercase">OTP via Email required for dashboard access</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" name="admin_email_enabled" class="sr-only peer" <?php echo !empty($as['email']['enabled']) ? 'checked' : ''; ?>>
+                        <div class="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-gray-900 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-billpay-green"></div>
+                    </label>
+                </div>
+            </div>
+
+            <div class="p-6 bg-white/5 rounded-3xl border border-white/10 flex items-start gap-4">
+                <i data-lucide="info" class="w-5 h-5 text-billpay-green shrink-0 mt-0.5"></i>
+                <p class="text-[9px] font-bold text-white/60 uppercase leading-relaxed">Admin security settings apply to all administrator accounts. Ensure you have configured your individual Security PIN and have access to your email before enabling these features.</p>
+            </div>
+        </div>
+
+        <button type="submit" class="w-full bg-gray-900 text-white py-6 rounded-[32px] font-black uppercase shadow-xl hover:bg-black transition-all border-4 border-transparent hover:border-billpay-green">Save Security Policy</button>
     </form>
 </div>
 

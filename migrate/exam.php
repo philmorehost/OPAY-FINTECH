@@ -121,11 +121,11 @@ require_once __DIR__ . '/includes/header.php';
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Quantity</label>
-                    <input type="number" name="quantity" value="1" min="1" max="5" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-xl outline-none" required>
+                    <input type="number" name="quantity" value="1" min="1" max="5" inputmode="numeric" pattern="[0-9]*" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-xl outline-none" required>
                 </div>
                 <div>
                     <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Security PIN</label>
-                    <input type="password" name="fund_password" maxlength="6" placeholder="••••••" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" <?php echo ($isPinForced || $userPinEnabled) ? 'required' : ''; ?>>
+                    <input type="password" name="fund_password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" <?php echo ($isPinForced || $userPinEnabled) ? 'required' : ''; ?>>
                 </div>
             </div>
 

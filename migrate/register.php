@@ -122,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
                 <div class="space-y-1">
                     <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Phone</label>
-                    <input type="text" name="phone" class="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-bold text-sm" required>
+                    <input type="text" name="phone" inputmode="numeric" pattern="[0-9]*" class="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-bold text-sm" required>
                 </div>
             </div>
             <div class="space-y-1">

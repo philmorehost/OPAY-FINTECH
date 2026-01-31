@@ -96,8 +96,8 @@ require_once __DIR__ . '/includes/header.php';
                 <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                 <input type="hidden" name="action" value="set_fund_password">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <input type="password" name="fund_password" placeholder="New Fund Password" class="w-full p-5 bg-gray-50 rounded-2xl font-black outline-none border-2 border-transparent focus:border-billpay-green">
-                    <input type="password" name="confirm_password" placeholder="Confirm Password" class="w-full p-5 bg-gray-50 rounded-2xl font-black outline-none border-2 border-transparent focus:border-billpay-green">
+                    <input type="password" name="fund_password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="New Fund Password" class="w-full p-5 bg-gray-50 rounded-2xl font-black outline-none border-2 border-transparent focus:border-billpay-green">
+                    <input type="password" name="confirm_password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="Confirm Password" class="w-full p-5 bg-gray-50 rounded-2xl font-black outline-none border-2 border-transparent focus:border-billpay-green">
                 </div>
                 <button type="submit" class="w-full bg-gray-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-xl">Update Password</button>
             </form>
@@ -127,7 +127,7 @@ require_once __DIR__ . '/includes/header.php';
                     <input type="hidden" name="action" value="enable_2fa">
                     <input type="hidden" name="secret" value="<?php echo $secret; ?>">
                     <p class="text-[10px] font-bold text-gray-500 uppercase leading-relaxed">Scan the QR code with Google Authenticator or Authy, then enter the 6-digit code below to confirm.</p>
-                    <input type="text" name="code" placeholder="000 000" class="w-full p-6 bg-gray-50 rounded-2xl font-black text-2xl text-center tracking-[0.5em] outline-none">
+                    <input type="text" name="code" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="000 000" class="w-full p-6 bg-gray-50 rounded-2xl font-black text-2xl text-center tracking-[0.5em] outline-none">
                     <button type="submit" class="w-full bg-billpay-green text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-green-100">Enable 2FA</button>
                 </form>
             </div>

@@ -161,7 +161,7 @@ require_once __DIR__ . '/includes/header.php';
 
                 <div class="pt-4 border-t border-gray-50">
                     <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Set Security PIN (6 Digits)</label>
-                    <input type="password" name="loginSecurityPin" placeholder="<?php echo !empty($currentUser['loginSecurityPin']) ? '••••••' : 'Enter 6-digit PIN'; ?>" maxlength="6" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg mt-2 outline-none border-2 border-transparent focus:border-billpay-green text-center tracking-[0.5em]">
+                    <input type="password" name="loginSecurityPin" inputmode="numeric" pattern="[0-9]*" placeholder="<?php echo !empty($currentUser['loginSecurityPin']) ? '••••••' : 'Enter 6-digit PIN'; ?>" maxlength="6" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg mt-2 outline-none border-2 border-transparent focus:border-billpay-green text-center tracking-[0.5em]">
                 </div>
 
                 <div class="flex items-center justify-between">
@@ -213,7 +213,7 @@ require_once __DIR__ . '/includes/header.php';
 
                 <div class="space-y-4">
                     <label class="text-[10px] font-black text-gray-400 uppercase ml-1"><?php echo !empty($currentUser['fundPassword']) ? 'Change' : 'Set'; ?> Security PIN (Fund Password)</label>
-                    <input type="password" name="fundPassword" maxlength="6" placeholder="Enter 6-digit PIN" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none text-center tracking-[0.5em] border-2 border-transparent focus:border-billpay-green">
+                    <input type="password" name="fundPassword" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="Enter 6-digit PIN" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none text-center tracking-[0.5em] border-2 border-transparent focus:border-billpay-green">
                     <?php if (!empty($currentUser['fundPassword'])): ?>
                         <button type="button" onclick="requestReset()" class="text-[9px] font-black text-indigo-500 uppercase hover:underline">Forgot Fund Password?</button>
                     <?php endif; ?>

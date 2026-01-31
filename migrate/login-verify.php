@@ -12,13 +12,29 @@ if (!$pendingUser) {
 }
 
 $ls = $settings['loginSecuritySettings'] ?? [];
+$as = $settings['adminSecuritySettings'] ?? [];
+if (is_string($as)) $as = json_decode($as, true) ?: [];
 $error = '';
+
+$isAdmin = ($pendingUser['role'] === 'admin');
 
 // Determine required steps for this user
 $requiredSteps = [];
+
+// Biometric (Only for users or if enabled for all)
 if (!empty($ls['biometric']['enabled']) && !empty($pendingUser['biometricEnabled']) && !empty($pendingUser['biometricCredentialId'])) $requiredSteps[] = 'biometric';
-if (!empty($ls['pin']['enabled']) && !empty($pendingUser['loginSecurityPin'])) $requiredSteps[] = 'pin';
-if (!empty($ls['email']['enabled']) && !empty($pendingUser['email2faEnabled'])) $requiredSteps[] = 'email';
+
+// PIN: Respect global user setting OR mandatory admin setting
+$pinMandatory = !empty($ls['pin']['enabled']) || ($isAdmin && !empty($as['pin']['enabled']));
+if ($pinMandatory && !empty($pendingUser['loginSecurityPin'])) $requiredSteps[] = 'pin';
+
+// Email: Respect global user setting OR mandatory admin setting
+$emailMandatory = !empty($ls['email']['enabled']) || ($isAdmin && !empty($as['email']['enabled']));
+if ($emailMandatory || !empty($pendingUser['email2faEnabled'])) {
+     $requiredSteps[] = 'email';
+}
+
+// Google 2FA
 if (!empty($ls['google2fa']['enabled']) && !empty($pendingUser['google2faEnabled'])) $requiredSteps[] = 'google2fa';
 
 if (empty($requiredSteps)) {

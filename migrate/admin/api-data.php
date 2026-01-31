@@ -308,10 +308,10 @@ require_once __DIR__ . '/header.php';
         ?>
         <form method="POST" class="grid grid-cols-2 md:grid-cols-4 gap-6">
             <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
-            <div><label class="text-[10px] font-black text-gray-400 uppercase">MTN Phone</label><input type="text" name="epin_phone_mtn" value="<?php echo $eph['MTN'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none text-xs border border-transparent focus:border-billpay-green"></div>
-            <div><label class="text-[10px] font-black text-gray-400 uppercase">Airtel Phone</label><input type="text" name="epin_phone_airtel" value="<?php echo $eph['Airtel'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none text-xs border border-transparent focus:border-billpay-green"></div>
-            <div><label class="text-[10px] font-black text-gray-400 uppercase">Glo Phone</label><input type="text" name="epin_phone_glo" value="<?php echo $eph['Glo'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none text-xs border border-transparent focus:border-billpay-green"></div>
-            <div><label class="text-[10px] font-black text-gray-400 uppercase">9mobile Phone</label><input type="text" name="epin_phone_9mobile" value="<?php echo $eph['9mobile'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none text-xs border border-transparent focus:border-billpay-green"></div>
+            <div><label class="text-[10px] font-black text-gray-400 uppercase">MTN Phone</label><input type="text" name="epin_phone_mtn" value="<?php echo $eph['MTN'] ?? ''; ?>" inputmode="numeric" pattern="[0-9]*" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none text-xs border border-transparent focus:border-billpay-green"></div>
+            <div><label class="text-[10px] font-black text-gray-400 uppercase">Airtel Phone</label><input type="text" name="epin_phone_airtel" value="<?php echo $eph['Airtel'] ?? ''; ?>" inputmode="numeric" pattern="[0-9]*" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none text-xs border border-transparent focus:border-billpay-green"></div>
+            <div><label class="text-[10px] font-black text-gray-400 uppercase">Glo Phone</label><input type="text" name="epin_phone_glo" value="<?php echo $eph['Glo'] ?? ''; ?>" inputmode="numeric" pattern="[0-9]*" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none text-xs border border-transparent focus:border-billpay-green"></div>
+            <div><label class="text-[10px] font-black text-gray-400 uppercase">9mobile Phone</label><input type="text" name="epin_phone_9mobile" value="<?php echo $eph['9mobile'] ?? ''; ?>" inputmode="numeric" pattern="[0-9]*" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none text-xs border border-transparent focus:border-billpay-green"></div>
             <div class="col-span-2 md:col-span-4"><button type="submit" name="action" value="save_epin_settings" class="w-full py-4 bg-gray-900 text-white rounded-2xl font-black uppercase text-xs">Update EPIN Phones</button></div>
         </form>
     </div>
@@ -420,11 +420,11 @@ require_once __DIR__ . '/header.php';
             </div>
             <div>
                 <label class="text-[10px] font-black text-gray-400 uppercase">API Cost (₦)</label>
-                <input type="number" step="0.01" name="plan_apiPrice" x-model="api" required class="w-full p-3 bg-white rounded-xl font-bold mt-1 outline-none text-xs">
+                <input type="number" step="0.01" name="plan_apiPrice" x-model="api" inputmode="decimal" required class="w-full p-3 bg-white rounded-xl font-bold mt-1 outline-none text-xs">
             </div>
             <div>
                 <label class="text-[10px] font-black text-gray-400 uppercase">User Price (₦)</label>
-                <input type="number" step="0.01" name="plan_userPrice" x-model="user" required class="w-full p-3 bg-white rounded-xl font-bold mt-1 outline-none text-xs">
+                <input type="number" step="0.01" name="plan_userPrice" x-model="user" inputmode="decimal" required class="w-full p-3 bg-white rounded-xl font-bold mt-1 outline-none text-xs">
             </div>
             <div class="flex items-end">
                 <div class="w-full p-3 bg-indigo-50 rounded-xl border border-indigo-100 flex flex-col items-center justify-center">
