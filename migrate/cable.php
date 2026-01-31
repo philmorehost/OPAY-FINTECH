@@ -13,6 +13,10 @@ $cableProviders = [
 $error = '';
 $success = false;
 
+$ls = $settings['loginSecuritySettings'] ?? [];
+$isPinForced = !empty($ls['pin']['forced']);
+$userPinEnabled = !empty($currentUser['fundPasswordVtuEnabled']);
+
 if (isset($_GET['ajax'])) {
     header('Content-Type: application/json');
     if ($_GET['ajax'] === 'verify') {
@@ -41,10 +45,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $stmt = $pdo->prepare("SELECT * FROM utility_packages WHERE category = 'cable' AND service_id = ? AND package_id = ?");
     $stmt->execute([$providerId, $variationCode]);
     $pkg = $stmt->fetch();
-
-    $ls = $settings['loginSecuritySettings'] ?? [];
-    $isPinForced = !empty($ls['pin']['forced']);
-    $userPinEnabled = !empty($currentUser['fundPasswordVtuEnabled']);
 
     if (!$pkg) {
         $error = 'Invalid package selected';

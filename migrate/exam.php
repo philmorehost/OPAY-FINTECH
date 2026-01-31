@@ -6,6 +6,10 @@ $pageTitle = 'Exam PIN';
 $error = '';
 $success = false;
 
+$ls = $settings['loginSecuritySettings'] ?? [];
+$isPinForced = !empty($ls['pin']['forced']);
+$userPinEnabled = !empty($currentUser['fundPasswordVtuEnabled']);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'purchase') {
     if (!verifyCsrfToken($_POST['csrf_token'])) die('CSRF Failed');
 
@@ -15,10 +19,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $stmt = $pdo->prepare("SELECT * FROM utility_packages WHERE category = 'exam' AND package_id = ?");
     $stmt->execute([$packageId]);
     $pkg = $stmt->fetch();
-
-    $ls = $settings['loginSecuritySettings'] ?? [];
-    $isPinForced = !empty($ls['pin']['forced']);
-    $userPinEnabled = !empty($currentUser['fundPasswordVtuEnabled']);
 
     if (!$pkg) {
         $error = "Invalid exam product";

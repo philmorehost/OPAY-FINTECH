@@ -34,9 +34,9 @@ function isAdmin() {
 
 if (!function_exists('checkKycRestriction')) {
 function checkKycRestriction($settings, $currentUser) {
-    if (!isset($settings['isKycEnforced']) || !$settings['isKycEnforced']) return;
-    if (($currentUser['kycStatus'] ?? 'none') !== 'verified') {
-        header('Location: /kyc' . ($currentUser['kycStatus'] === 'rejected' ? '?error=restricted' : ''));
+    if (!is_array($settings) || !isset($settings['isKycEnforced']) || !$settings['isKycEnforced']) return;
+    if (!is_array($currentUser) || ($currentUser['kycStatus'] ?? 'none') !== 'verified') {
+        header('Location: /kyc' . (($currentUser['kycStatus'] ?? 'none') === 'rejected' ? '?error=restricted' : ''));
         exit;
     }
 }
@@ -218,10 +218,10 @@ function verifyFundPassword($pdo, $userId, $password) {
 }
 
 if (!function_exists('logTransaction')) {
-function logTransaction($pdo, $userId, $type, $amount, $status, $details, $recipient, $provider = null, $token = null, $apiAmount = 0, $profit = 0) {
+function logTransaction($pdo, $userId, $type, $amount, $status, $details, $recipient, $provider = null, $token = null, $apiAmount = 0, $profit = 0, $providerRef = null) {
     $id = 'TX-' . strtoupper(bin2hex(random_bytes(4)));
-    $stmt = $pdo->prepare("INSERT INTO transactions (id, userId, type, amount, status, details, recipient, provider, token, apiAmount, profit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    return $stmt->execute([$id, $userId, $type, $amount, $status, $details, $recipient, $provider, $token, $apiAmount, $profit]);
+    $stmt = $pdo->prepare("INSERT INTO transactions (id, userId, type, amount, status, details, recipient, provider, token, apiAmount, profit, provider_ref) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    return $stmt->execute([$id, $userId, $type, $amount, $status, $details, $recipient, $provider, $token, $apiAmount, $profit, $providerRef]);
 }
 }
 

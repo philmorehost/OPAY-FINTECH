@@ -6,6 +6,10 @@ $pageTitle = 'Betting';
 $error = '';
 $success = false;
 
+$ls = $settings['loginSecuritySettings'] ?? [];
+$isPinForced = !empty($ls['pin']['forced']);
+$userPinEnabled = !empty($currentUser['fundPasswordVtuEnabled']);
+
 if (isset($_GET['ajax'])) {
     header('Content-Type: application/json');
     if ($_GET['ajax'] === 'verify') {
@@ -30,10 +34,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
     $apiDisc = (float)($pkg['api_discount'] ?? 0);
     $userDisc = (float)($pkg['user_discount'] ?? 0);
-
-    $ls = $settings['loginSecuritySettings'] ?? [];
-    $isPinForced = !empty($ls['pin']['forced']);
-    $userPinEnabled = !empty($currentUser['fundPasswordVtuEnabled']);
 
     if (isKycRejected($currentUser)) {
         $error = 'Account restricted. Please update your KYC.';

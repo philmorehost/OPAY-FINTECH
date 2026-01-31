@@ -7,6 +7,10 @@ $error = '';
 $success = false;
 $token = '';
 
+$ls = $settings['loginSecuritySettings'] ?? [];
+$isPinForced = !empty($ls['pin']['forced']);
+$userPinEnabled = !empty($currentUser['fundPasswordVtuEnabled']);
+
 if (isset($_GET['ajax'])) {
     header('Content-Type: application/json');
     if ($_GET['ajax'] === 'verify') {
@@ -33,10 +37,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
     $apiDisc = (float)($pkg['api_discount'] ?? 0);
     $userDisc = (float)($pkg['user_discount'] ?? 0);
-
-    $ls = $settings['loginSecuritySettings'] ?? [];
-    $isPinForced = !empty($ls['pin']['forced']);
-    $userPinEnabled = !empty($currentUser['fundPasswordVtuEnabled']);
 
     if (isKycRejected($currentUser)) {
         $error = 'Account restricted. Please update your KYC.';
@@ -83,14 +83,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $apiCost = $amount * (1 - ($apiDisc / 100));
                 $profitVal = $chargedAmount - $apiCost;
 
-                logTransaction($pdo, $currentUser['id'], 'Electricity', $chargedAmount, 'successful', "Electric ($serviceId $type) for $meterNumber", $meterNumber, $serviceId, $token ?: ($res['requestId'] ?? null), $apiCost, $profitVal);
+                logTransaction($pdo, $currentUser['id'], 'Electricity', $chargedAmount, 'successful', "Electric ($serviceId $type) for $meterNumber", $meterNumber, $serviceId, $token, $apiCost, $profitVal, $res['requestId'] ?? null);
                 sendMail($pdo, $currentUser['email'], "Electricity Receipt", "Successful recharge for $meterNumber. Token: $token");
                 claimDailyRewardIfEligible($pdo, $currentUser['id']);
                 $success = true;
             } elseif ($status === 'pending') {
                 $apiCost = $amount * (1 - ($apiDisc / 100));
                 $profitVal = $chargedAmount - $apiCost;
-                logTransaction($pdo, $currentUser['id'], 'Electricity', $chargedAmount, 'pending', "Electric ($serviceId $type) processing for $meterNumber", $meterNumber, $serviceId, $res['requestId'] ?? null, $apiCost, $profitVal);
+                logTransaction($pdo, $currentUser['id'], 'Electricity', $chargedAmount, 'pending', "Electric ($serviceId $type) processing for $meterNumber", $meterNumber, $serviceId, null, $apiCost, $profitVal, $res['requestId'] ?? null);
                 $success = true;
             } else {
                 updateWallet($pdo, $currentUser['id'], $chargedAmount, 'credit');

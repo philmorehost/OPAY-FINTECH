@@ -109,7 +109,7 @@ function purchaseAirtime($pdo, $network, $amount, $phone) {
     switch ($provider) {
         case 'datagifting':
             $apiKey = $creds['apiKey'] ?? '';
-            $res = callApi("https://v6.datagifting.com.ng/web/api/airtime.php?api_key=$apiKey", 'POST', http_build_query([
+            $res = callApi("https://v6.datagifting.com.ng/api/airtime.php?api_key=$apiKey", 'POST', http_build_query([
                 'api_key' => $apiKey,
                 'network' => $netCode,
                 'amount' => $amount,
@@ -208,7 +208,14 @@ function testGenericConnection($pdo, $provider, $creds) {
 
     switch ($provider) {
         case 'datagifting':
-            $res = callApi("https://v6.datagifting.com.ng/web/api/user.php?api_key=" . ($creds['apiKey'] ?? ''));
+            // Try user.php, fallback to profile.php or index.php if 404
+            $url = "https://v6.datagifting.com.ng/api/user.php?api_key=" . ($creds['apiKey'] ?? '');
+            $res = callApi($url);
+            if (is_string($res) && strpos($res, '404') !== false) {
+                 $url = "https://v6.datagifting.com.ng/api/index.php?api_key=" . ($creds['apiKey'] ?? '');
+                 $res = callApi($url);
+            }
+
             if (is_array($res)) {
                 if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => 'Connected! Balance: ₦' . number_format((float)($res['wallet'] ?? $res['balance'] ?? 0), 2)];
                 if (isset($res['status']) && $res['status'] === 'fail') return ['status' => 'error', 'message' => $res['msg'] ?? 'Authentication Failed'];
@@ -315,7 +322,7 @@ function purchaseData($pdo, $network, $planId, $phone) {
             }
 
             $apiKey = $creds['apiKey'] ?? '';
-            $res = callApi("https://v6.datagifting.com.ng/web/api/data.php?api_key=$apiKey", 'POST', http_build_query([
+            $res = callApi("https://v6.datagifting.com.ng/api/data.php?api_key=$apiKey", 'POST', http_build_query([
                 'api_key' => $apiKey,
                 'network' => $netCode,
                 'phone_number' => $phone,
@@ -720,7 +727,7 @@ function requeryTransaction($pdo, $txId) {
 
     $settings = fetchSettings($pdo);
     $provider = $tx['provider'] ?: 'manual';
-    $ref = $tx['token']; // Using 'token' column for original provider reference
+    $ref = $tx['provider_ref'] ?: $tx['token'];
 
     if (!$ref || $provider === 'manual' || $provider === 'Internal' || $provider === 'System') {
         return ['status' => 'error', 'message' => 'Transaction not requeryable'];
@@ -770,7 +777,7 @@ function requeryTransaction($pdo, $txId) {
             else $creds = $settings['dataSettings']['providers']['datagifting'] ?? [];
             $apiKey = $creds['apiKey'] ?? '';
 
-            $res = callApi("https://v6.datagifting.com.ng/web/api/requery.php?api_key=$apiKey&reference=$ref");
+            $res = callApi("https://v6.datagifting.com.ng/api/requery.php?api_key=$apiKey&reference=$ref");
             if (isset($res['status'])) {
                 if ($res['status'] === 'success') $newStatus = 'successful';
                 elseif ($res['status'] === 'fail' || $res['status'] === 'failed') $newStatus = 'failed';
@@ -901,7 +908,7 @@ function datagiftingGetDataPlans($pdo) {
     $creds = $ds['providers']['datagifting'] ?? [];
     $apiKey = $creds['apiKey'] ?? '';
 
-    $url = "https://v6.datagifting.com.ng/web/api/data-plans.php?api_key=$apiKey";
+    $url = "https://v6.datagifting.com.ng/api/data-plans.php?api_key=$apiKey";
     return callApi($url);
 }
 }

@@ -72,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['resetting_pin'] = true;
         $success = "A verification code has been sent to your email to reset your PIN.";
     } elseif ($action === 'verify_reset_otp' && !empty($_SESSION['resetting_pin'])) {
-        if (isset($_SESSION['email_2fa_code']) && $_POST['code'] == $_SESSION['email_2fa_code'] && time() < $_SESSION['email_2fa_expiry']) {
+        if (isset($_SESSION['email_2fa_code']) && isset($_POST['code']) && $_POST['code'] == $_SESSION['email_2fa_code'] && time() < $_SESSION['email_2fa_expiry']) {
             $_SESSION['pin_reset_authorized'] = true;
             unset($_SESSION['email_2fa_code'], $_SESSION['email_2fa_expiry']);
         } else {
@@ -97,10 +97,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (password_verify($_POST['pin'], $pendingUser['loginSecurityPin'])) $verified = true;
         else $error = "Invalid Security PIN";
     } elseif ($currentStep === 'email') {
-        if (isset($_SESSION['email_2fa_code']) && $_POST['code'] == $_SESSION['email_2fa_code'] && time() < $_SESSION['email_2fa_expiry']) $verified = true;
+        if (isset($_SESSION['email_2fa_code']) && isset($_POST['code']) && $_POST['code'] == $_SESSION['email_2fa_code'] && time() < $_SESSION['email_2fa_expiry']) $verified = true;
         else $error = "Invalid or expired verification code";
     } elseif ($currentStep === 'google2fa') {
-        if (TOTP::verifyCode($pendingUser['google2faSecret'], $_POST['code'])) $verified = true;
+        if (isset($_POST['code']) && TOTP::verifyCode($pendingUser['google2faSecret'], $_POST['code'])) $verified = true;
         else $error = "Invalid Authenticator code";
     } elseif ($currentStep === 'biometric') {
         if ($_POST['action'] === 'biometric_verify') {

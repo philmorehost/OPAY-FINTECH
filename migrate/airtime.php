@@ -7,6 +7,10 @@ $pageTitle = 'Airtime';
 $error = '';
 $statusDetails = null;
 
+$ls = $settings['loginSecuritySettings'] ?? [];
+$isPinForced = !empty($ls['pin']['forced']);
+$userPinEnabled = !empty($currentUser['fundPasswordVtuEnabled']);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'purchase') {
     if (!verifyCsrfToken($_POST['csrf_token'])) die('CSRF Failed');
 
@@ -39,10 +43,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $apiDiscount = (float)($as['networkDiscounts'][$network] ?? 0);
     $unitApiCost = $amount * (1 - $apiDiscount / 100);
     $unitProfit = $unitCost - $unitApiCost;
-
-    $ls = $settings['loginSecuritySettings'] ?? [];
-    $isPinForced = !empty($ls['pin']['forced']);
-    $userPinEnabled = !empty($currentUser['fundPasswordVtuEnabled']);
 
     if (isKycRejected($currentUser)) {
         $error = 'Account restricted. Please update your KYC.';

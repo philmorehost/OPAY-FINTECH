@@ -61,11 +61,13 @@ try {
 
     // Transactions Table Updates
     addColumnIfNotExists($pdo, 'transactions', 'token', "VARCHAR(255)");
+    addColumnIfNotExists($pdo, 'transactions', 'provider_ref', "VARCHAR(255)");
     addColumnIfNotExists($pdo, 'transactions', 'provider', "VARCHAR(50)");
     addColumnIfNotExists($pdo, 'transactions', 'apiAmount', "DECIMAL(15, 2) DEFAULT 0.00");
     addColumnIfNotExists($pdo, 'transactions', 'profit', "DECIMAL(15, 2) DEFAULT 0.00");
     addColumnIfNotExists($pdo, 'transactions', 'last_queried_at', "DATETIME");
     addColumnIfNotExists($pdo, 'transactions', 'query_count', "INT DEFAULT 0");
+    addColumnIfNotExists($pdo, 'transactions', 'refunded', "TINYINT(1) DEFAULT 0");
 
     // KYC Submissions Table Updates
     addColumnIfNotExists($pdo, 'kyc_submissions', 'selfieImageUrl', "VARCHAR(255)");
@@ -77,6 +79,9 @@ try {
     addColumnIfNotExists($pdo, 'users', 'biometricCredentialId', "TEXT");
     addColumnIfNotExists($pdo, 'users', 'biometricPublicKey', "TEXT");
     addColumnIfNotExists($pdo, 'users', 'fundPassword', "VARCHAR(255)");
+    addColumnIfNotExists($pdo, 'users', 'fundPasswordVtuEnabled', "TINYINT(1) DEFAULT 0");
+    addColumnIfNotExists($pdo, 'users', 'fundPasswordResetCode', "VARCHAR(20)");
+    addColumnIfNotExists($pdo, 'users', 'fundPasswordResetExpiry', "DATETIME");
     addColumnIfNotExists($pdo, 'users', 'google2faSecret', "VARCHAR(100)");
     addColumnIfNotExists($pdo, 'users', 'google2faEnabled', "TINYINT(1) DEFAULT 0");
     addColumnIfNotExists($pdo, 'users', 'email2faEnabled', "TINYINT(1) DEFAULT 0");

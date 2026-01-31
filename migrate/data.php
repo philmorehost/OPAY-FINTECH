@@ -7,6 +7,10 @@ $pageTitle = 'Data';
 $error = '';
 $statusDetails = null;
 
+$ls = $settings['loginSecuritySettings'] ?? [];
+$isPinForced = !empty($ls['pin']['forced']);
+$userPinEnabled = !empty($currentUser['fundPasswordVtuEnabled']);
+
 $dataNetworks = $settings['dataNetworks'];
 if (is_string($dataNetworks)) $dataNetworks = json_decode($dataNetworks, true) ?: [];
 
@@ -33,10 +37,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         foreach ($raw as $num) { $num = trim($num); if (strlen($num) >= 10) $recipients[] = $num; }
         $recipients = array_unique($recipients);
     } else { $recipients[] = sanitize($_POST['phoneNumber']); }
-
-    $ls = $settings['loginSecuritySettings'] ?? [];
-    $isPinForced = !empty($ls['pin']['forced']);
-    $userPinEnabled = !empty($currentUser['fundPasswordVtuEnabled']);
 
     if (isKycRejected($currentUser)) {
         $error = 'Account restricted. Please update your KYC.';

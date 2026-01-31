@@ -9,13 +9,13 @@ if (isset($_GET['code'])) {
     $redirectUri = (isset($_SERVER['HTTPS']) ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . '/google-callback.php';
 
     // Exchange code for token
-    $tokenRes = callApi("https://oauth2.googleapis.com/token", 'POST', [
+    $tokenRes = callApi('https://oauth2.googleapis.com/token', 'POST', http_build_query([
         'code' => $code,
         'client_id' => $clientId,
         'client_secret' => $clientSecret,
         'redirect_uri' => $redirectUri,
         'grant_type' => 'authorization_code'
-    ], ['Content-Type: application/x-www-form-urlencoded']);
+    ]), ['Content-Type: application/x-www-form-urlencoded']);
 
     if (isset($tokenRes['id_token'])) {
         $idToken = $tokenRes['id_token'];
