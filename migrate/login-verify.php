@@ -24,13 +24,13 @@ $requiredSteps = [];
 // Biometric (Only for users or if enabled for all)
 if (!empty($ls['biometric']['enabled']) && !empty($pendingUser['biometricEnabled']) && !empty($pendingUser['biometricCredentialId'])) $requiredSteps[] = 'biometric';
 
-// PIN: Respect global user setting OR mandatory admin setting
-$pinMandatory = !empty($ls['pin']['enabled']) || ($isAdmin && !empty($as['pin']['enabled']));
+// PIN: Mandatory ONLY if explicitly forced by Admin for their respective roles
+$pinMandatory = ($isAdmin && !empty($as['pin']['enabled'])) || (!$isAdmin && !empty($ls['pin']['forced']));
 if ($pinMandatory && !empty($pendingUser['loginSecurityPin'])) $requiredSteps[] = 'pin';
 
-// Email: Respect global user setting OR mandatory admin setting
-$emailMandatory = !empty($ls['email']['enabled']) || ($isAdmin && !empty($as['email']['enabled']));
-if ($emailMandatory || !empty($pendingUser['email2faEnabled'])) {
+// Email: Mandatory if forced by Admin OR if user opted-in
+$emailMandatory = ($isAdmin && !empty($as['email']['enabled'])) || (!$isAdmin && !empty($ls['email']['forced']));
+if ($emailMandatory || (!empty($ls['email']['enabled']) && !empty($pendingUser['email2faEnabled']))) {
      $requiredSteps[] = 'email';
 }
 
