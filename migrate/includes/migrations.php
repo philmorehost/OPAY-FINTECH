@@ -50,6 +50,7 @@ try {
     addColumnIfNotExists($pdo, 'settings', 'googleClientSecret', "VARCHAR(255)");
     addColumnIfNotExists($pdo, 'settings', 'googleAuthEnabled', "TINYINT(1) DEFAULT 0");
     addColumnIfNotExists($pdo, 'settings', 'adminSecuritySettings', "TEXT");
+    addColumnIfNotExists($pdo, 'settings', 'disabledServices', "TEXT");
 
     // API Hub Restructured Settings
     addColumnIfNotExists($pdo, 'settings', 'airtimeSettings', "TEXT");

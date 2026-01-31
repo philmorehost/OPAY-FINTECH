@@ -5,22 +5,29 @@ if (!isLoggedIn()) redirect('/login');
 $pageTitle = 'Services';
 require_once __DIR__ . '/includes/header.php';
 
+$disabledServices = $settings['disabledServices'] ?? [];
+if (is_string($disabledServices)) $disabledServices = json_decode($disabledServices, true) ?: [];
+
 $services = [
-    ['icon' => 'phone', 'label' => 'Airtime', 'path' => '/airtime', 'color' => 'text-blue-500'],
-    ['icon' => 'wifi', 'label' => 'Data', 'path' => '/data', 'color' => 'text-orange-500'],
-    ['icon' => 'printer', 'label' => 'Data Card', 'path' => '/datacard', 'color' => 'text-indigo-600'],
-    ['icon' => 'message-circle', 'label' => 'Bulk SMS', 'path' => '/sms', 'color' => 'text-emerald-500'],
-    ['icon' => 'tv', 'label' => 'Cable TV', 'path' => '/cable', 'color' => 'text-red-500'],
-    ['icon' => 'zap', 'label' => 'Electricity', 'path' => '/electric', 'color' => 'text-yellow-500'],
-    ['icon' => 'trending-up', 'label' => 'Betting', 'path' => '/betting', 'color' => 'text-green-500'],
-    ['icon' => 'crown', 'label' => 'Finance', 'path' => '/finance', 'color' => 'text-amber-500'],
-    ['icon' => 'bar-chart-3', 'label' => 'Crypto', 'path' => '/crypto', 'color' => 'text-orange-500'],
-    ['icon' => 'arrow-right-left', 'label' => 'Transfer', 'path' => '/transfer', 'color' => 'text-indigo-500'],
-    ['icon' => 'credit-card', 'label' => 'Card', 'path' => '/vcard', 'color' => 'text-pink-500'],
-    ['icon' => 'shield-check', 'label' => 'Exam PIN', 'path' => '/exam', 'color' => 'text-purple-500'],
-    ['icon' => 'bar-chart-3', 'label' => 'Referrals', 'path' => '/referrals', 'color' => 'text-cyan-600'],
-    ['icon' => 'gift', 'label' => 'Gift Cards', 'path' => '/giftcards', 'color' => 'text-pink-600'],
+    ['id' => 'airtime', 'icon' => 'phone', 'label' => 'Airtime', 'path' => '/airtime', 'color' => 'text-blue-500'],
+    ['id' => 'data', 'icon' => 'wifi', 'label' => 'Data', 'path' => '/data', 'color' => 'text-orange-500'],
+    ['id' => 'datacard', 'icon' => 'printer', 'label' => 'Data Card', 'path' => '/datacard', 'color' => 'text-indigo-600'],
+    ['id' => 'sms', 'icon' => 'message-circle', 'label' => 'Bulk SMS', 'path' => '/sms', 'color' => 'text-emerald-500'],
+    ['id' => 'cable', 'icon' => 'tv', 'label' => 'Cable TV', 'path' => '/cable', 'color' => 'text-red-500'],
+    ['id' => 'electric', 'icon' => 'zap', 'label' => 'Electricity', 'path' => '/electric', 'color' => 'text-yellow-500'],
+    ['id' => 'betting', 'icon' => 'trending-up', 'label' => 'Betting', 'path' => '/betting', 'color' => 'text-green-500'],
+    ['id' => 'finance', 'icon' => 'crown', 'label' => 'Finance', 'path' => '/finance', 'color' => 'text-amber-500'],
+    ['id' => 'crypto', 'icon' => 'bar-chart-3', 'label' => 'Crypto', 'path' => '/crypto', 'color' => 'text-orange-500'],
+    ['id' => 'transfer', 'icon' => 'arrow-right-left', 'label' => 'Transfer', 'path' => '/transfer', 'color' => 'text-indigo-500'],
+    ['id' => 'vcard', 'icon' => 'credit-card', 'label' => 'Card', 'path' => '/vcard', 'color' => 'text-pink-500'],
+    ['id' => 'exam', 'icon' => 'shield-check', 'label' => 'Exam PIN', 'path' => '/exam', 'color' => 'text-purple-500'],
+    ['id' => 'referrals', 'icon' => 'bar-chart-3', 'label' => 'Referrals', 'path' => '/referrals', 'color' => 'text-cyan-600'],
+    ['id' => 'giftcards', 'icon' => 'gift', 'label' => 'Gift Cards', 'path' => '/giftcards', 'color' => 'text-pink-600'],
 ];
+
+$services = array_filter($services, function($s) use ($disabledServices) {
+    return !in_array($s['id'], $disabledServices);
+});
 ?>
 
 <div class="mx-auto bg-white min-h-screen pb-24 relative">

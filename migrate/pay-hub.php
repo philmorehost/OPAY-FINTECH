@@ -5,15 +5,22 @@ if (!isLoggedIn()) redirect('/login');
 $pageTitle = 'Pay Hub';
 require_once __DIR__ . '/includes/header.php';
 
+$disabledServices = $settings['disabledServices'] ?? [];
+if (is_string($disabledServices)) $disabledServices = json_decode($disabledServices, true) ?: [];
+
 $vtuServices = [
-    ['icon' => 'phone', 'label' => 'Airtime', 'path' => '/airtime', 'color' => 'text-blue-500', 'bg' => 'bg-blue-50'],
-    ['icon' => 'wifi', 'label' => 'Data', 'path' => '/data', 'color' => 'text-orange-500', 'bg' => 'bg-orange-50'],
-    ['icon' => 'message-circle', 'label' => 'Bulk SMS', 'path' => '/sms', 'color' => 'text-emerald-500', 'bg' => 'bg-emerald-50'],
-    ['icon' => 'tv', 'label' => 'Cable TV', 'path' => '/cable', 'color' => 'text-red-500', 'bg' => 'bg-red-50'],
-    ['icon' => 'zap', 'label' => 'Electricity', 'path' => '/electric', 'color' => 'text-yellow-500', 'bg' => 'bg-yellow-50'],
-    ['icon' => 'shield-check', 'label' => 'Exam PIN', 'path' => '/exam', 'color' => 'text-purple-500', 'bg' => 'bg-purple-50'],
-    ['icon' => 'trending-up', 'label' => 'Betting', 'path' => '/betting', 'color' => 'text-green-500', 'bg' => 'bg-green-50'],
+    ['id' => 'airtime', 'icon' => 'phone', 'label' => 'Airtime', 'path' => '/airtime', 'color' => 'text-blue-500', 'bg' => 'bg-blue-50'],
+    ['id' => 'data', 'icon' => 'wifi', 'label' => 'Data', 'path' => '/data', 'color' => 'text-orange-500', 'bg' => 'bg-orange-50'],
+    ['id' => 'sms', 'icon' => 'message-circle', 'label' => 'Bulk SMS', 'path' => '/sms', 'color' => 'text-emerald-500', 'bg' => 'bg-emerald-50'],
+    ['id' => 'cable', 'icon' => 'tv', 'label' => 'Cable TV', 'path' => '/cable', 'color' => 'text-red-500', 'bg' => 'bg-red-50'],
+    ['id' => 'electric', 'icon' => 'zap', 'label' => 'Electricity', 'path' => '/electric', 'color' => 'text-yellow-500', 'bg' => 'bg-yellow-50'],
+    ['id' => 'exam', 'icon' => 'shield-check', 'label' => 'Exam PIN', 'path' => '/exam', 'color' => 'text-purple-500', 'bg' => 'bg-purple-50'],
+    ['id' => 'betting', 'icon' => 'trending-up', 'label' => 'Betting', 'path' => '/betting', 'color' => 'text-green-500', 'bg' => 'bg-green-50'],
 ];
+
+$vtuServices = array_filter($vtuServices, function($s) use ($disabledServices) {
+    return !in_array($s['id'], $disabledServices);
+});
 ?>
 
 <div class="mx-auto bg-gray-50 min-h-screen pb-24 relative">
