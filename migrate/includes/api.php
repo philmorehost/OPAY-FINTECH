@@ -109,12 +109,12 @@ function purchaseAirtime($pdo, $network, $amount, $phone) {
     switch ($provider) {
         case 'datagifting':
             $apiKey = $creds['apiKey'] ?? '';
-            $res = callApi("https://v6.datagifting.com.ng/web/api/airtime.php?api_key=$apiKey", 'POST', [
+            $res = callApi("https://v6.datagifting.com.ng/web/api/airtime.php?api_key=$apiKey", 'POST', http_build_query([
                 'api_key' => $apiKey,
                 'network' => $netCode,
                 'amount' => $amount,
                 'phone_number' => $phone
-            ]);
+            ]), ['Content-Type: application/x-www-form-urlencoded']);
             if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['desc'] ?? $res['response_desc'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
             return ['status' => 'failed', 'message' => $res['desc'] ?? $res['msg'] ?? 'Provider Error'];
         case 'nellobyte':
@@ -292,21 +292,36 @@ function purchaseData($pdo, $network, $planId, $phone) {
     $netCode = getNetworkCode($provider, $network);
     switch ($provider) {
         case 'datagifting':
-            // Fetch plan details to get type and quantity as requested in prompt
+            // Fetch plan details
             $stmt = $pdo->prepare("SELECT * FROM data_plans WHERE plan_id = ? OR id = ? LIMIT 1");
             $stmt->execute([$planId, $planId]);
             $p = $stmt->fetch();
-            $type = $p ? $p['type'] : 'sme';
-            $qty = $p ? $p['data_size'] : '1gb';
+
+            // Normalize Type: sme -> sme-data, gifting -> gifting-data
+            $type = $p ? strtolower($p['type']) : 'sme';
+            if ($type === 'databundle') $type = 'gifting'; // fallback
+            if (!empty($type) && strpos($type, '-data') === false) {
+                $type .= '-data';
+            }
+
+            // Normalize Quantity: e.g. 1gb, 500mb
+            $qty = $p ? strtolower(str_replace(' ', '', $p['plan_id'])) : '1gb';
+            // If plan_id is just a numeric ID, try extracting from data_size
+            if (is_numeric($qty) && $p) {
+                $cleanSize = strtolower(str_replace(' ', '', $p['data_size']));
+                if (preg_match('/(\d+(gb|mb|tb))/', $cleanSize, $matches)) {
+                    $qty = $matches[1];
+                }
+            }
 
             $apiKey = $creds['apiKey'] ?? '';
-            $res = callApi("https://v6.datagifting.com.ng/web/api/data.php?api_key=$apiKey", 'POST', [
+            $res = callApi("https://v6.datagifting.com.ng/web/api/data.php?api_key=$apiKey", 'POST', http_build_query([
                 'api_key' => $apiKey,
                 'network' => $netCode,
                 'phone_number' => $phone,
                 'type' => $type,
                 'quantity' => $qty
-            ]);
+            ]), ['Content-Type: application/x-www-form-urlencoded']);
             if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['desc'] ?? $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
             return ['status' => 'failed', 'message' => $res['desc'] ?? $res['msg'] ?? 'Provider Error'];
         case 'nellobyte':

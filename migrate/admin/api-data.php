@@ -124,11 +124,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             foreach ($dg_map as $db_net => $api_key) {
                 if (isset($res['MOBILE_NETWORK'][$api_key]) && is_array($res['MOBILE_NETWORK'][$api_key])) {
                     foreach ($res['MOBILE_NETWORK'][$api_key] as $p) {
-                        $stmt = $pdo->prepare("INSERT INTO data_plans (network, plan_id, data_size, type, api_price, user_price, gateway) VALUES (?, ?, ?, ?, ?, ?, 'datagifting') ON DUPLICATE KEY UPDATE data_size = VALUES(data_size), api_price = VALUES(api_price), gateway = VALUES(gateway)");
+                        $rawName = $p['PRODUCT_NAME'] ?? '';
+                        $size = $rawName;
+                        if (preg_match('/(\d+(gb|mb|tb))/', strtolower(str_replace(' ', '', $rawName)), $m)) {
+                            $size = strtoupper($m[1]);
+                        }
+
+                        $stmt = $pdo->prepare("INSERT INTO data_plans (network, plan_id, name, data_size, type, api_price, user_price, gateway) VALUES (?, ?, ?, ?, ?, ?, ?, 'datagifting') ON DUPLICATE KEY UPDATE name = VALUES(name), data_size = VALUES(data_size), api_price = VALUES(api_price), type = VALUES(type), gateway = VALUES(gateway)");
                         $stmt->execute([
                             $db_net,
                             $p['PRODUCT_CODE'] ?? '',
-                            $p['PRODUCT_NAME'] ?? '',
+                            $rawName,
+                            $size,
                             $p['DATA_TYPE_CODE'] ?? 'DataBundle',
                             (float)($p['AMOUNT'] ?? 0),
                             (float)($p['AMOUNT'] ?? 0)
