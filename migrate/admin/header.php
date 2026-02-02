@@ -91,13 +91,13 @@
                         ['label' => 'Utilities API', 'path' => '/admin/api-utilities'],
                         ['label' => 'Financial API', 'path' => '/admin/api-financial'],
                         ['label' => 'Others API', 'path' => '/admin/api-others'],
+                        ['label' => 'Manage Services', 'path' => '/admin/services'],
                     ]
                 ],
                 ['label' => 'Sales Reports', 'icon' => 'bar-chart-3', 'path' => '/admin/reports'],
                 ['label' => 'Offers', 'icon' => 'gift', 'path' => '/admin/offers'],
                 ['label' => 'Login Security', 'icon' => 'shield-lock', 'path' => '/admin/login-security'],
                 ['label' => 'Brute Force', 'icon' => 'shield-alert', 'path' => '/admin/brute-force'],
-                ['label' => 'Manage Services', 'icon' => 'layers', 'path' => '/admin/services'],
                 ['label' => 'Settings', 'icon' => 'settings', 'path' => '/admin/settings'],
             ];
             foreach ($adminMenu as $item):

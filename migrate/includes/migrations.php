@@ -52,6 +52,22 @@ try {
     addColumnIfNotExists($pdo, 'settings', 'adminSecuritySettings', "TEXT");
     addColumnIfNotExists($pdo, 'settings', 'disabledServices', "TEXT");
 
+    // Crypto Deposit Tracking
+    $pdo->exec("CREATE TABLE IF NOT EXISTS crypto_deposits (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        userId VARCHAR(50) NOT NULL,
+        coin VARCHAR(20) NOT NULL,
+        network VARCHAR(50) NOT NULL,
+        address VARCHAR(255) NOT NULL,
+        txid VARCHAR(255) UNIQUE,
+        amount DECIMAL(20, 8) DEFAULT 0,
+        status ENUM('pending', 'completed', 'credited') DEFAULT 'pending',
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        creditedAt DATETIME,
+        INDEX (userId),
+        INDEX (address)
+    )");
+
     // API Hub Restructured Settings
     addColumnIfNotExists($pdo, 'settings', 'airtimeSettings', "TEXT");
     addColumnIfNotExists($pdo, 'settings', 'dataProducts', "TEXT");

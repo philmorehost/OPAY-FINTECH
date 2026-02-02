@@ -523,6 +523,20 @@ function bybitWithdraw($pdo, $coin, $amount, $address, $tag = '') {
 }
 }
 
+if (!function_exists('bybitGetDepositAddress')) {
+function bybitGetDepositAddress($pdo, $coin, $chainType = 'TRC20') {
+    return callBybit($pdo, '/v5/asset/deposit/query-address', 'GET', ['coin' => strtoupper($coin), 'chainType' => $chainType]);
+}
+}
+
+if (!function_exists('bybitGetDepositRecords')) {
+function bybitGetDepositRecords($pdo, $coin = '') {
+    $params = [];
+    if ($coin) $params['coin'] = strtoupper($coin);
+    return callBybit($pdo, '/v5/asset/deposit/query-record', 'GET', $params);
+}
+}
+
 /**
  * Unified Crypto Hub Helpers
  * These respect the 'primaryCrypto' setting
@@ -584,6 +598,32 @@ function mexcWithdraw($pdo, $coin, $amount, $address, $tag = '', $network = '') 
     if ($tag) $params['memo'] = $tag;
     if ($network) $params['network'] = $network;
     return callMexc($pdo, '/api/v3/capital/withdraw/apply', 'POST', $params);
+}
+}
+
+if (!function_exists('mexcGetDepositAddress')) {
+function mexcGetDepositAddress($pdo, $coin, $network = 'TRX') {
+    return callMexc($pdo, '/api/v3/capital/deposit/address', 'GET', ['coin' => strtoupper($coin), 'network' => $network]);
+}
+}
+
+if (!function_exists('mexcGetDepositRecords')) {
+function mexcGetDepositRecords($pdo, $coin = '') {
+    $params = [];
+    if ($coin) $params['coin'] = strtoupper($coin);
+    return callMexc($pdo, '/api/v3/capital/deposit/hisrec', 'GET', $params);
+}
+}
+
+if (!function_exists('cryptoGetDepositAddress')) {
+function cryptoGetDepositAddress($pdo, $coin, $network = 'TRC20') {
+    $settings = fetchSettings($pdo);
+    $provider = $settings['financialSettings']['primaryCrypto'] ?? 'bybit';
+    if ($provider === 'mexc') {
+        $mNet = ($network === 'TRC20') ? 'TRX' : (($network === 'ERC20') ? 'ETH' : $network);
+        return mexcGetDepositAddress($pdo, $coin, $mNet);
+    }
+    return bybitGetDepositAddress($pdo, $coin, $network);
 }
 }
 

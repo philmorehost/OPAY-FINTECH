@@ -45,6 +45,25 @@ if (isset($_GET['ajax'])) {
         echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
         exit;
     }
+    if ($_GET['ajax'] === 'getCryptoAddress') {
+        $coin = sanitize($_GET['coin'] ?? 'USDT');
+        $network = sanitize($_GET['network'] ?? 'TRC20');
+        $res = cryptoGetDepositAddress($pdo, $coin, $network);
+
+        $addr = null;
+        if (is_array($res)) {
+            $addr = $res['result']['list'][0]['address'] ?? $res['address'] ?? null;
+        }
+
+        if ($addr) {
+            // Log the intent so cron can match it
+            $stmt = $pdo->prepare("INSERT IGNORE INTO crypto_deposits (userId, coin, network, address, status) VALUES (?, ?, ?, ?, 'pending')");
+            $stmt->execute([$currentUser['id'], $coin, $network, $addr]);
+        }
+
+        echo json_encode($res);
+        exit;
+    }
 }
 
 // Fetch Wallets/Balances from JuicyWay
@@ -256,17 +275,76 @@ require_once __DIR__ . '/includes/header.php';
                         <h2 class="text-2xl font-black uppercase tracking-tighter">Fund Wallet</h2>
                         <button onclick="hideSections()" class="text-gray-400 hover:text-gray-900"><i data-lucide="x" class="w-6 h-6"></i></button>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <a href="/add-money" class="p-8 bg-gray-50 rounded-[32px] border border-gray-100 hover:border-billpay-green transition-all group">
-                            <div class="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4 group-hover:bg-billpay-green group-hover:text-white transition-all"><i data-lucide="credit-card" class="w-6 h-6"></i></div>
-                            <div class="text-[10px] font-black uppercase text-gray-400 mb-1">Online Payment</div>
-                            <div class="text-sm font-black text-gray-900 uppercase">Pay via Paystack</div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <a href="/add-money" class="p-6 bg-gray-50 rounded-[32px] border border-gray-100 hover:border-billpay-green transition-all group">
+                            <div class="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center mb-4 group-hover:bg-billpay-green group-hover:text-white transition-all"><i data-lucide="credit-card" class="w-5 h-5"></i></div>
+                            <div class="text-[8px] font-black uppercase text-gray-400 mb-1">Online Payment</div>
+                            <div class="text-xs font-black text-gray-900 uppercase">Pay via Paystack</div>
                         </a>
-                        <a href="/add-money?method=manual" class="p-8 bg-gray-50 rounded-[32px] border border-gray-100 hover:border-billpay-green transition-all group">
-                            <div class="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4 group-hover:bg-billpay-green group-hover:text-white transition-all"><i data-lucide="building-2" class="w-6 h-6"></i></div>
-                            <div class="text-[10px] font-black uppercase text-gray-400 mb-1">Manual Funding</div>
-                            <div class="text-sm font-black text-gray-900 uppercase">Direct Bank Transfer</div>
+                        <a href="/add-money?method=manual" class="p-6 bg-gray-50 rounded-[32px] border border-gray-100 hover:border-billpay-green transition-all group">
+                            <div class="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center mb-4 group-hover:bg-billpay-green group-hover:text-white transition-all"><i data-lucide="building-2" class="w-5 h-5"></i></div>
+                            <div class="text-[8px] font-black uppercase text-gray-400 mb-1">Manual Funding</div>
+                            <div class="text-xs font-black text-gray-900 uppercase">Bank Transfer</div>
                         </a>
+                        <button onclick="showCryptoDeposit()" class="p-6 bg-gray-50 rounded-[32px] border border-gray-100 hover:border-billpay-green transition-all group text-left">
+                            <div class="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center mb-4 group-hover:bg-orange-500 group-hover:text-white transition-all"><i data-lucide="bitcoin" class="w-5 h-5"></i></div>
+                            <div class="text-[8px] font-black uppercase text-gray-400 mb-1">Crypto Asset</div>
+                            <div class="text-xs font-black text-gray-900 uppercase">USDT / USDC Deposit</div>
+                        </button>
+                    </div>
+
+                    <!-- Crypto Deposit Modal-like Sub-section -->
+                    <div id="cryptoDepositArea" class="mt-10 hidden space-y-6 animate-slide-up bg-gray-50 p-8 rounded-[40px] border border-gray-100">
+                        <div class="flex items-center justify-between">
+                            <h4 class="text-xs font-black uppercase tracking-widest text-orange-500">Crypto Deposit Engine</h4>
+                            <button onclick="document.getElementById('cryptoDepositArea').classList.add('hidden')" class="text-gray-400"><i data-lucide="x" class="w-4 h-4"></i></button>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="text-[8px] font-black text-gray-400 uppercase ml-1">Asset</label>
+                                <select id="depAsset" onchange="fetchCryptoAddress()" class="w-full p-3 bg-white rounded-xl font-bold text-xs outline-none">
+                                    <option value="USDT">Tether (USDT)</option>
+                                    <option value="USDC">USD Coin (USDC)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[8px] font-black text-gray-400 uppercase ml-1">Network</label>
+                                <select id="depNetwork" onchange="fetchCryptoAddress()" class="w-full p-3 bg-white rounded-xl font-bold text-xs outline-none">
+                                    <option value="TRC20">Tron (TRC20)</option>
+                                    <option value="ERC20">Ethereum (ERC20)</option>
+                                    <option value="BSC">Binance (BEP20)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div id="addrLoader" class="hidden text-center py-6">
+                            <div class="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                            <p class="text-[10px] font-black uppercase text-gray-400 mt-2">Generating Address...</p>
+                        </div>
+
+                        <div id="addrResult" class="hidden space-y-6">
+                            <div class="flex flex-col items-center gap-4">
+                                <div id="depQr" class="p-4 bg-white rounded-3xl shadow-inner border border-gray-200"></div>
+                                <div class="w-full space-y-2">
+                                    <label class="text-[8px] font-black text-gray-400 uppercase text-center block">Wallet Address</label>
+                                    <div class="flex items-center gap-2 p-4 bg-white rounded-2xl border border-gray-200">
+                                        <input type="text" id="depAddr" readonly class="flex-1 bg-transparent font-mono text-[10px] text-gray-900 border-none outline-none">
+                                        <button onclick="copyToClipboard('depAddr')" class="text-gray-400 hover:text-orange-500"><i data-lucide="copy" class="w-4 h-4"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="p-4 bg-orange-50 rounded-2xl border border-orange-100">
+                                <p class="text-[9px] font-bold text-orange-700 leading-relaxed uppercase">Important: Only send <span id="depNoteAsset">USDT</span> via <span id="depNoteNet">TRC20</span> to this address. Coins will reflect after 3 network confirmations.</p>
+                            </div>
+                            <div class="pt-4 border-t border-gray-200">
+                                <p class="text-[8px] font-black text-gray-400 uppercase mb-3 text-center">Already sent? Verify instantly</p>
+                                <div class="flex gap-2">
+                                    <input type="text" id="depTxid" placeholder="Paste Transaction ID (TXID)" class="flex-1 p-3 bg-white rounded-xl text-[10px] font-bold outline-none border border-gray-200 focus:border-orange-500">
+                                    <button onclick="verifyCryptoDeposit()" class="px-4 py-3 bg-gray-900 text-white rounded-xl text-[8px] font-black uppercase whitespace-nowrap hover:bg-orange-600 transition-all">Verify</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -648,7 +726,7 @@ require_once __DIR__ . '/includes/header.php';
     }
 
     function hideSections() {
-        ['transfer', 'convert', 'request'].forEach(s => document.getElementById(s + 'Section').classList.add('hidden'));
+        ['transfer', 'convert', 'request', 'deposit'].forEach(s => document.getElementById(s + 'Section').classList.add('hidden'));
         document.getElementById('mainTabs').classList.remove('hidden');
     }
 
@@ -737,6 +815,72 @@ require_once __DIR__ . '/includes/header.php';
             const countryMap = { 'NGN': 'NG', 'USD': 'US', 'GBP': 'GB', 'EUR': 'EU', 'CAD': 'CA' };
             if (countryMap[curr] && isNgn) fetchBanks(countryMap[curr]);
         }
+    }
+
+    function showCryptoDeposit() {
+        document.getElementById('cryptoDepositArea').classList.remove('hidden');
+        fetchCryptoAddress();
+    }
+
+    async function fetchCryptoAddress() {
+        const coin = document.getElementById('depAsset').value;
+        const net = document.getElementById('depNetwork').value;
+        const loader = document.getElementById('addrLoader');
+        const result = document.getElementById('addrResult');
+
+        loader.classList.remove('hidden');
+        result.classList.add('hidden');
+
+        try {
+            const r = await fetch(`?ajax=getCryptoAddress&coin=${coin}&network=${net}`);
+            const data = await r.json();
+
+            loader.classList.add('hidden');
+            if ((data.retCode === 0 || data.status === 'success' || data.result) && (data.result?.list?.[0]?.address || data.address)) {
+                const addr = data.result?.list?.[0]?.address || data.address;
+                document.getElementById('depAddr').value = addr;
+                document.getElementById('depNoteAsset').innerText = coin;
+                document.getElementById('depNoteNet').innerText = net;
+                document.getElementById('depQr').innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${addr}" class="w-32 h-32">`;
+                result.classList.remove('hidden');
+            } else {
+                alert('Failed to generate address. Please ensure API is configured correctly.');
+            }
+        } catch (e) {
+            loader.classList.add('hidden');
+            alert('Connection error.');
+        }
+        lucide.createIcons();
+    }
+
+    async function verifyCryptoDeposit() {
+        const txid = document.getElementById('depTxid').value;
+        if (!txid) return alert('Please enter your TXID.');
+
+        const btn = event.currentTarget;
+        btn.disabled = true;
+        btn.innerText = 'Verifying...';
+
+        try {
+            // We use the same cron script but with txid and force params
+            const r = await fetch(`/cron-crypto-deposits.php?force=1&txid=${txid}`);
+            // This is a crude way since cron script outputs text.
+            // Better to have a dedicated endpoint, but this works for now.
+            alert('Verification request sent. If valid, your balance will update shortly.');
+            btn.disabled = false;
+            btn.innerText = 'Verify';
+        } catch (e) {
+            btn.disabled = false;
+            btn.innerText = 'Verify';
+            alert('Error connecting to verification engine.');
+        }
+    }
+
+    function copyToClipboard(id) {
+        const input = document.getElementById(id);
+        input.select();
+        document.execCommand('copy');
+        alert('Copied to clipboard!');
     }
 
     function onUsdTypeChange() {
