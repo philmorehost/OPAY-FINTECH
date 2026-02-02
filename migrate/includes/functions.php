@@ -34,9 +34,9 @@ function isAdmin() {
 
 if (!function_exists('checkKycRestriction')) {
 function checkKycRestriction($settings, $currentUser) {
-    if (!is_array($settings) || !isset($settings['isKycEnforced']) || !$settings['isKycEnforced']) return;
-    if (!is_array($currentUser) || ($currentUser['kycStatus'] ?? 'none') !== 'verified') {
-        header('Location: /kyc' . (($currentUser['kycStatus'] ?? 'none') === 'rejected' ? '?error=restricted' : ''));
+    if (!isset($settings['isKycEnforced']) || !$settings['isKycEnforced']) return;
+    if (($currentUser['kycStatus'] ?? 'none') !== 'verified') {
+        header('Location: /kyc' . ($currentUser['kycStatus'] === 'rejected' ? '?error=restricted' : ''));
         exit;
     }
 }
@@ -218,50 +218,10 @@ function verifyFundPassword($pdo, $userId, $password) {
 }
 
 if (!function_exists('logTransaction')) {
-function logTransaction($pdo, $userId, $type, $amount, $status, $details, $recipient, $provider = null, $token = null, $apiAmount = 0, $profit = 0, $providerRef = null) {
+function logTransaction($pdo, $userId, $type, $amount, $status, $details, $recipient, $provider = null, $token = null, $apiAmount = 0, $profit = 0) {
     $id = 'TX-' . strtoupper(bin2hex(random_bytes(4)));
-    $stmt = $pdo->prepare("INSERT INTO transactions (id, userId, type, amount, status, details, recipient, provider, token, apiAmount, profit, provider_ref) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    return $stmt->execute([$id, $userId, $type, $amount, $status, $details, $recipient, $provider, $token, $apiAmount, $profit, $providerRef]);
-}
-}
-
-if (!function_exists('changeTransactionStatus')) {
-function changeTransactionStatus($pdo, $txId, $newStatus) {
-    $stmt = $pdo->prepare("SELECT * FROM transactions WHERE id = ?");
-    $stmt->execute([$txId]);
-    $tx = $stmt->fetch();
-    if (!$tx) return false;
-
-    if ($tx['status'] === $newStatus) return true;
-
-    $pdo->beginTransaction();
-    try {
-        // failed -> successful: DEBIT user (if not already debited)
-        if ($tx['status'] === 'failed' && $newStatus === 'successful') {
-             // When it first failed, it might have been refunded.
-             // If 'refunded' flag exists and is 1, we re-debit.
-             if ($tx['refunded']) {
-                updateWallet($pdo, $tx['userId'], $tx['amount'], 'debit');
-                $pdo->prepare("UPDATE transactions SET refunded = 0 WHERE id = ?")->execute([$txId]);
-             }
-        }
-        // any active state -> failed: REFUND user (if not already refunded)
-        elseif (($tx['status'] === 'successful' || $tx['status'] === 'pending') && $newStatus === 'failed') {
-            if (!$tx['refunded']) {
-                updateWallet($pdo, $tx['userId'], $tx['amount'], 'credit');
-                $pdo->prepare("UPDATE transactions SET refunded = 1 WHERE id = ?")->execute([$txId]);
-            }
-        }
-
-        $stmt = $pdo->prepare("UPDATE transactions SET status = ? WHERE id = ?");
-        $stmt->execute([$newStatus, $txId]);
-
-        $pdo->commit();
-        return true;
-    } catch (Exception $e) {
-        $pdo->rollBack();
-        return false;
-    }
+    $stmt = $pdo->prepare("INSERT INTO transactions (id, userId, type, amount, status, details, recipient, provider, token, apiAmount, profit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    return $stmt->execute([$id, $userId, $type, $amount, $status, $details, $recipient, $provider, $token, $apiAmount, $profit]);
 }
 }
 
@@ -312,5 +272,45 @@ function sendMail($pdo, $to, $subject, $message, $status = 'successful') {
     </body>
     </html>";
     return @mail($to, $subject, $body, $headers);
+}
+}
+
+if (!function_exists('changeTransactionStatus')) {
+function changeTransactionStatus($pdo, $txId, $newStatus) {
+    $stmt = $pdo->prepare("SELECT * FROM transactions WHERE id = ?");
+    $stmt->execute([$txId]);
+    $tx = $stmt->fetch();
+    if (!$tx) return false;
+
+    if ($tx['status'] === $newStatus) return true;
+
+    $pdo->beginTransaction();
+    try {
+        // failed -> successful: DEBIT user (if not already debited)
+        if ($tx['status'] === 'failed' && $newStatus === 'successful') {
+             // When it first failed, it might have been refunded.
+             // If 'refunded' flag exists and is 1, we re-debit.
+             if ($tx['refunded']) {
+                updateWallet($pdo, $tx['userId'], $tx['amount'], 'debit');
+                $pdo->prepare("UPDATE transactions SET refunded = 0 WHERE id = ?")->execute([$txId]);
+             }
+        }
+        // any active state -> failed: REFUND user (if not already refunded)
+        elseif (($tx['status'] === 'successful' || $tx['status'] === 'pending') && $newStatus === 'failed') {
+            if (!$tx['refunded']) {
+                updateWallet($pdo, $tx['userId'], $tx['amount'], 'credit');
+                $pdo->prepare("UPDATE transactions SET refunded = 1 WHERE id = ?")->execute([$txId]);
+            }
+        }
+
+        $stmt = $pdo->prepare("UPDATE transactions SET status = ? WHERE id = ?");
+        $stmt->execute([$newStatus, $txId]);
+
+        $pdo->commit();
+        return true;
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        return false;
+    }
 }
 }

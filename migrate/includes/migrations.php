@@ -199,6 +199,9 @@ try {
     )");
     addColumnIfNotExists($pdo, 'data_plans', 'api_discount', "DECIMAL(5, 2) DEFAULT 0.00");
     addColumnIfNotExists($pdo, 'data_plans', 'user_discount', "DECIMAL(5, 2) DEFAULT 0.00");
+    addColumnIfNotExists($pdo, 'data_plans', 'name', "VARCHAR(100) DEFAULT NULL");
+    addColumnIfNotExists($pdo, 'data_plans', 'type', "VARCHAR(50) DEFAULT 'sme'");
+    addColumnIfNotExists($pdo, 'data_plans', 'gateway', "VARCHAR(50) DEFAULT 'manual'");
     addIndexIfNotExists($pdo, 'data_plans', 'gateway_net_plan', "UNIQUE KEY gateway_net_plan (gateway, network, plan_id)");
 
     // Data cleanup

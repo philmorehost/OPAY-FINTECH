@@ -52,7 +52,27 @@ if (isset($_GET['ajax'])) {
 
         $addr = null;
         if (is_array($res)) {
-            $addr = $res['result']['list'][0]['address'] ?? $res['address'] ?? null;
+            // Bybit V5: result.chains[].addressDeposit
+            if (isset($res['result']['chains'])) {
+                foreach ($res['result']['chains'] as $c) {
+                    if (strtoupper($c['chainType'] ?? '') === strtoupper($network) || strtoupper($c['chain'] ?? '') === strtoupper($network)) {
+                        $addr = $c['addressDeposit'] ?? null;
+                        break;
+                    }
+                }
+                // Fallback to first if network not matched exactly
+                if (!$addr && !empty($res['result']['chains'])) {
+                    $addr = $res['result']['chains'][0]['addressDeposit'] ?? null;
+                }
+            }
+            // MEXC: address
+            elseif (isset($res['address'])) {
+                $addr = $res['address'];
+            }
+            // Other/Legacy: result.list[0].address
+            else {
+                $addr = $res['result']['list'][0]['address'] ?? $res['address'] ?? null;
+            }
         }
 
         if ($addr) {
