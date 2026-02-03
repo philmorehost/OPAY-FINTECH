@@ -211,6 +211,7 @@ require_once __DIR__ . '/header.php';
                     <select name="primary_crypto" class="w-full p-4 bg-white/10 rounded-2xl font-black mt-1 outline-none border border-transparent focus:border-billpay-green text-white">
                         <option value="bybit" <?php echo ($fs['primaryCrypto'] ?? 'bybit') === 'bybit' ? 'selected' : ''; ?> class="text-gray-900">Bybit Exchange</option>
                         <option value="mexc" <?php echo ($fs['primaryCrypto'] ?? '') === 'mexc' ? 'selected' : ''; ?> class="text-gray-900">MEXC Global</option>
+                        <option value="juicyway" <?php echo ($fs['primaryCrypto'] ?? '') === 'juicyway' ? 'selected' : ''; ?> class="text-gray-900">JuicyWay (Elite)</option>
                     </select>
                 </div>
                 <p class="text-[9px] text-gray-500 mt-4 uppercase font-bold leading-relaxed">This selection determines which API is used for the 'Crypto Hub' balances, trading, and withdrawals.</p>

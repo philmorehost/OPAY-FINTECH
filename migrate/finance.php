@@ -79,6 +79,11 @@ if (isset($_GET['ajax'])) {
             // Log the intent so cron can match it
             $stmt = $pdo->prepare("INSERT IGNORE INTO crypto_deposits (userId, coin, network, address, status) VALUES (?, ?, ?, ?, 'pending')");
             $stmt->execute([$currentUser['id'], $coin, $network, $addr]);
+
+            // Normalize response for JS
+            if (!is_array($res)) $res = [];
+            $res['status'] = 'success';
+            $res['address'] = $addr;
         }
 
         echo json_encode($res);
@@ -922,14 +927,24 @@ require_once __DIR__ . '/includes/header.php';
     }
 
     function fetchBanks(country) {
+        const sel = document.getElementById('bankSelect');
+        sel.innerHTML = '<option value="">Loading Banks...</option>';
         fetch('?ajax=getBanks&country=' + country)
             .then(r => r.json())
             .then(res => {
-                const sel = document.getElementById('bankSelect');
                 sel.innerHTML = '<option value="">Select Bank</option>';
-                if (res.status === 'success' || res.status === true) {
-                    res.data.forEach(b => sel.innerHTML += `<option value="${b.code}">${b.name}</option>`);
+                if ((res.status === 'success' || res.status === true) && Array.isArray(res.data)) {
+                    res.data.forEach(b => {
+                        if (b.code && b.name) sel.innerHTML += `<option value="${b.code}">${b.name}</option>`;
+                    });
+                } else {
+                    sel.innerHTML = '<option value="">No banks available</option>';
+                    console.error('Bank Fetch Failed:', res);
                 }
+            })
+            .catch(err => {
+                sel.innerHTML = '<option value="">Error loading banks</option>';
+                console.error('Bank Fetch Error:', err);
             });
     }
 

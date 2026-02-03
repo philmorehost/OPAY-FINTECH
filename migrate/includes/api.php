@@ -545,6 +545,7 @@ if (!function_exists('cryptoGetBalances')) {
 function cryptoGetBalances($pdo) {
     $settings = fetchSettings($pdo);
     $provider = $settings['financialSettings']['primaryCrypto'] ?? 'bybit';
+    if ($provider === 'juicyway') return juicywayGetWallets($pdo);
     if ($provider === 'mexc') return mexcGetBalances($pdo);
     return bybitGetBalances($pdo);
 }
@@ -554,6 +555,18 @@ if (!function_exists('cryptoWithdraw')) {
 function cryptoWithdraw($pdo, $coin, $amount, $address, $tag = '') {
     $settings = fetchSettings($pdo);
     $provider = $settings['financialSettings']['primaryCrypto'] ?? 'bybit';
+    if ($provider === 'juicyway') {
+        return juicywayInitiatePayout($pdo, [
+            'amount' => $amount,
+            'currency' => strtoupper($coin),
+            'method' => 'crypto',
+            'destination' => [
+                'address' => $address,
+                'network' => 'TRC20', // Default or derived from coin
+                'memo' => $tag
+            ]
+        ]);
+    }
     if ($provider === 'mexc') return mexcWithdraw($pdo, $coin, $amount, $address, $tag);
     return bybitWithdraw($pdo, $coin, $amount, $address, $tag);
 }
@@ -615,10 +628,29 @@ function mexcGetDepositRecords($pdo, $coin = '') {
 }
 }
 
+if (!function_exists('juicywayGetCryptoAddress')) {
+function juicywayGetCryptoAddress($pdo, $coin, $network = 'TRC20') {
+    // First try finding an address in existing wallets
+    $wallets = juicywayGetWallets($pdo);
+    if (isset($wallets['data'])) {
+        foreach ($wallets['data'] as $w) {
+            if (strtoupper($w['currency'] ?? '') === strtoupper($coin) && !empty($w['address'])) {
+                return ['status' => 'success', 'address' => $w['address']];
+            }
+        }
+    }
+    // Fallback: request specific address (Some JuicyWay implementations support this)
+    $res = callJuicyWay($pdo, "wallets/address?currency=" . strtoupper($coin) . "&network=" . strtoupper($network), 'GET');
+    if (isset($res['data']['address'])) return ['status' => 'success', 'address' => $res['data']['address']];
+    return $res;
+}
+}
+
 if (!function_exists('cryptoGetDepositAddress')) {
 function cryptoGetDepositAddress($pdo, $coin, $network = 'TRC20') {
     $settings = fetchSettings($pdo);
     $provider = $settings['financialSettings']['primaryCrypto'] ?? 'bybit';
+    if ($provider === 'juicyway') return juicywayGetCryptoAddress($pdo, $coin, $network);
     if ($provider === 'mexc') {
         $mNet = ($network === 'TRC20') ? 'TRX' : (($network === 'ERC20') ? 'ETH' : $network);
         return mexcGetDepositAddress($pdo, $coin, $mNet);
