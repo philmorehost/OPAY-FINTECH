@@ -13,10 +13,9 @@ if (isset($_GET['ajax'])) {
     if ($_GET['ajax'] === 'getBanks') {
         $country = sanitize($_GET['country'] ?? 'NG');
         $res = juicywayGetBanks($pdo, $country);
-        // Ensure consistent response format for JS
-        if (isset($res['data'])) echo json_encode($res);
-        elseif (is_array($res)) echo json_encode(['status' => 'success', 'data' => $res]);
-        else echo json_encode(['status' => 'error', 'message' => 'Failed to fetch banks']);
+        if (isset($res['data'])) echo json_encode(['status' => 'success', 'data' => $res['data']]);
+        elseif (is_array($res) && !isset($res['status'])) echo json_encode(['status' => 'success', 'data' => $res]);
+        else echo json_encode($res);
         exit;
     }
     if ($_GET['ajax'] === 'getQuote') {
@@ -951,16 +950,27 @@ require_once __DIR__ . '/includes/header.php';
                 console.log('Bank Fetch Data:', res);
                 sel.innerHTML = '<option value="">Select Bank</option>';
                 let banks = [];
-                if ((res.status === 'success' || res.status === true) && Array.isArray(res.data) && res.data.length > 0) {
+                if ((res.status === 'success' || res.status === true) && Array.isArray(res.data)) {
                     banks = res.data;
-                } else {
-                    console.warn('Using fallback banks for', country);
-                    if (country === 'NG') banks = fallbackBanks;
+                } else if (Array.isArray(res)) {
+                    banks = res;
+                } else if (res.banks && Array.isArray(res.banks)) {
+                    banks = res.banks;
                 }
 
-                banks.forEach(b => {
-                    if (b.code && b.name) sel.innerHTML += `<option value="${b.code}">${b.name}</option>`;
-                });
+                if (banks.length > 0) {
+                    banks.forEach(b => {
+                        const code = b.code || b.slug || b.id;
+                        if (code && b.name) sel.innerHTML += `<option value="${code}">${b.name}</option>`;
+                    });
+                } else {
+                    console.warn('Using fallback banks for', country);
+                    if (country === 'NG') {
+                        fallbackBanks.forEach(b => {
+                            sel.innerHTML += `<option value="${b.code}">${b.name}</option>`;
+                        });
+                    }
+                }
             })
             .catch(err => {
                 console.error('Bank Fetch Error:', err);

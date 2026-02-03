@@ -635,24 +635,71 @@ function mexcGetDepositRecords($pdo, $coin = '') {
 
 if (!function_exists('juicywayGetCryptoAddress')) {
 function juicywayGetCryptoAddress($pdo, $coin, $network = 'TRC20') {
-    // First try finding an address in existing wallets
+    $user = $_SESSION['user'] ?? null;
+    if (!$user) return ['status' => 'error', 'message' => 'User not in session'];
+
+    // 1. Fetch all wallets
     $wallets = juicywayGetWallets($pdo);
-    if (isset($wallets['data'])) {
+    $targetWalletId = null;
+    if (isset($wallets['data']) && is_array($wallets['data'])) {
         foreach ($wallets['data'] as $w) {
-            if (strtoupper($w['currency'] ?? '') === strtoupper($coin) && !empty($w['address'])) {
-                return ['status' => 'success', 'address' => $w['address']];
+            if (strtoupper($w['currency'] ?? '') === strtoupper($coin)) {
+                if (!empty($w['address'])) return ['status' => 'success', 'address' => $w['address']];
+                if (!empty($w['payment_methods'])) {
+                    foreach ($w['payment_methods'] as $pm) {
+                        if ($pm['type'] === 'crypto_address' && !empty($pm['address'])) {
+                            return ['status' => 'success', 'address' => $pm['address']];
+                        }
+                    }
+                }
+                $targetWalletId = $w['id'];
+                break;
             }
         }
     }
-    // Fallback 1: wallets/address
-    $res = callJuicyWay($pdo, "wallets/address?currency=" . strtoupper($coin) . "&network=" . strtoupper($network), 'GET');
-    if (isset($res['data']['address'])) return ['status' => 'success', 'address' => $res['data']['address']];
 
-    // Fallback 2: wallets/deposit-address
-    $res = callJuicyWay($pdo, "wallets/deposit-address?currency=" . strtoupper($coin) . "&network=" . strtoupper($network), 'GET');
-    if (isset($res['data']['address'])) return ['status' => 'success', 'address' => $res['data']['address']];
+    // 2. If no wallet, find or create customer
+    if (!$targetWalletId) {
+        $customers = callJuicyWay($pdo, 'customers', 'GET');
+        $customerId = null;
+        if (isset($customers['data']) && is_array($customers['data'])) {
+            foreach ($customers['data'] as $c) {
+                if (strtolower($c['email'] ?? '') === strtolower($user['email'])) {
+                    $customerId = $c['id'];
+                    break;
+                }
+            }
+        }
+        if (!$customerId) {
+            $cRes = callJuicyWay($pdo, 'customers', 'POST', [
+                'first_name' => explode(' ', $user['name'])[0],
+                'last_name' => explode(' ', $user['name'])[1] ?? 'User',
+                'email' => $user['email'],
+                'phone' => $user['phone'] ?? ''
+            ]);
+            $customerId = $cRes['data']['id'] ?? null;
+        }
+        if ($customerId) {
+            $wRes = callJuicyWay($pdo, 'wallets', 'POST', ['customer_id' => $customerId, 'currency' => strtoupper($coin)]);
+            $targetWalletId = $wRes['data']['id'] ?? null;
+        }
+    }
 
-    return $res;
+    // 3. Set payment method and retrieve
+    if ($targetWalletId) {
+        callJuicyWay($pdo, "wallets/$targetWalletId/payment-method", 'POST', ['type' => 'crypto_address']);
+        $finalRes = callJuicyWay($pdo, "wallets/$targetWalletId", 'GET');
+        if (isset($finalRes['data']['payment_methods'])) {
+             foreach ($finalRes['data']['payment_methods'] as $pm) {
+                if ($pm['type'] === 'crypto_address' && !empty($pm['address'])) {
+                    return ['status' => 'success', 'address' => $pm['address']];
+                }
+            }
+        }
+        if (!empty($finalRes['data']['address'])) return ['status' => 'success', 'address' => $finalRes['data']['address']];
+    }
+
+    return ['status' => 'error', 'message' => 'Failed to generate crypto address through full JuicyWay flow.'];
 }
 }
 
@@ -678,16 +725,22 @@ function callJuicyWay($pdo, $endpoint, $method = 'POST', $data = []) {
     $creds = $settings['financialSettings']['juicyway'] ?? [];
     $apiKey = $creds['apiKey'] ?? '';
     $businessId = $creds['businessId'] ?? '';
-    $baseUrl = !empty($creds['liveMode']) ? "https://api.spendjuice.com" : "https://api-sandbox.spendjuice.com";
+    $baseUrl = !empty($creds['liveMode']) ? "https://api.spendjuice.com/v1" : "https://api-sandbox.spendjuice.com/v1";
 
-    $authHeader = (strpos($apiKey, 'Bearer') === 0) ? $apiKey : "Bearer " . $apiKey;
+    $authHeader = (strpos($apiKey, 'Bearer') === 0 || empty($apiKey)) ? $apiKey : "Bearer " . $apiKey;
     $headers = [
         "Authorization: " . $authHeader,
-        "Content-Type: application/json"
+        "Content-Type: application/json",
+        "Accept: application/json"
     ];
     if ($businessId) $headers[] = "X-Business-ID: $businessId";
 
-    return callApi("$baseUrl/$endpoint", $method, $data, $headers);
+    $url = $baseUrl . "/" . ltrim($endpoint, '/');
+    if ($method === 'GET' && !empty($data)) {
+        $url .= (strpos($url, '?') === false ? '?' : '&') . http_build_query($data);
+        return callApi($url, 'GET', [], $headers);
+    }
+    return callApi($url, $method, $data, $headers);
 }
 }
 
@@ -880,6 +933,15 @@ function requeryTransaction($pdo, $txId) {
                 if ($res['Status'] === 'successful') $newStatus = 'successful';
                 elseif ($res['Status'] === 'failed') $newStatus = 'failed';
                 $apiMsg = $res['Status'];
+            }
+            break;
+
+        case 'juicyway':
+            $res = callJuicyWay($pdo, "transactions/$ref", 'GET');
+            if (isset($res['data']['status'])) {
+                if ($res['data']['status'] === 'success' || $res['data']['status'] === 'successful') $newStatus = 'successful';
+                elseif ($res['data']['status'] === 'failed' || $res['data']['status'] === 'fail') $newStatus = 'failed';
+                $apiMsg = $res['data']['status'];
             }
             break;
     }

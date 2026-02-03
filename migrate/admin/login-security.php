@@ -262,6 +262,58 @@ require_once __DIR__ . '/header.php';
             </div>
         </div>
 
+        <!-- Google SSO Configuration -->
+        <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100 space-y-10">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-gray-100 text-gray-900 rounded-2xl flex items-center justify-center">
+                    <i data-lucide="chrome" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-black uppercase tracking-widest">Google SSO (Login/Register)</h3>
+                    <p class="text-[9px] font-bold text-gray-400 uppercase">Allow users to sign in with their Google account</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                        <span class="text-[10px] font-black uppercase text-gray-500">Enable Google SSO</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" name="google_auth_enabled" class="sr-only peer" <?php echo !empty($settings['googleAuthEnabled']) ? 'checked' : ''; ?>>
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-billpay-green"></div>
+                        </label>
+                    </div>
+
+                    <div class="p-6 bg-blue-50 rounded-3xl border border-blue-100">
+                        <h4 class="text-[10px] font-black uppercase text-blue-600 mb-2 flex items-center gap-2">
+                            <i data-lucide="help-circle" class="w-4 h-4"></i> Configuration Guide
+                        </h4>
+                        <ol class="text-[9px] font-bold text-blue-900/60 uppercase space-y-2 list-decimal ml-4">
+                            <li>Go to <a href="https://console.cloud.google.com/" target="_blank" class="underline">Google Cloud Console</a>.</li>
+                            <li>Create a new project or select an existing one.</li>
+                            <li>Navigate to <strong>APIs & Services > Credentials</strong>.</li>
+                            <li>Click <strong>Create Credentials > OAuth client ID</strong>.</li>
+                            <li>Choose <strong>Web application</strong>.</li>
+                            <li>Add your domain to <strong>Authorized JavaScript origins</strong>.</li>
+                            <li>Add <code><?php echo (isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST]/google-callback.php"; ?></code> to <strong>Authorized redirect URIs</strong>.</li>
+                            <li>Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> here.</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <div class="space-y-6">
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black uppercase text-gray-400 ml-1">Google Client ID</label>
+                        <input type="text" name="google_client_id" value="<?php echo $settings['googleClientId'] ?? ''; ?>" placeholder="Enter Client ID from Google Console" class="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-bold text-xs">
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black uppercase text-gray-400 ml-1">Google Client Secret</label>
+                        <input type="password" name="google_client_secret" value="<?php echo $settings['googleClientSecret'] ?? ''; ?>" placeholder="Enter Client Secret from Google Console" class="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-bold text-xs">
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Admin Dashboard Security -->
         <div class="bg-gray-900 p-10 rounded-[40px] shadow-2xl text-white space-y-8">
             <div class="flex items-center gap-4">
