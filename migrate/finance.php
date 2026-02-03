@@ -853,15 +853,17 @@ require_once __DIR__ . '/includes/header.php';
         const loader = document.getElementById('addrLoader');
         const result = document.getElementById('addrResult');
 
+        console.log('Fetching crypto address for', coin, 'on', net);
         loader.classList.remove('hidden');
         result.classList.add('hidden');
 
         try {
             const r = await fetch(`?ajax=getCryptoAddress&coin=${coin}&network=${net}`);
             const data = await r.json();
+            console.log('Crypto Address Response:', data);
 
             loader.classList.add('hidden');
-            if ((data.retCode === 0 || data.status === 'success' || data.result) && (data.result?.list?.[0]?.address || data.address)) {
+            if ((data.retCode === 0 || data.status === 'success' || data.result || data.address) && (data.result?.list?.[0]?.address || data.address)) {
                 const addr = data.result?.list?.[0]?.address || data.address;
                 document.getElementById('depAddr').value = addr;
                 document.getElementById('depNoteAsset').innerText = coin;
@@ -929,22 +931,45 @@ require_once __DIR__ . '/includes/header.php';
     function fetchBanks(country) {
         const sel = document.getElementById('bankSelect');
         sel.innerHTML = '<option value="">Loading Banks...</option>';
+
+        const fallbackBanks = [
+            {name: "Access Bank", code: "044"}, {name: "Ecobank Nigeria", code: "050"},
+            {name: "Fidelity Bank", code: "070"}, {name: "First Bank of Nigeria", code: "011"},
+            {name: "First City Monument Bank", code: "214"}, {name: "Guaranty Trust Bank", code: "058"},
+            {name: "Kuda Bank", code: "50211"}, {name: "Moniepoint MFB", code: "50515"},
+            {name: "OPay Digital Services", code: "999992"}, {name: "Palmpay", code: "999991"},
+            {name: "Stanbic IBTC Bank", code: "039"}, {name: "United Bank For Africa", code: "033"},
+            {name: "Wema Bank", code: "035"}, {name: "Zenith Bank", code: "057"}
+        ];
+
         fetch('?ajax=getBanks&country=' + country)
-            .then(r => r.json())
+            .then(r => {
+                console.log('Bank Fetch Raw Response:', r);
+                return r.json();
+            })
             .then(res => {
+                console.log('Bank Fetch Data:', res);
                 sel.innerHTML = '<option value="">Select Bank</option>';
-                if ((res.status === 'success' || res.status === true) && Array.isArray(res.data)) {
-                    res.data.forEach(b => {
-                        if (b.code && b.name) sel.innerHTML += `<option value="${b.code}">${b.name}</option>`;
-                    });
+                let banks = [];
+                if ((res.status === 'success' || res.status === true) && Array.isArray(res.data) && res.data.length > 0) {
+                    banks = res.data;
                 } else {
-                    sel.innerHTML = '<option value="">No banks available</option>';
-                    console.error('Bank Fetch Failed:', res);
+                    console.warn('Using fallback banks for', country);
+                    if (country === 'NG') banks = fallbackBanks;
                 }
+
+                banks.forEach(b => {
+                    if (b.code && b.name) sel.innerHTML += `<option value="${b.code}">${b.name}</option>`;
+                });
             })
             .catch(err => {
-                sel.innerHTML = '<option value="">Error loading banks</option>';
                 console.error('Bank Fetch Error:', err);
+                sel.innerHTML = '<option value="">Select Bank (Offline)</option>';
+                if (country === 'NG') {
+                    fallbackBanks.forEach(b => {
+                        sel.innerHTML += `<option value="${b.code}">${b.name}</option>`;
+                    });
+                }
             });
     }
 

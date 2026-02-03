@@ -45,17 +45,22 @@ function callApi($url, $method = 'GET', $data = [], $headers = []) {
     curl_close($curl);
 
     if ($err || $info['http_code'] == 0 || $info['http_code'] >= 400) {
+        $headerLines = $headers;
         $contextOpts = [
             'http' => [
                 'method' => $method,
-                'header' => implode("\r\n", $headers) . "\r\nContent-Length: " . strlen($payload),
-                'content' => $payload,
+                'header' => implode("\r\n", $headerLines),
                 'timeout' => 30,
                 'ignore_errors' => true,
                 'user_agent' => 'Mozilla/5.0 (BillPay Fintech; Fallback Hub v4)'
             ],
             'ssl' => ['verify_peer' => false, 'verify_peer_name' => false]
         ];
+
+        if ($method !== 'GET' && !empty($payload)) {
+            $contextOpts['http']['header'] .= "\r\nContent-Length: " . strlen($payload);
+            $contextOpts['http']['content'] = $payload;
+        }
         $res = @file_get_contents($url, false, stream_context_create($contextOpts));
         if ($res !== false) {
             $decoded = json_decode($res, true);
@@ -639,9 +644,14 @@ function juicywayGetCryptoAddress($pdo, $coin, $network = 'TRC20') {
             }
         }
     }
-    // Fallback: request specific address (Some JuicyWay implementations support this)
+    // Fallback 1: wallets/address
     $res = callJuicyWay($pdo, "wallets/address?currency=" . strtoupper($coin) . "&network=" . strtoupper($network), 'GET');
     if (isset($res['data']['address'])) return ['status' => 'success', 'address' => $res['data']['address']];
+
+    // Fallback 2: wallets/deposit-address
+    $res = callJuicyWay($pdo, "wallets/deposit-address?currency=" . strtoupper($coin) . "&network=" . strtoupper($network), 'GET');
+    if (isset($res['data']['address'])) return ['status' => 'success', 'address' => $res['data']['address']];
+
     return $res;
 }
 }
@@ -670,8 +680,9 @@ function callJuicyWay($pdo, $endpoint, $method = 'POST', $data = []) {
     $businessId = $creds['businessId'] ?? '';
     $baseUrl = !empty($creds['liveMode']) ? "https://api.spendjuice.com" : "https://api-sandbox.spendjuice.com";
 
+    $authHeader = (strpos($apiKey, 'Bearer') === 0) ? $apiKey : "Bearer " . $apiKey;
     $headers = [
-        "Authorization: " . $apiKey,
+        "Authorization: " . $authHeader,
         "Content-Type: application/json"
     ];
     if ($businessId) $headers[] = "X-Business-ID: $businessId";
