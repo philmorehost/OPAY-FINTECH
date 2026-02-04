@@ -134,7 +134,7 @@ $banks = [
 
             <div>
                 <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest">Amount (₦)</label>
-                <input type="number" name="amount" id="amount" inputmode="numeric" pattern="[0-9]*" placeholder="Min ₦100" min="100" class="w-full p-4 bg-gray-50 text-gray-900 border-2 border-transparent focus:border-billpay-green outline-none rounded-2xl font-black text-xl" required>
+                <input type="number" name="amount" id="amount" placeholder="Min ₦100" min="100" class="w-full p-4 bg-gray-50 text-gray-900 border-2 border-transparent focus:border-billpay-green outline-none rounded-2xl font-black text-xl" required>
             </div>
 
             <div id="transferSummary" class="hidden bg-gray-50 p-6 rounded-2xl border border-gray-100 space-y-3">

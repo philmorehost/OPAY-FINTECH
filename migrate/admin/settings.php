@@ -157,10 +157,10 @@ require_once __DIR__ . '/header.php';
         <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
             <h3 class="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><i data-lucide="gift" class="text-pink-500"></i> Loyalty & Rewards Engine</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div><label class="text-[10px] font-black text-gray-400 uppercase">Daily Check-in (Coins)</label><input type="number" name="bonusPerDay" value="<?php echo $settings['bonusPerDay']; ?>" inputmode="numeric" pattern="[0-9]*" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
-                <div><label class="text-[10px] font-black text-gray-400 uppercase">Referral Reward (Coins)</label><input type="number" name="referralBonus" value="<?php echo $settings['referralBonus']; ?>" inputmode="numeric" pattern="[0-9]*" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
-                <div><label class="text-[10px] font-black text-gray-400 uppercase">Welcome Bonus (Coins)</label><input type="number" name="welcomeBonus" value="<?php echo $settings['welcomeBonus']; ?>" inputmode="numeric" pattern="[0-9]*" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
-                <div><label class="text-[10px] font-black text-gray-400 uppercase">Rate (X Coins = ₦1)</label><input type="number" name="conversionRate" value="<?php echo $settings['conversionRate']; ?>" inputmode="numeric" pattern="[0-9]*" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
+                <div><label class="text-[10px] font-black text-gray-400 uppercase">Daily Check-in (Coins)</label><input type="number" name="bonusPerDay" value="<?php echo $settings['bonusPerDay']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
+                <div><label class="text-[10px] font-black text-gray-400 uppercase">Referral Reward (Coins)</label><input type="number" name="referralBonus" value="<?php echo $settings['referralBonus']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
+                <div><label class="text-[10px] font-black text-gray-400 uppercase">Welcome Bonus (Coins)</label><input type="number" name="welcomeBonus" value="<?php echo $settings['welcomeBonus']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
+                <div><label class="text-[10px] font-black text-gray-400 uppercase">Rate (X Coins = ₦1)</label><input type="number" name="conversionRate" value="<?php echo $settings['conversionRate']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
             </div>
         </div>
 
@@ -168,10 +168,10 @@ require_once __DIR__ . '/header.php';
         <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
             <h3 class="text-xl font-black uppercase tracking-widest mb-8 flex items-center gap-3"><i data-lucide="shield-half" class="text-billpay-green"></i> Security & System Guard</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div><label class="text-[10px] font-black text-gray-400 uppercase">Min. Wallet Deposit (₦)</label><input type="number" name="minDepositAmount" value="<?php echo $settings['minDepositAmount']; ?>" inputmode="numeric" pattern="[0-9]*" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
-                <div><label class="text-[10px] font-black text-gray-400 uppercase">Min. Airtime Purchase (₦)</label><input type="number" name="minAirtimePurchase" value="<?php echo $settings['minAirtimePurchase']; ?>" inputmode="numeric" pattern="[0-9]*" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
-                <div><label class="text-[10px] font-black text-gray-400 uppercase">Max Daily Tx Per ID</label><input type="number" name="maxDailyTxPerId" value="<?php echo $settings['maxDailyTxPerId']; ?>" inputmode="numeric" pattern="[0-9]*" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
-                <div><label class="text-[10px] font-black text-gray-400 uppercase">V-Card Issue Fee (₦)</label><input type="number" name="vcardIssuanceFee" value="<?php echo $settings['vcardIssuanceFee'] ?? 1500; ?>" inputmode="numeric" pattern="[0-9]*" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
+                <div><label class="text-[10px] font-black text-gray-400 uppercase">Min. Wallet Deposit (₦)</label><input type="number" name="minDepositAmount" value="<?php echo $settings['minDepositAmount']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
+                <div><label class="text-[10px] font-black text-gray-400 uppercase">Min. Airtime Purchase (₦)</label><input type="number" name="minAirtimePurchase" value="<?php echo $settings['minAirtimePurchase']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
+                <div><label class="text-[10px] font-black text-gray-400 uppercase">Max Daily Tx Per ID</label><input type="number" name="maxDailyTxPerId" value="<?php echo $settings['maxDailyTxPerId']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
+                <div><label class="text-[10px] font-black text-gray-400 uppercase">V-Card Issue Fee (₦)</label><input type="number" name="vcardIssuanceFee" value="<?php echo $settings['vcardIssuanceFee'] ?? 1500; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green"></div>
             </div>
 
             <div class="mt-8 pt-8 border-t border-gray-100 space-y-6">
@@ -245,41 +245,6 @@ require_once __DIR__ . '/header.php';
 
         <button type="submit" class="w-full bg-gray-900 text-white py-5 rounded-[32px] font-black uppercase shadow-xl hover:bg-black transition-all">Save Configuration</button>
     </form>
-
-    <!-- Automated Requery Cronjob -->
-    <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100 mt-10">
-        <div class="flex items-center gap-4 mb-6">
-            <div class="w-12 h-12 bg-indigo-50 text-indigo-500 rounded-2xl flex items-center justify-center">
-                <i data-lucide="clock" class="w-6 h-6"></i>
-            </div>
-            <div>
-                <h3 class="text-sm font-black uppercase tracking-widest">Automation (Cronjob)</h3>
-                <p class="text-[9px] font-bold text-gray-400 uppercase">Set up automated transaction status re-checking</p>
-            </div>
-        </div>
-
-        <div class="space-y-6">
-            <div class="p-6 bg-gray-50 rounded-3xl border border-gray-100">
-                <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Command Line / Path</label>
-                <div class="mt-2 flex items-center gap-2">
-                    <input type="text" readonly value="php <?php echo realpath(__DIR__ . '/../cron-requery.php'); ?>" class="flex-1 p-4 bg-white rounded-xl border border-gray-200 font-mono text-[10px] text-billpay-green">
-                    <button type="button" onclick="navigator.clipboard.writeText(this.previousElementSibling.value); alert('Copied!')" class="p-4 bg-gray-900 text-white rounded-xl hover:bg-black transition-all">
-                        <i data-lucide="copy" class="w-4 h-4"></i>
-                    </button>
-                </div>
-            </div>
-
-            <div class="bg-blue-50 p-6 rounded-3xl border border-blue-100">
-                <h4 class="text-[10px] font-black uppercase text-blue-900 mb-2 flex items-center gap-2"><i data-lucide="info" class="w-3 h-3"></i> cPanel Configuration Instructions</h4>
-                <ol class="text-[9px] font-bold text-blue-700 uppercase space-y-2 list-decimal ml-4">
-                    <li>Log into your cPanel and search for "Cron Jobs".</li>
-                    <li>Under "Add New Cron Job", select "Every Minute (* * * * *)" from common settings.</li>
-                    <li>Paste the path shown above into the "Command" field.</li>
-                    <li>Click "Add New Cron Job" to start automated requery.</li>
-                </ol>
-            </div>
-        </div>
-    </div>
 
     <!-- Cache Management -->
     <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100 mt-10">

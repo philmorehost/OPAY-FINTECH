@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         $stmt->execute([$currentUser['id'], $networkName, $selectedPlan['plan_id'], $selectedPlan['data_size'] . ' ' . $selectedPlan['type'], $pin, $serial, $batchId]);
                     }
 
-                    logTransaction($pdo, $currentUser['id'], 'Data EPIN', $totalCost, 'successful', "Generated $quantity Data EPINs for $networkName", 'System', 'Internal', $batchId);
+                    logTransaction($pdo, $currentUser['id'], 'Data EPIN', $totalCost, 'successful', "Generated $quantity Data EPINs for $networkName", 'System', 'Internal');
                     $pdo->commit();
                     $success = true;
                     // Refresh balance
@@ -74,7 +74,7 @@ require_once __DIR__ . '/includes/header.php';
             <a href="/dashboard"><i data-lucide="arrow-left" class="w-6 h-6 text-gray-900"></i></a>
             <h1 class="text-lg font-black text-gray-900 uppercase tracking-tight">Data Bundle EPINs</h1>
         </div>
-        <a href="/datacard-history" class="text-[10px] font-black text-billpay-green uppercase">My Batches</a>
+        <a href="/transactions?type=Data+EPIN" class="text-[10px] font-black text-billpay-green uppercase">My Batches</a>
     </div>
 
     <div class="p-4 flex-1">
@@ -145,10 +145,11 @@ if (isset($_GET['print_batch'])) {
     $stmt->execute([$batch, $currentUser['id']]);
     $pins = $stmt->fetchAll(PDO::FETCH_ASSOC);
     if ($pins) {
-        $network = $pins[0]['network'];
-        $es = $settings['epinSettings'] ?? [];
-        if (is_string($es)) $es = json_decode($es, true) ?: [];
-        $adminPhone = $es['phones'][$network] ?? 'Not Set';
+        $network = strtoupper($pins[0]['network']);
+        $os = $settings['otherApiSettings'] ?? [];
+        if (is_string($os)) $os = json_decode($os, true) ?: [];
+        $en = $os['epin_sms_numbers'] ?? [];
+        $adminPhone = $en[$network] ?? $en[strtolower($network)] ?? 'Not Set';
 ?>
 <div class="fixed inset-0 bg-white z-[200] overflow-y-auto p-4 md:p-10 no-print" id="printPreview">
     <div class="max-w-4xl mx-auto space-y-8">

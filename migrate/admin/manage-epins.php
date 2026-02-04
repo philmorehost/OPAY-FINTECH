@@ -58,17 +58,7 @@ require_once __DIR__ . '/header.php';
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
         <!-- Process Panel -->
         <div class="lg:col-span-1 space-y-8">
-            <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100" x-data="{
-                epinInfo: null,
-                fetchEpin(val) {
-                    if (val.length < 5) return;
-                    fetch('?ajax=get_epin&pin=' + val)
-                        .then(r => r.json())
-                        .then(res => {
-                            this.epinInfo = res.error ? null : res;
-                        });
-                }
-            }">
+            <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100" x-data="{ epinInfo: null }">
                 <h3 class="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-3"><i data-lucide="scan" class="text-indigo-500"></i> Process EPIN</h3>
                 <form method="POST" class="space-y-6">
                     <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
@@ -78,7 +68,7 @@ require_once __DIR__ . '/header.php';
                         <input type="text" name="pin" @input="fetchEpin($event.target.value)" placeholder="XXXX-XXXX-XXXX" required class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none border border-transparent focus:border-billpay-green">
                     </div>
 
-                    <div x-show="epinInfo" class="p-4 bg-indigo-50 rounded-2xl border border-indigo-100 animate-fade-in" x-cloak>
+                    <div x-show="epinInfo" class="p-4 bg-indigo-50 rounded-2xl border border-indigo-100 animate-fade-in">
                         <div class="flex justify-between items-center mb-2">
                             <span class="text-[9px] font-black uppercase text-indigo-400">Associated Plan</span>
                             <span class="px-2 py-1 rounded bg-indigo-600 text-white text-[8px] font-black uppercase" x-text="epinInfo.status"></span>
@@ -92,6 +82,16 @@ require_once __DIR__ . '/header.php';
                     </div>
                     <button type="submit" :disabled="!epinInfo || epinInfo.status !== 'active'" class="w-full py-5 bg-gray-900 text-white rounded-2xl font-black uppercase text-xs shadow-xl disabled:opacity-50">Execute API Vend</button>
                 </form>
+                <script>
+                    function fetchEpin(val) {
+                        if (val.length < 5) return;
+                        fetch('?ajax=get_epin&pin=' + val)
+                            .then(r => r.json())
+                            .then(res => {
+                                this.epinInfo = res.error ? null : res;
+                            });
+                    }
+                </script>
             </div>
         </div>
 

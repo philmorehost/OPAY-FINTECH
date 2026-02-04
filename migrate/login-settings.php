@@ -161,7 +161,7 @@ require_once __DIR__ . '/includes/header.php';
 
                 <div class="pt-4 border-t border-gray-50">
                     <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Set Security PIN (6 Digits)</label>
-                    <input type="password" name="loginSecurityPin" inputmode="numeric" pattern="[0-9]*" placeholder="<?php echo !empty($currentUser['loginSecurityPin']) ? '••••••' : 'Enter 6-digit PIN'; ?>" maxlength="6" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg mt-2 outline-none border-2 border-transparent focus:border-billpay-green text-center tracking-[0.5em]">
+                    <input type="password" name="loginSecurityPin" placeholder="<?php echo !empty($currentUser['loginSecurityPin']) ? '••••••' : 'Enter 6-digit PIN'; ?>" maxlength="6" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg mt-2 outline-none border-2 border-transparent focus:border-billpay-green text-center tracking-[0.5em]">
                 </div>
 
                 <div class="flex items-center justify-between">
@@ -195,7 +195,7 @@ require_once __DIR__ . '/includes/header.php';
 
                 <div id="2fa-verify-group" class="hidden animate-slide-up bg-gray-50 p-4 rounded-2xl border border-gray-100 space-y-4">
                     <label class="text-[10px] font-black text-gray-400 uppercase">Enter App Code to Confirm</label>
-                    <input type="text" name="google2faCode" placeholder="000000" maxlength="6" class="w-full p-4 bg-white rounded-xl font-black text-center text-lg tracking-widest outline-none border border-transparent focus:border-billpay-green">
+                    <input type="text" name="google2faCode" placeholder="000000" maxlength="6" inputmode="numeric" pattern="[0-9]*" class="w-full p-4 bg-white rounded-xl font-black text-center text-lg tracking-widest outline-none border border-transparent focus:border-billpay-green">
                 </div>
 
                 <div class="flex items-center justify-between">
@@ -213,7 +213,7 @@ require_once __DIR__ . '/includes/header.php';
 
                 <div class="space-y-4">
                     <label class="text-[10px] font-black text-gray-400 uppercase ml-1"><?php echo !empty($currentUser['fundPassword']) ? 'Change' : 'Set'; ?> Security PIN (Fund Password)</label>
-                    <input type="password" name="fundPassword" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="Enter 6-digit PIN" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none text-center tracking-[0.5em] border-2 border-transparent focus:border-billpay-green">
+                    <input type="password" name="fundPassword" maxlength="6" inputmode="numeric" pattern="[0-9]*" placeholder="Enter 6-digit PIN" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none text-center tracking-[0.5em] border-2 border-transparent focus:border-billpay-green">
                     <?php if (!empty($currentUser['fundPassword'])): ?>
                         <button type="button" onclick="requestReset()" class="text-[9px] font-black text-indigo-500 uppercase hover:underline">Forgot Fund Password?</button>
                     <?php endif; ?>
@@ -236,8 +236,8 @@ require_once __DIR__ . '/includes/header.php';
                     <h4 class="text-[11px] font-black text-amber-900 uppercase">Reset Security PIN</h4>
                     <p class="text-[9px] text-amber-600 font-bold uppercase mt-1">Verify with email code</p>
                 </div>
-                <input type="text" name="reset_code" placeholder="ENTER CODE" class="w-full p-4 bg-white rounded-xl font-black text-center text-lg tracking-widest outline-none">
-                <input type="password" name="new_fund_pin" maxlength="6" placeholder="NEW 6-DIGIT PIN" class="w-full p-4 bg-white rounded-xl font-black text-center text-lg tracking-widest outline-none">
+                <input type="text" name="reset_code" placeholder="ENTER CODE" inputmode="numeric" pattern="[0-9]*" class="w-full p-4 bg-white rounded-xl font-black text-center text-lg tracking-widest outline-none">
+                <input type="password" name="new_fund_pin" maxlength="6" inputmode="numeric" pattern="[0-9]*" placeholder="NEW 6-DIGIT PIN" class="w-full p-4 bg-white rounded-xl font-black text-center text-lg tracking-widest outline-none">
                 <button type="button" onclick="completeReset()" class="w-full py-4 bg-amber-600 text-white rounded-xl font-black uppercase text-[10px]">Verify & Update</button>
             </div>
 
@@ -312,15 +312,9 @@ require_once __DIR__ . '/includes/header.php';
         try {
             const credential = await navigator.credentials.create(createCredentialOptions);
             if (credential) {
-                // Robust Base64 encoding
-                const rawId = new Uint8Array(credential.rawId);
-                let binary = '';
-                for (let i = 0; i < rawId.byteLength; i++) binary += String.fromCharCode(rawId[i]);
-                const base64Id = btoa(binary);
-
-                document.getElementById('biometricCredentialId').value = base64Id;
-                document.getElementById('biometricPublicKey').value = "live-biometric-key"; // In production, export the public key from the credential
-                alert("Biometrics linked successfully! Click 'Save Preferences' to enable.");
+                document.getElementById('biometricCredentialId').value = btoa(String.fromCharCode(...new Uint8Array(credential.rawId)));
+                document.getElementById('biometricPublicKey').value = "webauthn-placeholder";
+                alert("Biometrics linked! Please save your preferences.");
             }
         } catch (err) {
             console.error(err);

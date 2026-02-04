@@ -1,75 +1,86 @@
 <?php
 require_once __DIR__ . '/includes/config.php';
-require_once __DIR__ . '/includes/api.php';
 
-if (isset($_GET['code'])) {
-    $code = $_GET['code'];
-    $clientId = $settings['googleClientId'];
-    $clientSecret = $settings['googleClientSecret'];
-    $redirectUri = (isset($_SERVER['HTTPS']) ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . '/google-callback.php';
+if (!isset($_GET['code'])) {
+    redirect('/login');
+}
 
-    // Exchange code for token
-    $tokenRes = callApi('https://oauth2.googleapis.com/token', 'POST', http_build_query([
-        'code' => $code,
-        'client_id' => $clientId,
-        'client_secret' => $clientSecret,
-        'redirect_uri' => $redirectUri,
-        'grant_type' => 'authorization_code'
-    ]), ['Content-Type: application/x-www-form-urlencoded']);
+$code = $_GET['code'];
+$clientId = $settings['googleClientId'] ?? '';
+$clientSecret = $settings['googleClientSecret'] ?? '';
+$redirectUri = (isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST]/google-callback.php";
 
-    if (isset($tokenRes['id_token'])) {
-        $idToken = $tokenRes['id_token'];
-        // Verify ID Token (Simple verification via Google's endpoint)
-        $verifyRes = callApi("https://oauth2.googleapis.com/tokeninfo?id_token=$idToken");
+// Exchange code for access token
+$tokenUrl = 'https://oauth2.googleapis.com/token';
+$payload = [
+    'code' => $code,
+    'client_id' => $clientId,
+    'client_secret' => $clientSecret,
+    'redirect_uri' => $redirectUri,
+    'grant_type' => 'authorization_code'
+];
 
-        if (isset($verifyRes['email'])) {
-            $email = $verifyRes['email'];
-            $googleId = $verifyRes['sub'];
-            $fullName = $verifyRes['name'] ?? 'Google User';
+$ch = curl_init($tokenUrl);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($payload));
+$response = curl_exec($ch);
+curl_close($ch);
 
-            // Check if user exists by Google ID or Email
-            $stmt = $pdo->prepare("SELECT * FROM users WHERE googleId = ? OR email = ?");
-            $stmt->execute([$googleId, $email]);
-            $user = $stmt->fetch();
+$tokenData = json_decode($response, true);
+if (!isset($tokenData['access_token'])) {
+    die('Google Auth Failed: ' . ($tokenData['error_description'] ?? 'Unknown error'));
+}
 
-            if ($user) {
-                // Update Google ID if not set
-                if (empty($user['googleId'])) {
-                    $pdo->prepare("UPDATE users SET googleId = ? WHERE id = ?")->execute([$googleId, $user['id']]);
-                }
+$accessToken = $tokenData['access_token'];
 
-                if (!empty($user['phone'])) {
-                    // Fully registered user
-                    $_SESSION['user_id'] = $user['id'];
-                    $_SESSION['username'] = $user['username'];
-                    $_SESSION['role'] = $user['role'];
-                    redirect('/dashboard');
-                } else {
-                    // Missing phone number
-                    $_SESSION['pending_google_reg'] = $user['id'];
-                    redirect('/complete-registration');
-                }
-            } else {
-                // New User: Create record
-                $userId = 'u' . bin2hex(random_bytes(4));
-                $username = strtolower(explode('@', $email)[0]) . rand(100, 999);
-                // Ensure username uniqueness
-                $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = ?");
-                $stmt->execute([$username]);
-                if ($stmt->fetchColumn() > 0) $username .= rand(10, 99);
+// Get user info
+$userUrl = 'https://www.googleapis.com/oauth2/v2/userinfo?access_token=' . $accessToken;
+$ch = curl_init($userUrl);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+$userInfoResponse = curl_exec($ch);
+curl_close($ch);
+$userInfo = json_decode($userInfoResponse, true);
 
-                $stmt = $pdo->prepare("INSERT INTO users (id, username, fullName, email, role, googleId, walletBalance, bonusCoins) VALUES (?, ?, ?, ?, 'user', ?, ?, ?)");
-                $stmt->execute([$userId, $username, $fullName, $email, $googleId, $settings['welcomeBonus'] / $settings['conversionRate'], $settings['welcomeBonus']]);
+if (!isset($userInfo['id'])) {
+    die('Failed to get Google user info');
+}
 
-                $_SESSION['pending_google_reg'] = $userId;
-                redirect('/complete-registration');
-            }
-        } else {
-            die("Google verification failed: " . ($verifyRes['error_description'] ?? 'Unknown error'));
-        }
+$googleId = $userInfo['id'];
+$email = $userInfo['email'];
+$name = $userInfo['name'];
+
+// Check if user exists
+$stmt = $pdo->prepare("SELECT * FROM users WHERE googleId = ? OR email = ?");
+$stmt->execute([$googleId, $email]);
+$user = $stmt->fetch();
+
+if ($user) {
+    // Update googleId if not set
+    if (empty($user['googleId'])) {
+        $pdo->prepare("UPDATE users SET googleId = ? WHERE id = ?")->execute([$googleId, $user['id']]);
+    }
+
+    if (!empty($user['phone'])) {
+        // Full user, login directly or go to verification if MFA is enabled
+        $_SESSION['pending_login_id'] = $user['id'];
+        redirect('/login-verify');
     } else {
-        die("Token exchange failed: " . ($tokenRes['error_description'] ?? 'Unknown error'));
+        // User exists but no phone (shouldn't happen with normal flow, but let's be safe)
+        $_SESSION['temp_google_user'] = [
+            'googleId' => $googleId,
+            'email' => $email,
+            'name' => $name,
+            'id' => $user['id']
+        ];
+        redirect('/complete-registration');
     }
 } else {
-    redirect('/login');
+    // New User
+    $_SESSION['temp_google_user'] = [
+        'googleId' => $googleId,
+        'email' => $email,
+        'name' => $name
+    ];
+    redirect('/complete-registration');
 }

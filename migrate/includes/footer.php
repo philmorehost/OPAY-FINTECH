@@ -97,7 +97,6 @@
         }
 
         // Automated Transaction Requery (Background)
-        // Only run on core interaction pages to preserve server resources
         const corePages = ['/dashboard', '/index', '/transactions', '/admin/index', '/admin/transactions'];
         if (corePages.some(page => location.pathname.includes(page))) {
             setTimeout(() => {
@@ -105,7 +104,7 @@
                     .then(r => r.json())
                     .then(d => console.log('Auto-Requery:', d))
                     .catch(() => {});
-            }, 2000); // Small delay to prioritize page load
+            }, 2000);
         }
     </script>
 </body>

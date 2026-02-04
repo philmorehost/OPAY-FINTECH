@@ -54,7 +54,7 @@ require_once __DIR__ . '/includes/header.php';
 
         <form method="POST" class="space-y-8">
             <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
-            <input type="text" name="code" inputmode="numeric" pattern="[0-9]*" maxlength="6" autofocus placeholder="000 000" class="w-full p-8 bg-white/5 rounded-3xl font-black text-4xl text-center tracking-[0.5em] outline-none border-2 border-transparent focus:border-amber-500 transition-all">
+            <input type="text" name="code" autofocus placeholder="000 000" class="w-full p-8 bg-white/5 rounded-3xl font-black text-4xl text-center tracking-[0.5em] outline-none border-2 border-transparent focus:border-amber-500 transition-all">
             <button type="submit" class="w-full bg-amber-500 text-white py-6 rounded-[32px] font-black uppercase tracking-widest shadow-xl shadow-amber-500/20 hover:scale-[1.02] active:scale-95 transition-all">Verify & Unlock</button>
         </form>
 

@@ -6,10 +6,6 @@ $pageTitle = 'Betting';
 $error = '';
 $success = false;
 
-$ls = $settings['loginSecuritySettings'] ?? [];
-$isPinForced = !empty($ls['pin']['forced']);
-$userPinEnabled = !empty($currentUser['fundPasswordVtuEnabled']);
-
 if (isset($_GET['ajax'])) {
     header('Content-Type: application/json');
     if ($_GET['ajax'] === 'verify') {
@@ -34,6 +30,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
     $apiDisc = (float)($pkg['api_discount'] ?? 0);
     $userDisc = (float)($pkg['user_discount'] ?? 0);
+
+    $ls = $settings['loginSecuritySettings'] ?? [];
+    $isPinForced = !empty($ls['pin']['forced']);
+    $userPinEnabled = !empty($currentUser['fundPasswordVtuEnabled']);
 
     if (isKycRejected($currentUser)) {
         $error = 'Account restricted. Please update your KYC.';
@@ -64,29 +64,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 'RequestID' => $requestId
             ]);
 
-            $status = 'failed';
-            if (is_array($res) && isset($res['status'])) {
-                if ($res['status'] === 'ORDER_COMPLETED') $status = 'successful';
-                elseif ($res['status'] === 'ORDER_RECEIVED') $status = 'pending';
-            } elseif (is_string($res)) {
-                if (strpos($res, 'ORDER_COMPLETED') !== false) $status = 'successful';
-                elseif (strpos($res, 'ORDER_RECEIVED') !== false) $status = 'pending';
-            }
+            $isSuccess = is_array($res) && isset($res['status']) && ($res['status'] === 'ORDER_RECEIVED' || $res['status'] === 'ORDER_COMPLETED');
+            if (!$isSuccess && is_string($res) && (strpos($res, 'ORDER_RECEIVED') !== false || strpos($res, 'ORDER_COMPLETED') !== false)) $isSuccess = true;
 
-            if ($status === 'successful') {
+            $isPending = is_array($res) && isset($res['status']) && strpos($res['status'], 'PENDING') !== false;
+            if (!$isPending && is_string($res) && strpos($res, 'PENDING') !== false) $isPending = true;
+
+            if ($isSuccess || $isPending) {
+                $status = $isSuccess ? 'successful' : 'pending';
                 $profitVal = $chargedAmount - $apiCost;
-                logTransaction($pdo, $currentUser['id'], 'Betting', $chargedAmount, 'successful', "Betting Fund ($providerId) for $customerId", $customerId, 'Nellobyte', $res['orderid'] ?? $requestId, $apiCost, $profitVal);
-                sendMail($pdo, $currentUser['email'], "Betting Funding Receipt", "Successful funding for $customerId. Amount: " . formatCurrency($chargedAmount));
-                claimDailyRewardIfEligible($pdo, $currentUser['id']);
-                $success = true;
-            } elseif ($status === 'pending') {
-                $profitVal = $chargedAmount - $apiCost;
-                logTransaction($pdo, $currentUser['id'], 'Betting', $chargedAmount, 'pending', "Betting Fund ($providerId) processing for $customerId", $customerId, 'Nellobyte', $res['orderid'] ?? $requestId, $apiCost, $profitVal);
+                logTransaction($pdo, $currentUser['id'], 'Betting', $chargedAmount, $status, "Betting Fund ($providerId) for $customerId", $customerId, 'nellobyte', null, $apiCost, $profitVal, $requestId, 0);
+                sendMail($pdo, $currentUser['email'], "Betting Funding Receipt", "Betting fund request for $customerId. Status: " . strtoupper($status));
+                if ($isSuccess) claimDailyRewardIfEligible($pdo, $currentUser['id']);
                 $success = true;
             } else {
                 updateWallet($pdo, $currentUser['id'], $chargedAmount, 'credit');
                 $errMsg = is_array($res) ? ($res['status'] ?? $res['msg'] ?? 'API Error') : $res;
-                logTransaction($pdo, $currentUser['id'], 'Betting', $chargedAmount, 'failed', "Betting failed: $errMsg", $customerId, 'Nellobyte');
+                logTransaction($pdo, $currentUser['id'], 'Betting', $chargedAmount, 'failed', "Betting failed: $errMsg", $customerId, 'nellobyte', null, 0, 0, $requestId, 1);
                 $error = 'Transaction failed: ' . $errMsg;
             }
 
@@ -146,7 +140,7 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
                 <div>
                     <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Security PIN</label>
-                    <input type="password" name="fund_password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" <?php echo ($isPinForced || $userPinEnabled) ? 'required' : ''; ?>>
+                    <input type="password" name="fund_password" maxlength="6" placeholder="••••••" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" <?php echo ($isPinForced || $userPinEnabled) ? 'required' : ''; ?>>
                 </div>
             </div>
 

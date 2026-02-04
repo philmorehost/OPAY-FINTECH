@@ -115,10 +115,6 @@ if ($prevPeriodSum > 0) {
                     <i data-lucide="file-text" class="text-pink-500 mb-3 w-6 h-6"></i>
                     <span class="text-[9px] font-black uppercase">All Tx</span>
                 </a>
-                <a href="/admin/services" class="flex flex-col items-center p-6 bg-gray-50 rounded-3xl hover:bg-billpay-green/10 transition-colors">
-                    <i data-lucide="layers" class="text-orange-500 mb-3 w-6 h-6"></i>
-                    <span class="text-[9px] font-black uppercase">Services</span>
-                </a>
                 <a href="/admin/settings" class="flex flex-col items-center p-6 bg-gray-50 rounded-3xl hover:bg-billpay-green/10 transition-colors">
                     <i data-lucide="settings" class="text-blue-500 mb-3 w-6 h-6"></i>
                     <span class="text-[9px] font-black uppercase">Settings</span>

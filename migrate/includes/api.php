@@ -45,22 +45,17 @@ function callApi($url, $method = 'GET', $data = [], $headers = []) {
     curl_close($curl);
 
     if ($err || $info['http_code'] == 0 || $info['http_code'] >= 400) {
-        $headerLines = $headers;
         $contextOpts = [
             'http' => [
                 'method' => $method,
-                'header' => implode("\r\n", $headerLines),
+                'header' => implode("\r\n", $headers) . "\r\nContent-Length: " . strlen($payload),
+                'content' => $payload,
                 'timeout' => 30,
                 'ignore_errors' => true,
                 'user_agent' => 'Mozilla/5.0 (BillPay Fintech; Fallback Hub v4)'
             ],
             'ssl' => ['verify_peer' => false, 'verify_peer_name' => false]
         ];
-
-        if ($method !== 'GET' && !empty($payload)) {
-            $contextOpts['http']['header'] .= "\r\nContent-Length: " . strlen($payload);
-            $contextOpts['http']['content'] = $payload;
-        }
         $res = @file_get_contents($url, false, stream_context_create($contextOpts));
         if ($res !== false) {
             $decoded = json_decode($res, true);
@@ -114,12 +109,12 @@ function purchaseAirtime($pdo, $network, $amount, $phone) {
     switch ($provider) {
         case 'datagifting':
             $apiKey = $creds['apiKey'] ?? '';
-            $res = callApi("https://v6.datagifting.com.ng/api/airtime.php?api_key=$apiKey", 'POST', http_build_query([
+            $res = callApi("https://v6.datagifting.com.ng/web/api/airtime.php?api_key=$apiKey", 'POST', [
                 'api_key' => $apiKey,
                 'network' => $netCode,
                 'amount' => $amount,
                 'phone_number' => $phone
-            ]), ['Content-Type: application/x-www-form-urlencoded']);
+            ]);
             if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['desc'] ?? $res['response_desc'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
             return ['status' => 'failed', 'message' => $res['desc'] ?? $res['msg'] ?? 'Provider Error'];
         case 'nellobyte':
@@ -213,14 +208,7 @@ function testGenericConnection($pdo, $provider, $creds) {
 
     switch ($provider) {
         case 'datagifting':
-            // Try user.php, fallback to profile.php or index.php if 404
-            $url = "https://v6.datagifting.com.ng/api/user.php?api_key=" . ($creds['apiKey'] ?? '');
-            $res = callApi($url);
-            if (is_string($res) && strpos($res, '404') !== false) {
-                 $url = "https://v6.datagifting.com.ng/api/index.php?api_key=" . ($creds['apiKey'] ?? '');
-                 $res = callApi($url);
-            }
-
+            $res = callApi("https://v6.datagifting.com.ng/web/api/user.php?api_key=" . ($creds['apiKey'] ?? ''));
             if (is_array($res)) {
                 if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => 'Connected! Balance: ₦' . number_format((float)($res['wallet'] ?? $res['balance'] ?? 0), 2)];
                 if (isset($res['status']) && $res['status'] === 'fail') return ['status' => 'error', 'message' => $res['msg'] ?? 'Authentication Failed'];
@@ -304,41 +292,32 @@ function purchaseData($pdo, $network, $planId, $phone) {
     $netCode = getNetworkCode($provider, $network);
     switch ($provider) {
         case 'datagifting':
-            // Fetch plan details
+            // Fetch plan details to get type and quantity as requested in prompt
             $stmt = $pdo->prepare("SELECT * FROM data_plans WHERE plan_id = ? OR id = ? LIMIT 1");
             $stmt->execute([$planId, $planId]);
             $p = $stmt->fetch();
-
-            // Normalize Type: sme -> sme-data, gifting -> gifting-data
-            $type = $p ? strtolower($p['type']) : 'sme';
-            if ($type === 'databundle') $type = 'gifting'; // fallback
-            if (!empty($type) && strpos($type, '-data') === false) {
-                $type .= '-data';
-            }
-
-            // Normalize Quantity: e.g. 1gb, 500mb
-            $qty = $p ? strtolower(str_replace(' ', '', $p['plan_id'])) : '1gb';
-            // If plan_id is just a numeric ID, try extracting from data_size
-            if (is_numeric($qty) && $p) {
-                $cleanSize = strtolower(str_replace(' ', '', $p['data_size']));
-                if (preg_match('/(\d+(gb|mb|tb))/', $cleanSize, $matches)) {
-                    $qty = $matches[1];
-                }
-            }
+            $type = $p ? $p['type'] : 'sme';
+            $qty = $p ? $p['data_size'] : '1gb';
 
             $apiKey = $creds['apiKey'] ?? '';
-            $res = callApi("https://v6.datagifting.com.ng/api/data.php?api_key=$apiKey", 'POST', http_build_query([
+            $res = callApi("https://v6.datagifting.com.ng/web/api/data.php?api_key=$apiKey", 'POST', [
                 'api_key' => $apiKey,
                 'network' => $netCode,
                 'phone_number' => $phone,
                 'type' => $type,
                 'quantity' => $qty
-            ]), ['Content-Type: application/x-www-form-urlencoded']);
-            if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['desc'] ?? $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
+            ]);
+            if (isset($res['status'])) {
+                if ($res['status'] === 'success') return ['status' => 'success', 'message' => $res['desc'] ?? 'Successful', 'ref' => $res['reference'] ?? $res['order_id'] ?? uniqid()];
+                if ($res['status'] === 'pending') return ['status' => 'pending', 'message' => $res['desc'] ?? 'Processing', 'ref' => $res['reference'] ?? $res['order_id'] ?? uniqid()];
+            }
             return ['status' => 'failed', 'message' => $res['desc'] ?? $res['msg'] ?? 'Provider Error'];
         case 'nellobyte':
             $res = callApi("https://nellobytesystems.com/api/data?userid=" . ($creds['userId'] ?? '') . "&apikey=" . ($creds['apiKey'] ?? '') . "&network=$netCode&plan=$planId&phone=$phone");
-            if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
+            if (isset($res['status'])) {
+                if ($res['status'] === 'success') return ['status' => 'success', 'message' => $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
+                if (strpos($res['status'], 'PENDING') !== false) return ['status' => 'pending', 'message' => 'Processing', 'ref' => $res['ref'] ?? uniqid()];
+            }
             return ['status' => 'failed', 'message' => $res['msg'] ?? 'Provider Error'];
         case 'datastation':
             $res = callApi("https://datastationapi.com/api/data/", 'POST', [
@@ -347,7 +326,10 @@ function purchaseData($pdo, $network, $planId, $phone) {
                 'mobile_number' => $phone,
                 'Ported_number' => true
             ], ["Authorization: Token " . ($creds['token'] ?? '')]);
-            if (empty($res) || (isset($res['Status']) && $res['Status'] === 'successful')) return ['status' => 'success', 'message' => 'Successful', 'ref' => uniqid()];
+            if (isset($res['Status'])) {
+                if ($res['Status'] === 'successful') return ['status' => 'success', 'message' => 'Successful', 'ref' => $res['id'] ?? uniqid()];
+                if ($res['Status'] === 'pending') return ['status' => 'pending', 'message' => 'Processing', 'ref' => $res['id'] ?? uniqid()];
+            }
             return ['status' => 'failed', 'message' => 'Provider Error'];
         case 'hdkdata':
             $res = callApi("https://hdkdata.com/api/data/", 'POST', [
@@ -356,7 +338,10 @@ function purchaseData($pdo, $network, $planId, $phone) {
                 'mobile_number' => $phone,
                 'Ported_number' => true
             ], ["Authorization: Token " . ($creds['token'] ?? '')]);
-            if (empty($res) || (isset($res['Status']) && $res['Status'] === 'successful')) return ['status' => 'success', 'message' => 'Successful', 'ref' => uniqid()];
+            if (isset($res['Status'])) {
+                if ($res['Status'] === 'successful') return ['status' => 'success', 'message' => 'Successful', 'ref' => $res['id'] ?? uniqid()];
+                if ($res['Status'] === 'pending') return ['status' => 'pending', 'message' => 'Processing', 'ref' => $res['id'] ?? uniqid()];
+            }
             return ['status' => 'failed', 'message' => 'Provider Error'];
     }
     return ['status' => 'failed', 'message' => 'No provider'];
@@ -528,20 +513,6 @@ function bybitWithdraw($pdo, $coin, $amount, $address, $tag = '') {
 }
 }
 
-if (!function_exists('bybitGetDepositAddress')) {
-function bybitGetDepositAddress($pdo, $coin, $chainType = 'TRC20') {
-    return callBybit($pdo, '/v5/asset/deposit/query-address', 'GET', ['coin' => strtoupper($coin), 'chainType' => $chainType]);
-}
-}
-
-if (!function_exists('bybitGetDepositRecords')) {
-function bybitGetDepositRecords($pdo, $coin = '') {
-    $params = [];
-    if ($coin) $params['coin'] = strtoupper($coin);
-    return callBybit($pdo, '/v5/asset/deposit/query-record', 'GET', $params);
-}
-}
-
 /**
  * Unified Crypto Hub Helpers
  * These respect the 'primaryCrypto' setting
@@ -550,7 +521,6 @@ if (!function_exists('cryptoGetBalances')) {
 function cryptoGetBalances($pdo) {
     $settings = fetchSettings($pdo);
     $provider = $settings['financialSettings']['primaryCrypto'] ?? 'bybit';
-    if ($provider === 'juicyway') return juicywayGetWallets($pdo);
     if ($provider === 'mexc') return mexcGetBalances($pdo);
     return bybitGetBalances($pdo);
 }
@@ -560,18 +530,6 @@ if (!function_exists('cryptoWithdraw')) {
 function cryptoWithdraw($pdo, $coin, $amount, $address, $tag = '') {
     $settings = fetchSettings($pdo);
     $provider = $settings['financialSettings']['primaryCrypto'] ?? 'bybit';
-    if ($provider === 'juicyway') {
-        return juicywayInitiatePayout($pdo, [
-            'amount' => $amount,
-            'currency' => strtoupper($coin),
-            'method' => 'crypto',
-            'destination' => [
-                'address' => $address,
-                'network' => 'TRC20', // Default or derived from coin
-                'memo' => $tag
-            ]
-        ]);
-    }
     if ($provider === 'mexc') return mexcWithdraw($pdo, $coin, $amount, $address, $tag);
     return bybitWithdraw($pdo, $coin, $amount, $address, $tag);
 }
@@ -619,103 +577,6 @@ function mexcWithdraw($pdo, $coin, $amount, $address, $tag = '', $network = '') 
 }
 }
 
-if (!function_exists('mexcGetDepositAddress')) {
-function mexcGetDepositAddress($pdo, $coin, $network = 'TRX') {
-    return callMexc($pdo, '/api/v3/capital/deposit/address', 'GET', ['coin' => strtoupper($coin), 'network' => $network]);
-}
-}
-
-if (!function_exists('mexcGetDepositRecords')) {
-function mexcGetDepositRecords($pdo, $coin = '') {
-    $params = [];
-    if ($coin) $params['coin'] = strtoupper($coin);
-    return callMexc($pdo, '/api/v3/capital/deposit/hisrec', 'GET', $params);
-}
-}
-
-if (!function_exists('juicywayGetCryptoAddress')) {
-function juicywayGetCryptoAddress($pdo, $coin, $network = 'TRC20') {
-    $user = $_SESSION['user'] ?? null;
-    if (!$user) return ['status' => 'error', 'message' => 'User not in session'];
-
-    // 1. Fetch all wallets
-    $wallets = juicywayGetWallets($pdo);
-    $targetWalletId = null;
-    if (isset($wallets['data']) && is_array($wallets['data'])) {
-        foreach ($wallets['data'] as $w) {
-            if (strtoupper($w['currency'] ?? '') === strtoupper($coin)) {
-                if (!empty($w['address'])) return ['status' => 'success', 'address' => $w['address']];
-                if (!empty($w['payment_methods'])) {
-                    foreach ($w['payment_methods'] as $pm) {
-                        if ($pm['type'] === 'crypto_address' && !empty($pm['address'])) {
-                            return ['status' => 'success', 'address' => $pm['address']];
-                        }
-                    }
-                }
-                $targetWalletId = $w['id'];
-                break;
-            }
-        }
-    }
-
-    // 2. If no wallet, find or create customer
-    if (!$targetWalletId) {
-        $customers = callJuicyWay($pdo, 'customers', 'GET');
-        $customerId = null;
-        if (isset($customers['data']) && is_array($customers['data'])) {
-            foreach ($customers['data'] as $c) {
-                if (strtolower($c['email'] ?? '') === strtolower($user['email'])) {
-                    $customerId = $c['id'];
-                    break;
-                }
-            }
-        }
-        if (!$customerId) {
-            $cRes = callJuicyWay($pdo, 'customers', 'POST', [
-                'first_name' => explode(' ', $user['name'])[0],
-                'last_name' => explode(' ', $user['name'])[1] ?? 'User',
-                'email' => $user['email'],
-                'phone' => $user['phone'] ?? ''
-            ]);
-            $customerId = $cRes['data']['id'] ?? null;
-        }
-        if ($customerId) {
-            $wRes = callJuicyWay($pdo, 'wallets', 'POST', ['customer_id' => $customerId, 'currency' => strtoupper($coin)]);
-            $targetWalletId = $wRes['data']['id'] ?? null;
-        }
-    }
-
-    // 3. Set payment method and retrieve
-    if ($targetWalletId) {
-        callJuicyWay($pdo, "wallets/$targetWalletId/payment-method", 'POST', ['type' => 'crypto_address']);
-        $finalRes = callJuicyWay($pdo, "wallets/$targetWalletId", 'GET');
-        if (isset($finalRes['data']['payment_methods'])) {
-             foreach ($finalRes['data']['payment_methods'] as $pm) {
-                if ($pm['type'] === 'crypto_address' && !empty($pm['address'])) {
-                    return ['status' => 'success', 'address' => $pm['address']];
-                }
-            }
-        }
-        if (!empty($finalRes['data']['address'])) return ['status' => 'success', 'address' => $finalRes['data']['address']];
-    }
-
-    return ['status' => 'error', 'message' => 'Failed to generate crypto address through full JuicyWay flow.'];
-}
-}
-
-if (!function_exists('cryptoGetDepositAddress')) {
-function cryptoGetDepositAddress($pdo, $coin, $network = 'TRC20') {
-    $settings = fetchSettings($pdo);
-    $provider = $settings['financialSettings']['primaryCrypto'] ?? 'bybit';
-    if ($provider === 'juicyway') return juicywayGetCryptoAddress($pdo, $coin, $network);
-    if ($provider === 'mexc') {
-        $mNet = ($network === 'TRC20') ? 'TRX' : (($network === 'ERC20') ? 'ETH' : $network);
-        return mexcGetDepositAddress($pdo, $coin, $mNet);
-    }
-    return bybitGetDepositAddress($pdo, $coin, $network);
-}
-}
-
 /**
  * JUICYWAY (Elite Finance)
  */
@@ -725,22 +586,15 @@ function callJuicyWay($pdo, $endpoint, $method = 'POST', $data = []) {
     $creds = $settings['financialSettings']['juicyway'] ?? [];
     $apiKey = $creds['apiKey'] ?? '';
     $businessId = $creds['businessId'] ?? '';
-    $baseUrl = !empty($creds['liveMode']) ? "https://api.spendjuice.com/v1" : "https://api-sandbox.spendjuice.com/v1";
+    $baseUrl = !empty($creds['liveMode']) ? "https://api.spendjuice.com" : "https://api-sandbox.spendjuice.com";
 
-    $authHeader = (strpos($apiKey, 'Bearer') === 0 || empty($apiKey)) ? $apiKey : "Bearer " . $apiKey;
     $headers = [
-        "Authorization: " . $authHeader,
-        "Content-Type: application/json",
-        "Accept: application/json"
+        "Authorization: " . $apiKey,
+        "Content-Type: application/json"
     ];
     if ($businessId) $headers[] = "X-Business-ID: $businessId";
 
-    $url = $baseUrl . "/" . ltrim($endpoint, '/');
-    if ($method === 'GET' && !empty($data)) {
-        $url .= (strpos($url, '?') === false ? '?' : '&') . http_build_query($data);
-        return callApi($url, 'GET', [], $headers);
-    }
-    return callApi($url, $method, $data, $headers);
+    return callApi("$baseUrl/$endpoint", $method, $data, $headers);
 }
 }
 
@@ -851,114 +705,6 @@ function sendKudiSms($pdo, $senderId, $message, $to) {
 }
 }
 
-/**
- * REQUERY SERVICE
- */
-if (!function_exists('requeryTransaction')) {
-function requeryTransaction($pdo, $txId) {
-    $stmt = $pdo->prepare("SELECT * FROM transactions WHERE id = ?");
-    $stmt->execute([$txId]);
-    $tx = $stmt->fetch();
-    if (!$tx) return ['status' => 'error', 'message' => 'Transaction not found'];
-
-    $settings = fetchSettings($pdo);
-    $provider = $tx['provider'] ?: 'manual';
-    $ref = $tx['provider_ref'] ?: $tx['token'];
-
-    if (!$ref || $provider === 'manual' || $provider === 'Internal' || $provider === 'System') {
-        return ['status' => 'error', 'message' => 'Transaction not requeryable'];
-    }
-
-    $newStatus = null;
-    $apiMsg = '';
-
-    switch ($provider) {
-        case 'vtpass':
-            $us = $settings['utilitySettings']['vtpass'] ?? [];
-            $headers = ["Content-Type: application/json"];
-            if (!empty($us['username']) && !empty($us['password'])) {
-                $headers[] = "Authorization: Basic " . base64_encode($us['username'] . ":" . $us['password']);
-            } elseif (!empty($us['apiKey'])) {
-                $headers[] = "api-key: " . $us['apiKey'];
-                $headers[] = "public-key: " . ($us['publicKey'] ?? '');
-            }
-            $url = (!empty($us['sandbox'])) ? "https://sandbox.vtpass.com/api/requery" : "https://vtpass.com/api/requery";
-            $res = callApi($url, 'POST', ['request_id' => $ref], $headers);
-            if (isset($res['code']) && $res['code'] === '000') {
-                $apiStatus = $res['content']['transactions']['status'] ?? '';
-                if ($apiStatus === 'delivered' || $apiStatus === 'successful') $newStatus = 'successful';
-                elseif ($apiStatus === 'failed') $newStatus = 'failed';
-                $apiMsg = $res['response_description'] ?? $apiStatus;
-            }
-            break;
-
-        case 'nellobyte':
-            // Try to find if it was Airtime/Data to get correct creds
-            $creds = [];
-            if ($tx['type'] === 'Airtime') $creds = $settings['airtimeSettings']['providers']['nellobyte'] ?? [];
-            else $creds = $settings['dataSettings']['providers']['nellobyte'] ?? [];
-
-            $url = "https://www.nellobytesystems.com/APIQueryV1.asp?UserID=" . ($creds['userId'] ?? '') . "&APIKey=" . ($creds['apiKey'] ?? '') . "&OrderID=" . $ref;
-            $res = callApi($url);
-            if (isset($res['status'])) {
-                if (strpos($res['status'], 'COMPLETED') !== false || strpos($res['status'], 'SUCCESSFUL') !== false) $newStatus = 'successful';
-                elseif (strpos($res['status'], 'FAILED') !== false) $newStatus = 'failed';
-                $apiMsg = $res['status'];
-            }
-            break;
-
-        case 'datagifting':
-            $creds = [];
-            if ($tx['type'] === 'Airtime') $creds = $settings['airtimeSettings']['providers']['datagifting'] ?? [];
-            else $creds = $settings['dataSettings']['providers']['datagifting'] ?? [];
-            $apiKey = $creds['apiKey'] ?? '';
-
-            $res = callApi("https://v6.datagifting.com.ng/api/requery.php?api_key=$apiKey&reference=$ref");
-            if (isset($res['status'])) {
-                if ($res['status'] === 'success') $newStatus = 'successful';
-                elseif ($res['status'] === 'fail' || $res['status'] === 'failed') $newStatus = 'failed';
-                $apiMsg = $res['desc'] ?? $res['msg'] ?? $res['status'];
-            }
-            break;
-
-        case 'datastation':
-        case 'hdkdata':
-            $creds = [];
-            $baseUrl = ($provider === 'datastation') ? 'https://datastationapi.com' : 'https://hdkdata.com';
-            if ($tx['type'] === 'Airtime') $creds = $settings['airtimeSettings']['providers'][$provider] ?? [];
-            else $creds = $settings['dataSettings']['providers'][$provider] ?? [];
-
-            $res = callApi("$baseUrl/api/status/$ref", 'GET', [], ["Authorization: Token " . ($creds['token'] ?? '')]);
-            if (isset($res['Status'])) {
-                if ($res['Status'] === 'successful') $newStatus = 'successful';
-                elseif ($res['Status'] === 'failed') $newStatus = 'failed';
-                $apiMsg = $res['Status'];
-            }
-            break;
-
-        case 'juicyway':
-            $res = callJuicyWay($pdo, "transactions/$ref", 'GET');
-            if (isset($res['data']['status'])) {
-                if ($res['data']['status'] === 'success' || $res['data']['status'] === 'successful') $newStatus = 'successful';
-                elseif ($res['data']['status'] === 'failed' || $res['data']['status'] === 'fail') $newStatus = 'failed';
-                $apiMsg = $res['data']['status'];
-            }
-            break;
-    }
-
-    if ($newStatus && $newStatus !== $tx['status']) {
-        if (changeTransactionStatus($pdo, $txId, $newStatus)) {
-            $pdo->prepare("UPDATE transactions SET details = CONCAT(details, ' | Requery: ', ?), last_queried_at = NOW(), query_count = query_count + 1 WHERE id = ?")
-                ->execute([$apiMsg, $txId]);
-            return ['status' => 'success', 'new_status' => $newStatus, 'message' => "Updated to $newStatus"];
-        }
-    }
-
-    $pdo->prepare("UPDATE transactions SET last_queried_at = NOW(), query_count = query_count + 1 WHERE id = ?")->execute([$txId]);
-    return ['status' => 'no_change', 'current_status' => $tx['status'], 'message' => $apiMsg ?: 'No change detected'];
-}
-}
-
 if (!function_exists('nellobyteGetBettingCompanies')) {
 function nellobyteGetBettingCompanies($pdo) {
     $settings = fetchSettings($pdo);
@@ -1053,7 +799,7 @@ function datagiftingGetDataPlans($pdo) {
     $creds = $ds['providers']['datagifting'] ?? [];
     $apiKey = $creds['apiKey'] ?? '';
 
-    $url = "https://v6.datagifting.com.ng/api/data-plans.php?api_key=$apiKey";
+    $url = "https://v6.datagifting.com.ng/web/api/data-plans.php?api_key=$apiKey";
     return callApi($url);
 }
 }
@@ -1089,6 +835,89 @@ function naijaresultpinsExams($pdo, $action, $params = []) {
     $url = "https://naijaresultpins.com/api/$action?api_key=$apiKey";
     foreach ($params as $k => $v) { $url .= "&$k=" . urlencode($v); }
     return callApi($url);
+}
+}
+
+if (!function_exists('requeryTransaction')) {
+function requeryTransaction($pdo, $txId) {
+    $stmt = $pdo->prepare("SELECT * FROM transactions WHERE id = ?");
+    $stmt->execute([$txId]);
+    $tx = $stmt->fetch();
+    if (!$tx) return ['status' => 'error', 'message' => 'Transaction not found'];
+
+    $settings = fetchSettings($pdo);
+    $provider = $tx['provider'] ?: 'manual';
+    $ref = $tx['provider_ref'] ?: $tx['token'];
+
+    if (!$ref || $provider === 'manual' || $provider === 'Internal' || $provider === 'System') {
+        return ['status' => 'error', 'message' => 'Transaction not requeryable'];
+    }
+
+    $newStatus = null;
+    $apiMsg = '';
+
+    switch ($provider) {
+        case 'vtpass':
+            $us = $settings['utilitySettings']['vtpass'] ?? [];
+            $headers = ["Content-Type: application/json"];
+            if (!empty($us['username']) && !empty($us['password'])) {
+                $headers[] = "Authorization: Basic " . base64_encode($us['username'] . ":" . $us['password']);
+            } elseif (!empty($us['apiKey'])) {
+                $headers[] = "api-key: " . $us['apiKey'];
+                $headers[] = "public-key: " . ($us['publicKey'] ?? '');
+            }
+            $url = (!empty($us['sandbox'])) ? "https://sandbox.vtpass.com/api/requery" : "https://vtpass.com/api/requery";
+            $res = callApi($url, 'POST', ['request_id' => $ref], $headers);
+            if (isset($res['code']) && $res['code'] === '000') {
+                $apiStatus = $res['content']['transactions']['status'] ?? '';
+                if ($apiStatus === 'delivered' || $apiStatus === 'successful') $newStatus = 'successful';
+                elseif ($apiStatus === 'failed') $newStatus = 'failed';
+                $apiMsg = $res['response_description'] ?? $apiStatus;
+            }
+            break;
+
+        case 'nellobyte':
+            $creds = ($tx['type'] === 'Airtime') ? ($settings['airtimeSettings']['providers']['nellobyte'] ?? []) : ($settings['dataSettings']['providers']['nellobyte'] ?? []);
+            $url = "https://www.nellobytesystems.com/APIQueryV1.asp?UserID=" . ($creds['userId'] ?? '') . "&APIKey=" . ($creds['apiKey'] ?? '') . "&OrderID=" . $ref;
+            $res = callApi($url);
+            if (isset($res['status'])) {
+                if (strpos($res['status'], 'COMPLETED') !== false || strpos($res['status'], 'SUCCESSFUL') !== false) $newStatus = 'successful';
+                elseif (strpos($res['status'], 'FAILED') !== false) $newStatus = 'failed';
+                $apiMsg = $res['status'];
+            }
+            break;
+
+        case 'datagifting':
+            $creds = ($tx['type'] === 'Airtime') ? ($settings['airtimeSettings']['providers']['datagifting'] ?? []) : ($settings['dataSettings']['providers']['datagifting'] ?? []);
+            $apiKey = $creds['apiKey'] ?? '';
+            $res = callApi("https://v6.datagifting.com.ng/web/api/requery.php?api_key=$apiKey&reference=$ref");
+            if (isset($res['status'])) {
+                if ($res['status'] === 'success') $newStatus = 'successful';
+                elseif ($res['status'] === 'fail' || $res['status'] === 'failed') $newStatus = 'failed';
+                $apiMsg = $res['desc'] ?? $res['msg'] ?? $res['status'];
+            }
+            break;
+
+        case 'juicyway':
+            $res = callJuicyWay($pdo, "transactions/$ref", 'GET');
+            if (isset($res['data']['status'])) {
+                if ($res['data']['status'] === 'success' || $res['data']['status'] === 'successful') $newStatus = 'successful';
+                elseif ($res['data']['status'] === 'failed' || $res['data']['status'] === 'fail') $newStatus = 'failed';
+                $apiMsg = $res['data']['status'];
+            }
+            break;
+    }
+
+    if ($newStatus && $newStatus !== $tx['status']) {
+        if (changeTransactionStatus($pdo, $txId, $newStatus)) {
+            $pdo->prepare("UPDATE transactions SET details = CONCAT(details, ' | Requery: ', ?), last_queried_at = NOW(), query_count = query_count + 1 WHERE id = ?")
+                ->execute([$apiMsg, $txId]);
+            return ['status' => 'success', 'new_status' => $newStatus, 'message' => "Updated to $newStatus"];
+        }
+    }
+
+    $pdo->prepare("UPDATE transactions SET last_queried_at = NOW(), query_count = query_count + 1 WHERE id = ?")->execute([$txId]);
+    return ['status' => 'no_change', 'current_status' => $tx['status'], 'message' => $apiMsg ?: 'No change detected'];
 }
 }
 

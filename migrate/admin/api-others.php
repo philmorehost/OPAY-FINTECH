@@ -21,12 +21,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'token' => $_POST['ks_token'],
         'sender' => $_POST['ks_sender']
     ];
-    $os['epin_sms_numbers'] = [
-        'MTN' => $_POST['epin_mtn'],
-        'Airtel' => $_POST['epin_airtel'],
-        'Glo' => $_POST['epin_glo'],
-        '9mobile' => $_POST['epin_9mobile']
-    ];
     $os['reloadly'] = [
         'clientId' => $_POST['rl_clientId'],
         'clientSecret' => $_POST['rl_clientSecret']
@@ -45,6 +39,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'apiKey' => $_POST['cg_apiKey']
     ];
     $os['simulationMode'] = isset($_POST['simulationMode']) ? 1 : 0;
+    $os['epin_sms_numbers'] = [
+        'MTN' => sanitize($_POST['epin_mtn']),
+        'Airtel' => sanitize($_POST['epin_airtel']),
+        'Glo' => sanitize($_POST['epin_glo']),
+        '9mobile' => sanitize($_POST['epin_9mobile'])
+    ];
 
     $stmt = $pdo->prepare("UPDATE settings SET otherApiSettings = ?, smsRate = ?, smsApiRate = ? WHERE id = 1");
     $stmt->execute([json_encode($os), (float)$_POST['smsRate'], (float)$_POST['smsApiRate']]);
@@ -189,29 +189,30 @@ require_once __DIR__ . '/header.php';
             </div>
 
             <!-- EPIN SMS Numbers -->
-            <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100 col-span-1 md:col-span-2">
+            <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
                 <h3 class="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-3 text-indigo-600">
                     <i data-lucide="smartphone" class="w-5 h-5"></i> EPIN SMS Destination Numbers
                 </h3>
-                <p class="text-[10px] font-bold text-gray-400 mb-6 uppercase">Configure the phone numbers per GSM network where users will send SMS for datacard EPIN</p>
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <?php $en = $os['epin_sms_numbers'] ?? []; ?>
                     <div>
-                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1">MTN Number</label>
-                        <input type="tel" name="epin_mtn" value="<?php echo $os['epin_sms_numbers']['MTN'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
+                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1">MTN SMS Number</label>
+                        <input type="text" name="epin_mtn" value="<?php echo $en['MTN'] ?? ''; ?>" placeholder="e.g. 555" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
                     </div>
                     <div>
-                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Airtel Number</label>
-                        <input type="tel" name="epin_airtel" value="<?php echo $os['epin_sms_numbers']['Airtel'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
+                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Airtel SMS Number</label>
+                        <input type="text" name="epin_airtel" value="<?php echo $en['Airtel'] ?? ''; ?>" placeholder="e.g. 141" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
                     </div>
                     <div>
-                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Glo Number</label>
-                        <input type="tel" name="epin_glo" value="<?php echo $os['epin_sms_numbers']['Glo'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
+                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Glo SMS Number</label>
+                        <input type="text" name="epin_glo" value="<?php echo $en['Glo'] ?? ''; ?>" placeholder="e.g. 123" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
                     </div>
                     <div>
-                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1">9mobile Number</label>
-                        <input type="tel" name="epin_9mobile" value="<?php echo $os['epin_sms_numbers']['9mobile'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
+                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1">9mobile SMS Number</label>
+                        <input type="text" name="epin_9mobile" value="<?php echo $en['9mobile'] ?? ''; ?>" placeholder="e.g. 200" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
                     </div>
                 </div>
+                <p class="text-[9px] font-bold text-gray-400 mt-4 uppercase italic">* These numbers will appear on printed data cards for users to send their PIN to.</p>
             </div>
 
 

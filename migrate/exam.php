@@ -6,10 +6,6 @@ $pageTitle = 'Exam PIN';
 $error = '';
 $success = false;
 
-$ls = $settings['loginSecuritySettings'] ?? [];
-$isPinForced = !empty($ls['pin']['forced']);
-$userPinEnabled = !empty($currentUser['fundPasswordVtuEnabled']);
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'purchase') {
     if (!verifyCsrfToken($_POST['csrf_token'])) die('CSRF Failed');
 
@@ -19,6 +15,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $stmt = $pdo->prepare("SELECT * FROM utility_packages WHERE category = 'exam' AND package_id = ?");
     $stmt->execute([$packageId]);
     $pkg = $stmt->fetch();
+
+    $ls = $settings['loginSecuritySettings'] ?? [];
+    $isPinForced = !empty($ls['pin']['forced']);
+    $userPinEnabled = !empty($currentUser['fundPasswordVtuEnabled']);
 
     if (!$pkg) {
         $error = "Invalid exam product";
@@ -50,21 +50,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     $res = naijaresultpinsExams($pdo, 'buy', ['package' => $pkg['package_id'], 'quantity' => $qty]);
                     $isSuccess = isset($res['status']) && ($res['status'] === 'success' || $res['status'] === true);
                 }
-                $status = 'failed';
-                $ref = null;
-                if ($pkg['provider'] === 'vtpass' && isset($res['code'])) {
-                    if ($res['code'] === '000') {
-                        $apiStatus = $res['content']['transactions']['status'] ?? 'pending';
-                        if ($apiStatus === 'delivered' || $apiStatus === 'successful') $status = 'successful';
-                        else $status = 'pending';
-                        $ref = $res['requestId'] ?? null;
-                    }
-                } elseif ($isSuccess) {
-                    $status = 'successful';
-                }
-
                 $tokenStr = '';
-                if ($status === 'successful') {
+                if ($isSuccess) {
                     if (isset($res['cards'])) {
                         $tokens = [];
                         foreach ($res['cards'] as $card) { $tokens[] = ($card['pin'] ?? $card['pin_code'] ?? ''); }
@@ -76,18 +63,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     }
 
                     $profitVal = $totalCost - ($apiCost * $qty);
-                    logTransaction($pdo, $currentUser['id'], 'Exam PIN', $totalCost, 'successful', "Purchase of $qty " . $pkg['name'] . " PIN(s)", 'Self', $pkg['provider'], $tokenStr ?: $ref, ($apiCost * $qty), $profitVal);
+                    logTransaction($pdo, $currentUser['id'], 'Exam PIN', $totalCost, 'successful', "Purchase of $qty " . $pkg['name'] . " PIN(s)", 'Self', $pkg['provider'], $tokenStr, ($apiCost * $qty), $profitVal, null, 0);
                     sendMail($pdo, $currentUser['email'], "Exam PIN Receipt", "Successful purchase of $qty PIN(s). <br>Product: {$pkg['name']} <br>PIN: $tokenStr");
                     claimDailyRewardIfEligible($pdo, $currentUser['id']);
-                    $success = true;
-                } elseif ($status === 'pending') {
-                    $profitVal = $totalCost - ($apiCost * $qty);
-                    logTransaction($pdo, $currentUser['id'], 'Exam PIN', $totalCost, 'pending', "Purchase of $qty " . $pkg['name'] . " PIN(s) processing", 'Self', $pkg['provider'], $ref, ($apiCost * $qty), $profitVal);
                     $success = true;
                 } else {
                     updateWallet($pdo, $currentUser['id'], $totalCost, 'credit');
                     $errMsg = is_array($res) ? ($res['response_description'] ?? $res['msg'] ?? $res['message'] ?? 'API Error') : 'Provider Error';
-                    logTransaction($pdo, $currentUser['id'], 'Exam PIN', $totalCost, 'failed', "Exam PIN failed: $errMsg", 'Self', $pkg['provider']);
+                    logTransaction($pdo, $currentUser['id'], 'Exam PIN', $totalCost, 'failed', "Exam PIN failed: $errMsg", 'Self', $pkg['provider'], null, 0, 0, null, 1);
                     $error = 'Transaction failed: ' . $errMsg;
                 }
 
@@ -138,11 +121,11 @@ require_once __DIR__ . '/includes/header.php';
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Quantity</label>
-                    <input type="number" name="quantity" value="1" min="1" max="5" inputmode="numeric" pattern="[0-9]*" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-xl outline-none" required>
+                    <input type="number" name="quantity" value="1" min="1" max="5" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-xl outline-none" required>
                 </div>
                 <div>
                     <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Security PIN</label>
-                    <input type="password" name="fund_password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" <?php echo ($isPinForced || $userPinEnabled) ? 'required' : ''; ?>>
+                    <input type="password" name="fund_password" maxlength="6" placeholder="••••••" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" <?php echo ($isPinForced || $userPinEnabled) ? 'required' : ''; ?>>
                 </div>
             </div>
 

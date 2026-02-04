@@ -13,10 +13,6 @@ $cableProviders = [
 $error = '';
 $success = false;
 
-$ls = $settings['loginSecuritySettings'] ?? [];
-$isPinForced = !empty($ls['pin']['forced']);
-$userPinEnabled = !empty($currentUser['fundPasswordVtuEnabled']);
-
 if (isset($_GET['ajax'])) {
     header('Content-Type: application/json');
     if ($_GET['ajax'] === 'verify') {
@@ -46,6 +42,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $stmt->execute([$providerId, $variationCode]);
     $pkg = $stmt->fetch();
 
+    $ls = $settings['loginSecuritySettings'] ?? [];
+    $isPinForced = !empty($ls['pin']['forced']);
+    $userPinEnabled = !empty($currentUser['fundPasswordVtuEnabled']);
+
     if (!$pkg) {
         $error = 'Invalid package selected';
     } elseif (($isPinForced || $userPinEnabled) && !verifyFundPassword($pdo, $currentUser['id'], $_POST['fund_password'] ?? '')) {
@@ -67,48 +67,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 updateWallet($pdo, $currentUser['id'], $amount, 'debit');
 
                 $gateway = $pkg['provider'] ?: 'vtpass';
+                $isSuccess = false;
+                $isPending = false;
+                $ref = null;
                 if ($gateway === 'vtpass') {
+                    $ref = date('YmdHi') . bin2hex(random_bytes(3));
                     $res = callVtpass($pdo, $providerId, [
+                        'request_id' => $ref,
                         'billersCode' => $iucNumber,
                         'variation_code' => $variationCode,
                         'amount' => $pkg['api_price'],
                         'phone' => $currentUser['phone']
                     ]);
-                    $isSuccess = isset($res['code']) && $res['code'] === '000';
+                    if (isset($res['code']) && $res['code'] === '000') {
+                        $st = $res['content']['transactions']['status'] ?? 'pending';
+                        if ($st === 'delivered' || $st === 'successful') $isSuccess = true;
+                        else $isPending = true;
+                    } elseif (isset($res['code']) && ($res['code'] === '099' || $res['code'] === '020')) {
+                        $isPending = true;
+                    }
                     $errMsg = $res['response_description'] ?? 'API Error';
                 } else {
-                    // Placeholder for other gateways
-                    $isSuccess = false;
                     $errMsg = "Gateway $gateway not implemented for Cable";
                 }
 
-                $status = 'failed';
-                $ref = null;
-                if ($gateway === 'vtpass' && isset($res['code'])) {
-                    if ($res['code'] === '000') {
-                        $apiStatus = $res['content']['transactions']['status'] ?? 'pending';
-                        if ($apiStatus === 'delivered' || $apiStatus === 'successful') $status = 'successful';
-                        else $status = 'pending';
-                        $ref = $res['requestId'] ?? null;
-                    }
-                }
-
-                if ($status === 'successful') {
+                if ($isSuccess || $isPending) {
+                    $status = $isSuccess ? 'successful' : 'pending';
                     $profitVal = $amount - $apiCost;
-                    logTransaction($pdo, $currentUser['id'], 'Cable TV', $amount, 'successful', "Cable Subscription ($providerId) for $iucNumber", $iucNumber, $providerId, $ref, $apiCost, $profitVal);
+                    logTransaction($pdo, $currentUser['id'], 'Cable TV', $amount, $status, "Cable Subscription ($providerId) for $iucNumber", $iucNumber, $gateway, null, $apiCost, $profitVal, $ref, 0);
                     // Receipt Email
-                    $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Your cable subscription request was processed.<br><br>Provider: $providerId<br>IUC: $iucNumber<br>Amount: " . formatCurrency($amount) . "<br>Status: Successful";
-                    sendMail($pdo, $currentUser['email'], "Cable TV Receipt", $receiptMsg, 'successful');
-                    claimDailyRewardIfEligible($pdo, $currentUser['id']);
+                    $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Your cable subscription request was processed.<br><br>Provider: $providerId<br>IUC: $iucNumber<br>Amount: " . formatCurrency($amount) . "<br>Status: " . strtoupper($status);
+                    sendMail($pdo, $currentUser['email'], "Cable TV Receipt", $receiptMsg, $status);
+                    if ($isSuccess) claimDailyRewardIfEligible($pdo, $currentUser['id']);
                     $success = true;
-                } elseif ($status === 'pending') {
-                    $profitVal = $amount - $apiCost;
-                    logTransaction($pdo, $currentUser['id'], 'Cable TV', $amount, 'pending', "Cable Subscription ($providerId) processing for $iucNumber", $iucNumber, $providerId, $ref, $apiCost, $profitVal);
-                    $success = true; // Still show success UI as it's being processed
                 } else {
                     // Refund
                     updateWallet($pdo, $currentUser['id'], $amount, 'credit');
-                    logTransaction($pdo, $currentUser['id'], 'Cable TV', $amount, 'failed', "Cable failed: $errMsg", $iucNumber, $providerId);
+                    logTransaction($pdo, $currentUser['id'], 'Cable TV', $amount, 'failed', "Cable failed: $errMsg", $iucNumber, $gateway, null, 0, 0, $ref, 1);
                     $error = 'Transaction failed: ' . $errMsg;
                     sendMail($pdo, $currentUser['email'], "Cable TV Failed", "Your cable subscription for $iucNumber failed and has been refunded.", 'failed');
                 }
@@ -156,7 +151,7 @@ require_once __DIR__ . '/includes/header.php';
 
             <div>
                 <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">IUC / Smartcard Number</label>
-                <input type="text" name="iucNumber" inputmode="numeric" pattern="[0-9]*" placeholder="Enter number" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" required>
+                <input type="text" name="iucNumber" placeholder="Enter number" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" required>
                 <div id="iucInfo" class="mt-2 ml-1"></div>
             </div>
 
@@ -170,7 +165,7 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
                 <div>
                     <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Security PIN</label>
-                    <input type="password" name="fund_password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" <?php echo ($isPinForced || $userPinEnabled) ? 'required' : ''; ?>>
+                    <input type="password" name="fund_password" maxlength="6" placeholder="••••••" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" <?php echo ($isPinForced || $userPinEnabled) ? 'required' : ''; ?>>
                 </div>
             </div>
 

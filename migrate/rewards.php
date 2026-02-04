@@ -82,7 +82,7 @@ require_once __DIR__ . '/includes/header.php';
 
             <div>
                 <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Amount of Coins to Convert</label>
-                <input type="number" name="coins" inputmode="numeric" pattern="[0-9]*" placeholder="Min <?php echo $settings['conversionRate']; ?> coins" min="<?php echo $settings['conversionRate']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-xl outline-none" required>
+                <input type="number" name="coins" placeholder="Min <?php echo $settings['conversionRate']; ?> coins" min="<?php echo $settings['conversionRate']; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-xl outline-none" required>
             </div>
 
             <div class="flex justify-between items-center bg-gray-50 p-6 rounded-3xl border border-gray-100">

@@ -7,10 +7,6 @@ $pageTitle = 'Data';
 $error = '';
 $statusDetails = null;
 
-$ls = $settings['loginSecuritySettings'] ?? [];
-$isPinForced = !empty($ls['pin']['forced']);
-$userPinEnabled = !empty($currentUser['fundPasswordVtuEnabled']);
-
 $dataNetworks = $settings['dataNetworks'];
 if (is_string($dataNetworks)) $dataNetworks = json_decode($dataNetworks, true) ?: [];
 
@@ -37,6 +33,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         foreach ($raw as $num) { $num = trim($num); if (strlen($num) >= 10) $recipients[] = $num; }
         $recipients = array_unique($recipients);
     } else { $recipients[] = sanitize($_POST['phoneNumber']); }
+
+    $ls = $settings['loginSecuritySettings'] ?? [];
+    $isPinForced = !empty($ls['pin']['forced']);
+    $userPinEnabled = !empty($currentUser['fundPasswordVtuEnabled']);
 
     if (isKycRejected($currentUser)) {
         $error = 'Account restricted. Please update your KYC.';
@@ -69,19 +69,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     updateWallet($pdo, $currentUser['id'], $totalCost, 'debit');
 
                     $successCount = 0;
+                    $ds = $settings['dataSettings'] ?? [];
+                    $provider = $selectedPlan['gateway'] ?? ($ds['routing'][$networkName] ?? 'datagifting');
+
                     foreach ($recipients as $num) {
                         $response = purchaseData($pdo, $networkName, $selectedPlan['apiCode'] ?? $selectedPlan['id'], $num);
                         $status = $response['status'] ?? 'failed';
+                        $ref = $response['ref'] ?? null;
 
-                        if ($status === 'success') {
-                            $successCount++;
-                            logTransaction($pdo, $currentUser['id'], 'Data', $userPrice, 'successful', "{$selectedPlan['size']} {$selectedPlan['type']} for $num", $num, $networkName, $response['ref'] ?? null, $apiPrice, $profit);
-                        } elseif ($status === 'pending') {
-                            $successCount++;
-                            logTransaction($pdo, $currentUser['id'], 'Data', $userPrice, 'pending', "{$selectedPlan['size']} {$selectedPlan['type']} processing for $num", $num, $networkName, $response['ref'] ?? null, $apiPrice, $profit);
+                        if ($status === 'success' || $status === 'pending') {
+                            if ($status === 'success') $successCount++;
+                            logTransaction($pdo, $currentUser['id'], 'Data', $userPrice, ($status === 'success' ? 'successful' : 'pending'), "{$selectedPlan['size']} {$selectedPlan['type']} for $num", $num, $provider, null, $apiPrice, $profit, $ref, 0);
                         } else {
                             updateWallet($pdo, $currentUser['id'], $userPrice, 'credit');
-                            logTransaction($pdo, $currentUser['id'], 'Data', $userPrice, 'failed', "{$selectedPlan['size']} failed: " . ($response['message'] ?? 'Error'), $num, $networkName);
+                            logTransaction($pdo, $currentUser['id'], 'Data', $userPrice, 'failed', "{$selectedPlan['size']} failed: " . ($response['message'] ?? 'Error'), $num, $provider, null, 0, 0, $ref, 1);
                         }
                     }
 
@@ -124,7 +125,7 @@ require_once __DIR__ . '/includes/header.php';
 
             <div id="singlePhoneGroup">
                 <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Recipient Number</label>
-                <input type="tel" name="phoneNumber" inputmode="numeric" pattern="[0-9]*" placeholder="e.g. 08123456789" maxlength="11" class="w-full p-5 bg-gray-50 rounded-2xl font-black text-xl outline-none focus:ring-2 focus:ring-billpay-green/10">
+                <input type="tel" name="phoneNumber" placeholder="e.g. 08123456789" maxlength="11" class="w-full p-5 bg-gray-50 rounded-2xl font-black text-xl outline-none focus:ring-2 focus:ring-billpay-green/10">
             </div>
 
             <div id="bulkPhoneGroup" class="hidden space-y-4">
@@ -162,7 +163,7 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
                 <div class="flex flex-col justify-end">
                     <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest ml-1">Security PIN</label>
-                    <input type="password" name="fund_password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" <?php echo ($isPinForced || $userPinEnabled) ? 'required' : ''; ?>>
+                    <input type="password" name="fund_password" maxlength="6" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" <?php echo ($isPinForced || $userPinEnabled) ? 'required' : ''; ?>>
                 </div>
             </div>
 

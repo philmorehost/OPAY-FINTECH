@@ -63,7 +63,7 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
                 <div class="bg-white p-5 rounded-[24px] border border-gray-100 flex flex-col gap-2">
                     <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Phone Number</label>
-                    <input type="tel" name="phone" value="<?php echo $currentUser['phone']; ?>" inputmode="numeric" pattern="[0-9]*" class="w-full bg-gray-50 p-3 rounded-xl font-bold text-sm outline-none border-2 border-transparent focus:border-billpay-green transition-all">
+                    <input type="tel" name="phone" value="<?php echo $currentUser['phone']; ?>" class="w-full bg-gray-50 p-3 rounded-xl font-bold text-sm outline-none border-2 border-transparent focus:border-billpay-green transition-all">
                 </div>
                 <div class="bg-white p-5 rounded-[24px] border border-gray-100 flex justify-between items-center opacity-60">
                     <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Email Address</span>

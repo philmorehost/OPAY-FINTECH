@@ -77,25 +77,6 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                     <?php endif; ?>
 
-                    <?php if ($tx['type'] === 'Data EPIN' && $tx['token']): ?>
-                    <div class="space-y-4 mt-8">
-                        <div class="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Generated EPINs</div>
-                        <?php
-                            $stmt = $pdo->prepare("SELECT * FROM data_epins WHERE batchId = ?");
-                            $stmt->execute([$tx['token']]);
-                            $pins = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                            foreach ($pins as $p):
-                        ?>
-                        <div class="bg-gray-50 p-6 rounded-3xl border border-gray-100 text-center">
-                            <div class="text-[8px] font-black text-gray-400 uppercase mb-1">RECHARGE PIN</div>
-                            <div class="text-xl font-black tracking-widest text-gray-900"><?php echo $p['pin']; ?></div>
-                            <div class="text-[8px] font-bold text-gray-400 mt-1 uppercase">S/N: <?php echo $p['serial']; ?></div>
-                        </div>
-                        <?php endforeach; ?>
-                        <a href="/datacard?print_batch=<?php echo $tx['token']; ?>" target="_blank" class="block w-full py-4 bg-billpay-green/10 text-billpay-green text-center rounded-2xl font-black text-[9px] uppercase tracking-widest">Print Full Batch</a>
-                    </div>
-                    <?php endif; ?>
-
                     <div class="bg-indigo-50/50 p-6 rounded-3xl border border-indigo-100 mt-8">
                         <div class="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Description</div>
                         <p class="text-[11px] font-bold text-indigo-900 leading-relaxed uppercase"><?php echo $tx['details']; ?></p>
@@ -106,7 +87,7 @@ require_once __DIR__ . '/includes/header.php';
 
         <!-- Actions -->
         <div class="space-y-4 no-print">
-            <?php if (($tx['status'] === 'pending' || $tx['status'] === 'failed') && !empty($tx['token'])): ?>
+            <?php if (($tx['status'] === 'pending' || $tx['status'] === 'failed') && (!empty($tx['provider_ref']) || !empty($tx['token']))): ?>
             <form method="POST" id="requeryForm">
                 <input type="hidden" name="action" value="requery">
                 <button type="submit" id="requeryBtn" class="w-full bg-indigo-600 text-white p-5 rounded-3xl font-black text-[10px] uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all">

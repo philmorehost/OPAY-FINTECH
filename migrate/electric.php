@@ -7,10 +7,6 @@ $error = '';
 $success = false;
 $token = '';
 
-$ls = $settings['loginSecuritySettings'] ?? [];
-$isPinForced = !empty($ls['pin']['forced']);
-$userPinEnabled = !empty($currentUser['fundPasswordVtuEnabled']);
-
 if (isset($_GET['ajax'])) {
     header('Content-Type: application/json');
     if ($_GET['ajax'] === 'verify') {
@@ -38,6 +34,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $apiDisc = (float)($pkg['api_discount'] ?? 0);
     $userDisc = (float)($pkg['user_discount'] ?? 0);
 
+    $ls = $settings['loginSecuritySettings'] ?? [];
+    $isPinForced = !empty($ls['pin']['forced']);
+    $userPinEnabled = !empty($currentUser['fundPasswordVtuEnabled']);
+
     if (isKycRejected($currentUser)) {
         $error = 'Account restricted. Please update your KYC.';
     } elseif (($isPinForced || $userPinEnabled) && !verifyFundPassword($pdo, $currentUser['id'], $_POST['fund_password'] ?? '')) {
@@ -55,46 +55,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 updateWallet($pdo, $currentUser['id'], $chargedAmount, 'debit');
 
             $gateway = $pkg['provider'] ?: 'vtpass';
+            $isSuccess = false;
+            $isPending = false;
+            $ref = null;
             if ($gateway === 'vtpass') {
+                $ref = date('YmdHi') . bin2hex(random_bytes(3));
                 $res = callVtpass($pdo, $serviceId, [
+                    'request_id' => $ref,
                     'billersCode' => $meterNumber,
                     'variation_code' => $type,
                     'amount' => $amount,
                     'phone' => $currentUser['phone']
                 ]);
-                $isSuccess = isset($res['code']) && $res['code'] === '000';
+                if (isset($res['code']) && $res['code'] === '000') {
+                    $st = $res['content']['transactions']['status'] ?? 'pending';
+                    if ($st === 'delivered' || $st === 'successful') $isSuccess = true;
+                    else $isPending = true;
+                    $token = $res['mainToken'] ?? $res['token'] ?? ($res['purchased_code'] ?? '');
+                } elseif (isset($res['code']) && ($res['code'] === '099' || $res['code'] === '020')) {
+                    $isPending = true;
+                }
                 $errMsg = $res['response_description'] ?? 'API Error';
-                $token = $res['mainToken'] ?? $res['token'] ?? ($res['purchased_code'] ?? '');
             } else {
-                $isSuccess = false;
                 $errMsg = "Gateway $gateway not implemented for Electric";
             }
 
-            $status = 'failed';
-            if ($gateway === 'vtpass' && isset($res['code'])) {
-                if ($res['code'] === '000') {
-                    $apiStatus = $res['content']['transactions']['status'] ?? 'pending';
-                    if ($apiStatus === 'delivered' || $apiStatus === 'successful') $status = 'successful';
-                    else $status = 'pending';
-                }
-            }
-
-            if ($status === 'successful') {
+            if ($isSuccess || $isPending) {
+                $status = $isSuccess ? 'successful' : 'pending';
                 $apiCost = $amount * (1 - ($apiDisc / 100));
                 $profitVal = $chargedAmount - $apiCost;
 
-                logTransaction($pdo, $currentUser['id'], 'Electricity', $chargedAmount, 'successful', "Electric ($serviceId $type) for $meterNumber", $meterNumber, $serviceId, $token, $apiCost, $profitVal, $res['requestId'] ?? null);
-                sendMail($pdo, $currentUser['email'], "Electricity Receipt", "Successful recharge for $meterNumber. Token: $token");
-                claimDailyRewardIfEligible($pdo, $currentUser['id']);
-                $success = true;
-            } elseif ($status === 'pending') {
-                $apiCost = $amount * (1 - ($apiDisc / 100));
-                $profitVal = $chargedAmount - $apiCost;
-                logTransaction($pdo, $currentUser['id'], 'Electricity', $chargedAmount, 'pending', "Electric ($serviceId $type) processing for $meterNumber", $meterNumber, $serviceId, null, $apiCost, $profitVal, $res['requestId'] ?? null);
+                logTransaction($pdo, $currentUser['id'], 'Electricity', $chargedAmount, $status, "Electric ($serviceId $type) for $meterNumber", $meterNumber, $gateway, $token, $apiCost, $profitVal, $ref, 0);
+                sendMail($pdo, $currentUser['email'], "Electricity Receipt", "Recharge request for $meterNumber. Status: " . strtoupper($status) . ($token ? ". Token: $token" : ""));
+                if ($isSuccess) claimDailyRewardIfEligible($pdo, $currentUser['id']);
                 $success = true;
             } else {
                 updateWallet($pdo, $currentUser['id'], $chargedAmount, 'credit');
-                logTransaction($pdo, $currentUser['id'], 'Electricity', $chargedAmount, 'failed', "Electric failed: $errMsg", $meterNumber, $serviceId);
+                logTransaction($pdo, $currentUser['id'], 'Electricity', $chargedAmount, 'failed', "Electric failed: $errMsg", $meterNumber, $gateway, null, 0, 0, $ref, 1);
                 $error = 'Transaction failed: ' . $errMsg;
             }
 
@@ -165,18 +162,18 @@ require_once __DIR__ . '/includes/header.php';
 
             <div>
                 <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Meter Number</label>
-                <input type="text" name="meterNumber" id="meterNumber" inputmode="numeric" pattern="[0-9]*" placeholder="Enter meter number" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" required>
+                <input type="text" name="meterNumber" id="meterNumber" placeholder="Enter meter number" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" required>
                 <div id="meterInfo" class="mt-2 ml-1"></div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Amount (₦)</label>
-                    <input type="number" name="amount" inputmode="numeric" pattern="[0-9]*" placeholder="Enter amount" min="500" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" required>
+                    <input type="number" name="amount" placeholder="Enter amount" min="500" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" required>
                 </div>
                 <div>
                     <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Security PIN</label>
-                    <input type="password" name="fund_password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" <?php echo ($isPinForced || $userPinEnabled) ? 'required' : ''; ?>>
+                    <input type="password" name="fund_password" maxlength="6" placeholder="••••••" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" <?php echo ($isPinForced || $userPinEnabled) ? 'required' : ''; ?>>
                 </div>
             </div>
 

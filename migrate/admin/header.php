@@ -77,7 +77,6 @@
                 ['label' => 'KYC Review', 'icon' => 'shield-check', 'path' => '/admin/kyc'],
                 ['label' => 'Deposits', 'icon' => 'wallet', 'path' => '/admin/deposits'],
                 ['label' => 'All Tx History', 'icon' => 'file-text', 'path' => '/admin/transactions'],
-                ['label' => 'Issue Reports', 'icon' => 'alert-octagon', 'path' => '/admin/transaction-reports'],
                 ['label' => 'Support', 'icon' => 'message-square', 'path' => '/admin/support'],
                 ['label' => 'Email Hub', 'icon' => 'mail', 'path' => '/admin/email-hub'],
                 [
@@ -91,7 +90,6 @@
                         ['label' => 'Utilities API', 'path' => '/admin/api-utilities'],
                         ['label' => 'Financial API', 'path' => '/admin/api-financial'],
                         ['label' => 'Others API', 'path' => '/admin/api-others'],
-                        ['label' => 'Manage Services', 'path' => '/admin/services'],
                     ]
                 ],
                 ['label' => 'Sales Reports', 'icon' => 'bar-chart-3', 'path' => '/admin/reports'],

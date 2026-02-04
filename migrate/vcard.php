@@ -284,12 +284,12 @@ require_once __DIR__ . '/includes/header.php';
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase ml-1">Fund Password</label>
-                    <input type="password" name="fund_password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••" class="w-full p-4 bg-gray-50 rounded-2xl font-black outline-none" required>
+                    <input type="password" name="fund_password" placeholder="••••••" class="w-full p-4 bg-gray-50 rounded-2xl font-black outline-none" required>
                 </div>
                 <div>
                     <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase ml-1">Email Code</label>
                     <div class="flex gap-2">
-                        <input type="text" name="otp" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="000000" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-center outline-none" required>
+                        <input type="text" name="otp" placeholder="000000" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-center outline-none" required>
                         <button type="button" onclick="sendOTP(this)" class="px-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase">Send</button>
                     </div>
                 </div>
@@ -336,7 +336,7 @@ require_once __DIR__ . '/includes/header.php';
             <div class="space-y-6">
                 <div>
                     <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Amount (₦)</label>
-                    <input type="number" name="amount" id="fundAmount" oninput="updateQuote()" inputmode="numeric" pattern="[0-9]*" placeholder="0.00" class="w-full p-6 bg-gray-50 rounded-3xl font-black text-2xl outline-none focus:ring-4 focus:ring-billpay-green/5" required>
+                    <input type="number" name="amount" id="fundAmount" oninput="updateQuote()" placeholder="0.00" class="w-full p-6 bg-gray-50 rounded-3xl font-black text-2xl outline-none focus:ring-4 focus:ring-billpay-green/5" required>
                 </div>
 
                 <div id="fundQuote" class="hidden p-6 bg-indigo-50 rounded-3xl border border-indigo-100 space-y-3">
@@ -348,12 +348,12 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase ml-1">Fund Password</label>
-                        <input type="password" name="fund_password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••" class="w-full p-4 bg-gray-50 rounded-2xl font-black outline-none" required>
+                        <input type="password" name="fund_password" placeholder="••••••" class="w-full p-4 bg-gray-50 rounded-2xl font-black outline-none" required>
                     </div>
                     <div>
                         <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase ml-1">Email Code</label>
                         <div class="flex gap-2">
-                            <input type="text" name="otp" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="000000" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-center outline-none" required>
+                            <input type="text" name="otp" placeholder="000000" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-center outline-none" required>
                             <button type="button" onclick="sendOTP(this)" class="px-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase">Send</button>
                         </div>
                     </div>

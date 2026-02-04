@@ -5,24 +5,17 @@ if (!isLoggedIn()) redirect('/login');
 $pageTitle = 'Home';
 require_once __DIR__ . '/includes/header.php';
 
-$disabledServices = $settings['disabledServices'] ?? [];
-if (is_string($disabledServices)) $disabledServices = json_decode($disabledServices, true) ?: [];
-
 $services = [
-    ['id' => 'pay_hub', 'icon' => 'layout-grid', 'label' => 'Pay Hub', 'path' => '/pay-hub', 'color' => 'text-billpay-green'],
-    ['id' => 'finance', 'icon' => 'crown', 'label' => 'Finance', 'path' => '/finance', 'color' => 'text-amber-500'],
-    ['id' => 'crypto', 'icon' => 'bar-chart-3', 'label' => 'Crypto', 'path' => '/crypto', 'color' => 'text-orange-500'],
-    ['id' => 'vcard', 'icon' => 'credit-card', 'label' => 'Card', 'path' => '/vcard', 'color' => 'text-pink-500'],
-    ['id' => 'datacard', 'icon' => 'printer', 'label' => 'Data Card', 'path' => '/datacard', 'color' => 'text-indigo-600'],
-    ['id' => 'transfer', 'icon' => 'arrow-right-left', 'label' => 'Transfer', 'path' => '/transfer', 'color' => 'text-indigo-500'],
-    ['id' => 'referrals', 'icon' => 'bar-chart-2', 'label' => 'Referrals', 'path' => '/referrals', 'color' => 'text-cyan-600'],
-    ['id' => 'giftcards', 'icon' => 'gift', 'label' => 'Gift Cards', 'path' => '/giftcards', 'color' => 'text-pink-600'],
-    ['id' => 'more', 'icon' => 'more-horizontal', 'label' => 'More', 'path' => '/services', 'color' => 'text-gray-400'],
+    ['icon' => 'layout-grid', 'label' => 'Pay Hub', 'path' => '/pay-hub', 'color' => 'text-billpay-green'],
+    ['icon' => 'crown', 'label' => 'Finance', 'path' => '/finance', 'color' => 'text-amber-500'],
+    ['icon' => 'bar-chart-3', 'label' => 'Crypto', 'path' => '/crypto', 'color' => 'text-orange-500'],
+    ['icon' => 'credit-card', 'label' => 'Card', 'path' => '/vcard', 'color' => 'text-pink-500'],
+    ['icon' => 'printer', 'label' => 'Data Card', 'path' => '/datacard', 'color' => 'text-indigo-600'],
+    ['icon' => 'arrow-right-left', 'label' => 'Transfer', 'path' => '/transfer', 'color' => 'text-indigo-500'],
+    ['icon' => 'bar-chart-2', 'label' => 'Referrals', 'path' => '/referrals', 'color' => 'text-cyan-600'],
+    ['icon' => 'gift', 'label' => 'Gift Cards', 'path' => '/giftcards', 'color' => 'text-pink-600'],
+    ['icon' => 'more-horizontal', 'label' => 'More', 'path' => '/services', 'color' => 'text-gray-400'],
 ];
-
-$services = array_filter($services, function($s) use ($disabledServices) {
-    return !in_array($s['id'], $disabledServices);
-});
 
 $offers = fetchActiveOffers($pdo);
 $templateId = $settings['templateId'] ?? 1;

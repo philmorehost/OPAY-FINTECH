@@ -7,10 +7,6 @@ $pageTitle = 'Airtime';
 $error = '';
 $statusDetails = null;
 
-$ls = $settings['loginSecuritySettings'] ?? [];
-$isPinForced = !empty($ls['pin']['forced']);
-$userPinEnabled = !empty($currentUser['fundPasswordVtuEnabled']);
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'purchase') {
     if (!verifyCsrfToken($_POST['csrf_token'])) die('CSRF Failed');
 
@@ -44,6 +40,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $unitApiCost = $amount * (1 - $apiDiscount / 100);
     $unitProfit = $unitCost - $unitApiCost;
 
+    $ls = $settings['loginSecuritySettings'] ?? [];
+    $isPinForced = !empty($ls['pin']['forced']);
+    $userPinEnabled = !empty($currentUser['fundPasswordVtuEnabled']);
+
     if (isKycRejected($currentUser)) {
         $error = 'Account restricted. Please update your KYC.';
     } elseif (($isPinForced || $userPinEnabled) && !verifyFundPassword($pdo, $currentUser['id'], $_POST['fund_password'] ?? '')) {
@@ -70,17 +70,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 foreach ($recipients as $num) {
                     $response = purchaseAirtime($pdo, $network, $amount, $num);
                     $status = $response['status'] ?? 'failed';
+                    $ref = $response['ref'] ?? null;
 
-                    if ($status === 'success') {
-                        $successCount++;
+                    if ($status === 'success' || $status === 'pending') {
+                        if ($status === 'success') $successCount++;
                         $unitProfitVal = $unitCost - $unitApiCost;
-                        logTransaction($pdo, $currentUser['id'], 'Airtime', $unitCost, 'successful', "$network Airtime for $num", $num, $network, $response['ref'] ?? null, $unitApiCost, $unitProfitVal);
-                    } elseif ($status === 'pending') {
-                        $successCount++; // Count as success to avoid showing global failure but it's pending
-                        logTransaction($pdo, $currentUser['id'], 'Airtime', $unitCost, 'pending', "$network Airtime processing for $num", $num, $network, $response['ref'] ?? null, $unitApiCost, $unitProfitVal ?? 0);
+                        logTransaction($pdo, $currentUser['id'], 'Airtime', $unitCost, ($status === 'success' ? 'successful' : 'pending'), "$network Airtime for $num", $num, $provider, null, $unitApiCost, $unitProfitVal, $ref, 0);
                     } else {
                         updateWallet($pdo, $currentUser['id'], $unitCost, 'credit');
-                        logTransaction($pdo, $currentUser['id'], 'Airtime', $unitCost, 'failed', "$network Airtime failed for $num: " . ($response['message'] ?? 'Error'), $num, $network);
+                        logTransaction($pdo, $currentUser['id'], 'Airtime', $unitCost, 'failed', "$network Airtime failed for $num: " . ($response['message'] ?? 'Error'), $num, $provider, null, 0, 0, $ref, 1);
                     }
                 }
 
@@ -123,7 +121,7 @@ require_once __DIR__ . '/includes/header.php';
 
             <div id="singlePhoneGroup">
                 <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Phone Number</label>
-                <input type="tel" name="phoneNumber" inputmode="numeric" pattern="[0-9]*" placeholder="08012345678" maxlength="11" class="w-full p-5 bg-gray-50 rounded-2xl font-black text-xl outline-none focus:ring-2 focus:ring-billpay-green/10">
+                <input type="tel" name="phoneNumber" placeholder="08012345678" maxlength="11" class="w-full p-5 bg-gray-50 rounded-2xl font-black text-xl outline-none focus:ring-2 focus:ring-billpay-green/10">
             </div>
 
             <div id="bulkPhoneGroup" class="hidden space-y-4">
@@ -162,11 +160,11 @@ require_once __DIR__ . '/includes/header.php';
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Amount (₦)</label>
-                    <input type="number" name="amount" id="amountInput" inputmode="numeric" pattern="[0-9]*" placeholder="Enter amount" min="50" class="w-full p-5 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" required>
+                    <input type="number" name="amount" id="amountInput" placeholder="Enter amount" min="50" class="w-full p-5 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" required>
                 </div>
                 <div>
                     <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Security PIN</label>
-                    <input type="password" name="fund_password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" <?php echo ($isPinForced || $userPinEnabled) ? 'required' : ''; ?>>
+                    <input type="password" name="fund_password" maxlength="6" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" <?php echo ($isPinForced || $userPinEnabled) ? 'required' : ''; ?>>
                 </div>
             </div>
 

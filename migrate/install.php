@@ -158,8 +158,7 @@ if ($stage === 2 && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 airtimeSettings TEXT,
                 utilitySettings TEXT,
                 financialSettings TEXT,
-                otherApiSettings TEXT,
-                disabledServices TEXT
+                otherApiSettings TEXT
             )",
             "CREATE TABLE IF NOT EXISTS support_tickets (
                 id VARCHAR(50) PRIMARY KEY,

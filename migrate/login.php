@@ -27,6 +27,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($stmt->fetch()) die('Access Denied: Temporarily blocked due to security reasons.');
 
     if (isset($_POST['action']) && $_POST['action'] === 'biometric') {
+        /**
+         * SECURITY WARNING:
+         * This is a simplified biometric authentication logic for functional demonstration.
+         * In a PRODUCTION fintech environment, you MUST implement full WebAuthn verification
+         * including challenge verification, origin checks, and cryptographic signature validation.
+         * Do NOT use this simplified logic for high-value financial systems without upgrades.
+         */
         $credentialId = $_POST['credentialId'];
         $stmt = $pdo->prepare("SELECT * FROM users WHERE biometricCredentialId = ? AND biometricEnabled = 1");
         $stmt->execute([$credentialId]);
@@ -83,8 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $jsUser = [
                 'username' => $user['username'],
                 'biometricEnabled' => (bool)$user['biometricEnabled'],
-                'hasBiometrics' => !empty($user['biometricCredentialId']),
-                'biometricId' => $user['biometricCredentialId']
+                'hasBiometrics' => !empty($user['biometricCredentialId'])
             ];
 
             echo "<script>
@@ -165,6 +171,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="mb-6 p-4 bg-red-50 text-red-500 rounded-2xl text-xs font-black border border-red-100 text-center uppercase tracking-tight"><?php echo $error; ?></div>
         <?php endif; ?>
 
+        <?php if (!empty($settings['googleAuthEnabled'])): ?>
+            <div class="mb-8">
+                <?php
+                $googleUrl = "https://accounts.google.com/o/oauth2/v2/auth?" . http_build_query([
+                    'client_id' => $settings['googleClientId'] ?? '',
+                    'redirect_uri' => (isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST]/google-callback.php",
+                    'response_type' => 'code',
+                    'scope' => 'email profile',
+                    'access_type' => 'online'
+                ]);
+                ?>
+                <a href="<?php echo $googleUrl; ?>" class="w-full flex items-center justify-center gap-3 py-4 bg-white border border-gray-200 rounded-[24px] font-black text-[10px] uppercase tracking-widest hover:bg-gray-50 transition-all shadow-sm">
+                    <img src="https://www.google.com/favicon.ico" class="w-4 h-4">
+                    Continue with Google
+                </a>
+                <div class="flex items-center gap-4 mt-8">
+                    <div class="flex-1 h-px bg-gray-50"></div>
+                    <span class="text-[8px] font-black text-gray-300 uppercase tracking-widest">Or login with email</span>
+                    <div class="flex-1 h-px bg-gray-50"></div>
+                </div>
+            </div>
+        <?php endif; ?>
+
         <form method="POST" class="space-y-6">
             <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
             <div class="space-y-2">
@@ -174,8 +203,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="space-y-2">
                 <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Password</label>
                 <div class="relative">
-                    <input type="password" name="password" id="passwordInput" class="w-full p-5 bg-gray-50 rounded-[24px] border border-gray-100 outline-none focus:border-billpay-green font-bold text-sm" required>
-                    <button type="button" onclick="togglePassword('passwordInput', this)" class="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-billpay-green transition-colors">
+                    <input type="password" name="password" id="password" class="w-full p-5 bg-gray-50 rounded-[24px] border border-gray-100 outline-none focus:border-billpay-green font-bold text-sm pr-14" required>
+                    <button type="button" onclick="togglePassword('password', this)" class="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-billpay-green transition-colors">
                         <i data-lucide="eye" class="w-5 h-5"></i>
                     </button>
                 </div>
@@ -183,25 +212,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <button type="submit" class="w-full py-5 bg-billpay-green text-white rounded-[24px] font-black uppercase tracking-widest shadow-xl shadow-green-100 hover:scale-[1.02] transition-all">Sign In</button>
         </form>
-
-        <?php if (!empty($settings['googleAuthEnabled']) && !empty($settings['googleClientId'])): ?>
-            <?php
-            $googleAuthUrl = "https://accounts.google.com/o/oauth2/v2/auth?" . http_build_query([
-                'client_id' => $settings['googleClientId'],
-                'redirect_uri' => (isset($_SERVER['HTTPS']) ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . '/google-callback.php',
-                'response_type' => 'code',
-                'scope' => 'email profile',
-                'access_type' => 'online',
-                'prompt' => 'select_account'
-            ]);
-            ?>
-            <div class="mt-6">
-                <a href="<?php echo $googleAuthUrl; ?>" class="w-full py-5 bg-white border-2 border-gray-100 rounded-[24px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-gray-50 transition-all text-xs">
-                    <img src="https://www.google.com/favicon.ico" class="w-4 h-4">
-                    Sign in with Google
-                </a>
-            </div>
-        <?php endif; ?>
 
         <div id="biometric-area" class="hidden mt-8 text-center animate-slide-up">
             <div class="flex items-center gap-4 mb-8">
@@ -233,10 +243,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
         <script>
             function initBiometricArea() {
+                const isPwa = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
                 const lastUser = JSON.parse(localStorage.getItem('lastUser') || 'null');
                 const isGloballyEnforced = <?php echo !empty($settings['isBiometricEnforced']) ? 'true' : 'false'; ?>;
 
-                if ((lastUser && lastUser.biometricEnabled) || isGloballyEnforced) {
+                if (isPwa && ( (lastUser && lastUser.biometricEnabled) || (!lastUser && isGloballyEnforced) )) {
                     document.getElementById('biometric-area').classList.remove('hidden');
                     if (lastUser && lastUser.username) {
                         document.getElementById('biometric-user-text').innerText = 'Continue as ' + lastUser.username;
@@ -247,46 +258,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             async function loginWithBiometrics() {
                 const lastUser = JSON.parse(localStorage.getItem('lastUser') || 'null');
-                if (!lastUser || !lastUser.hasBiometrics || !lastUser.biometricId) {
+                if (!lastUser || !lastUser.hasBiometrics) {
                     alert("Please login with your username and password first to enable biometric login on this device.");
                     return;
                 }
 
-                if (!window.PublicKeyCredential) {
-                    alert("Biometrics not supported by this browser.");
-                    return;
-                }
+                if (!window.PublicKeyCredential) return;
 
                 const challenge = new Uint8Array(32);
                 window.crypto.getRandomValues(challenge);
-
-                // Convert base64 to Uint8Array
-                const binaryId = atob(lastUser.biometricId);
-                const bytes = new Uint8Array(binaryId.length);
-                for (let i = 0; i < binaryId.length; i++) bytes[i] = binaryId.charCodeAt(i);
 
                 const getCredentialOptions = {
                     publicKey: {
                         challenge: challenge,
                         timeout: 60000,
-                        userVerification: "required",
-                        allowCredentials: [{
-                            id: bytes,
-                            type: 'public-key',
-                            transports: ['internal', 'usb', 'nfc', 'ble']
-                        }]
+                        userVerification: "required"
                     }
                 };
 
                 try {
                     const assertion = await navigator.credentials.get(getCredentialOptions);
                     if (assertion) {
-                        const rawId = new Uint8Array(assertion.rawId);
-                        let binary = '';
-                        for (let i = 0; i < rawId.byteLength; i++) binary += String.fromCharCode(rawId[i]);
-                        const base64Id = btoa(binary);
-
-                        document.getElementById('biometricIdInput').value = base64Id;
+                        document.getElementById('biometricIdInput').value = btoa(String.fromCharCode(...new Uint8Array(assertion.rawId)));
                         document.getElementById('biometricForm').submit();
                     }
                 } catch (err) {
@@ -304,15 +297,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <script src="https://unpkg.com/lucide@latest"></script>
     <script>
         lucide.createIcons();
-        function togglePassword(inputId, btn) {
-            const input = document.getElementById(inputId);
+        function togglePassword(id, btn) {
+            const input = document.getElementById(id);
             const icon = btn.querySelector('i');
             if (input.type === 'password') {
                 input.type = 'text';
-                icon.setAttribute('data-lucide', 'eye-off');
+                btn.innerHTML = '<i data-lucide="eye-off" class="w-5 h-5"></i>';
             } else {
                 input.type = 'password';
-                icon.setAttribute('data-lucide', 'eye');
+                btn.innerHTML = '<i data-lucide="eye" class="w-5 h-5"></i>';
             }
             lucide.createIcons();
         }

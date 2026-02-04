@@ -16,8 +16,9 @@ if ($typeFilter) {
 }
 
 if ($search) {
-    $sql .= " AND (t.recipient LIKE ? OR t.details LIKE ? OR t.id LIKE ? OR u.username LIKE ? OR u.fullName LIKE ?)";
+    $sql .= " AND (t.recipient LIKE ? OR t.details LIKE ? OR t.id LIKE ? OR u.username LIKE ? OR u.fullName LIKE ? OR t.token LIKE ?)";
     $searchParam = "%$search%";
+    $params[] = $searchParam;
     $params[] = $searchParam;
     $params[] = $searchParam;
     $params[] = $searchParam;
@@ -74,12 +75,10 @@ require_once __DIR__ . '/header.php';
                     <label class="text-[8px] font-black text-gray-400 uppercase ml-1">Filter Date</label>
                     <input type="date" name="date" value="<?php echo sanitize($_GET['date'] ?? ''); ?>" class="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold outline-none focus:border-billpay-green">
                 </div>
-                <div class="flex items-end">
+                <div class="flex items-end gap-2">
                     <button type="submit" class="p-3 bg-gray-900 text-white rounded-xl text-xs font-black uppercase px-8 shadow-lg hover:scale-105 transition-all">Filter</button>
-                </div>
-                <div class="flex items-end">
                     <button type="button" onclick="triggerRequery(event)" class="p-3 bg-indigo-600 text-white rounded-xl text-xs font-black uppercase px-6 shadow-lg hover:scale-105 transition-all flex items-center gap-2">
-                        <i data-lucide="refresh-cw" class="w-4 h-4"></i> Run Auto-Requery
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i> Auto-Requery
                     </button>
                 </div>
             </form>
@@ -103,7 +102,7 @@ require_once __DIR__ . '/header.php';
                 <tbody class="divide-y divide-gray-50">
                     <?php foreach ($transactions as $tx): ?>
                        <tr class="hover:bg-gray-50 transition-colors">
-                          <td class="p-6 font-mono text-[10px] font-bold text-gray-400 uppercase cursor-pointer" onclick="window.location='/receipt?id=<?php echo $tx['id']; ?>'"><?php echo $tx['id']; ?></td>
+                          <td class="p-6 font-mono text-[10px] font-bold text-gray-400 uppercase cursor-pointer underline" onclick="window.location='/receipt?id=<?php echo $tx['id']; ?>'"><?php echo $tx['id']; ?></td>
                           <td class="p-6">
                              <div class="flex flex-col">
                                 <span class="text-xs font-black text-gray-800"><?php echo $tx['fullName']; ?></span>
@@ -122,7 +121,7 @@ require_once __DIR__ . '/header.php';
                                     <option value="successful" <?php echo $tx['status'] === 'successful' ? 'selected' : ''; ?>>Successful</option>
                                     <option value="failed" <?php echo $tx['status'] === 'failed' ? 'selected' : ''; ?>>Failed</option>
                                 </select>
-                                <?php if (!empty($tx['token'])): ?>
+                                <?php if (!empty($tx['token']) || !empty($tx['provider_ref'])): ?>
                                 <button type="button" onclick="singleRequery('<?php echo $tx['id']; ?>', this)" class="p-1.5 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors" title="Requery Status">
                                     <i data-lucide="refresh-cw" class="w-3 h-3 text-gray-500"></i>
                                 </button>
