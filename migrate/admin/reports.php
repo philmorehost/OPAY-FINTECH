@@ -20,15 +20,30 @@ $stats = [
 // Service breakdown
 $services = $pdo->query("SELECT type, SUM(amount) as total_sales, SUM(profit) as total_profit, COUNT(*) as tx_count FROM transactions WHERE status = 'successful' AND type NOT IN ('Deposit', 'Daily Reward') GROUP BY type ORDER BY total_sales DESC")->fetchAll(PDO::FETCH_ASSOC);
 
-// Chart Data (Last 7 Days)
+// Chart Data (Last 7 Days) - Optimized Query
 $chartLabels = [];
 $chartSales = [];
 $chartProfit = [];
+$days = [];
 for ($i = 6; $i >= 0; $i--) {
     $d = date('Y-m-d', strtotime("-$i days"));
-    $chartLabels[] = date('M d', strtotime($d));
-    $chartSales[] = $pdo->query("SELECT SUM(amount) FROM transactions WHERE status = 'successful' AND DATE(date) = '$d' AND type NOT IN ('Deposit', 'Daily Reward')")->fetchColumn() ?: 0;
-    $chartProfit[] = $pdo->query("SELECT SUM(profit) FROM transactions WHERE status = 'successful' AND DATE(date) = '$d'")->fetchColumn() ?: 0;
+    $days[$d] = ['sales' => 0, 'profit' => 0, 'label' => date('M d', strtotime($d))];
+}
+
+$startDate = date('Y-m-d', strtotime("-6 days"));
+$stmt = $pdo->prepare("SELECT DATE(date) as d, SUM(CASE WHEN type NOT IN ('Deposit', 'Daily Reward') THEN amount ELSE 0 END) as sales, SUM(profit) as profit FROM transactions WHERE status = 'successful' AND DATE(date) >= ? GROUP BY DATE(date)");
+$stmt->execute([$startDate]);
+while ($row = $stmt->fetch()) {
+    if (isset($days[$row['d']])) {
+        $days[$row['d']]['sales'] = (float)$row['sales'];
+        $days[$row['d']]['profit'] = (float)$row['profit'];
+    }
+}
+
+foreach ($days as $d => $data) {
+    $chartLabels[] = $data['label'];
+    $chartSales[] = $data['sales'];
+    $chartProfit[] = $data['profit'];
 }
 
 require_once __DIR__ . '/header.php';
@@ -79,7 +94,9 @@ require_once __DIR__ . '/header.php';
         <!-- Sales Chart -->
         <div class="lg:col-span-2 bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
             <h3 class="text-xs font-black uppercase tracking-widest mb-8">Revenue Stream (Last 7 Days)</h3>
-            <canvas id="salesChart" height="300"></canvas>
+            <div class="relative h-[300px] w-full">
+                <canvas id="salesChart"></canvas>
+            </div>
         </div>
 
         <!-- Service Breakdown -->

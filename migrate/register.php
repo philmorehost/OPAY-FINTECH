@@ -108,6 +108,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="mb-6 p-4 bg-red-50 text-red-500 rounded-2xl text-xs font-black border border-red-100 text-center uppercase tracking-tight"><?php echo $error; ?></div>
         <?php endif; ?>
 
+        <?php if (!empty($settings['googleAuthEnabled'])): ?>
+            <div class="mb-8">
+                <?php
+                $googleUrl = "https://accounts.google.com/o/oauth2/v2/auth?" . http_build_query([
+                    'client_id' => $settings['googleClientId'] ?? '',
+                    'redirect_uri' => (isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST]/google-callback.php",
+                    'response_type' => 'code',
+                    'scope' => 'email profile',
+                    'access_type' => 'online'
+                ]);
+                ?>
+                <a href="<?php echo $googleUrl; ?>" class="w-full flex items-center justify-center gap-3 py-4 bg-white border border-gray-200 rounded-[24px] font-black text-[10px] uppercase tracking-widest hover:bg-gray-50 transition-all shadow-sm">
+                    <img src="https://www.google.com/favicon.ico" class="w-4 h-4">
+                    Sign up with Google
+                </a>
+                <div class="flex items-center gap-4 mt-8">
+                    <div class="flex-1 h-px bg-gray-50"></div>
+                    <span class="text-[8px] font-black text-gray-300 uppercase tracking-widest">Or create account manually</span>
+                    <div class="flex-1 h-px bg-gray-50"></div>
+                </div>
+            </div>
+        <?php endif; ?>
+
         <form method="POST" class="space-y-4">
             <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
             <input type="hidden" name="referrer" value="<?php echo sanitize($_GET['ref'] ?? ''); ?>">
@@ -131,11 +154,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             <div class="space-y-1">
                 <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Password</label>
-                <input type="password" name="password" class="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-bold text-sm" required>
+                <div class="relative">
+                    <input type="password" name="password" id="password" class="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-bold text-sm pr-12" required>
+                    <button type="button" onclick="togglePassword('password', this)" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-billpay-green transition-colors">
+                        <i data-lucide="eye" class="w-4 h-4"></i>
+                    </button>
+                </div>
             </div>
             <div class="space-y-1">
                 <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Confirm Password</label>
-                <input type="password" name="confirm_password" class="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-bold text-sm" required>
+                <div class="relative">
+                    <input type="password" name="confirm_password" id="confirm_password" class="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-bold text-sm pr-12" required>
+                    <button type="button" onclick="togglePassword('confirm_password', this)" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-billpay-green transition-colors">
+                        <i data-lucide="eye" class="w-4 h-4"></i>
+                    </button>
+                </div>
             </div>
 
             <button type="submit" class="w-full py-5 bg-billpay-green text-white rounded-[24px] font-black uppercase tracking-widest shadow-xl shadow-green-100 mt-4">Sign Up</button>
@@ -145,5 +178,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <p class="text-[10px] font-black text-gray-400 uppercase">Already have an account? <a href="/login" class="text-billpay-green">Login</a></p>
         </div>
     </div>
+
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        lucide.createIcons();
+        function togglePassword(id, btn) {
+            const input = document.getElementById(id);
+            const icon = btn.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.innerHTML = '<i data-lucide="eye-off" class="w-4 h-4"></i>';
+            } else {
+                input.type = 'password';
+                btn.innerHTML = '<i data-lucide="eye" class="w-4 h-4"></i>';
+            }
+            lucide.createIcons();
+        }
+    </script>
 </body>
 </html>

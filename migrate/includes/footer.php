@@ -95,6 +95,17 @@
             const menu = document.getElementById('mobileMenuOverlay');
             menu.classList.toggle('hidden');
         }
+
+        // Automated Transaction Requery (Background)
+        const corePages = ['/dashboard', '/index', '/transactions', '/admin/index', '/admin/transactions'];
+        if (corePages.some(page => location.pathname.includes(page))) {
+            setTimeout(() => {
+                fetch('/cron-requery.php?ajax=1')
+                    .then(r => r.json())
+                    .then(d => console.log('Auto-Requery:', d))
+                    .catch(() => {});
+            }, 2000);
+        }
     </script>
 </body>
 </html>

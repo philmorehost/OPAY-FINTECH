@@ -46,6 +46,11 @@ try {
     addColumnIfNotExists($pdo, 'settings', 'loginSecuritySettings', "TEXT");
     addColumnIfNotExists($pdo, 'settings', 'siteVersion', "VARCHAR(50) DEFAULT '1.0.0'");
     addColumnIfNotExists($pdo, 'settings', 'vcardIssuanceFee', "DECIMAL(15, 2) DEFAULT 1500.00");
+    addColumnIfNotExists($pdo, 'settings', 'googleClientId', "VARCHAR(255)");
+    addColumnIfNotExists($pdo, 'settings', 'googleClientSecret', "VARCHAR(255)");
+    addColumnIfNotExists($pdo, 'settings', 'googleAuthEnabled', "TINYINT(1) DEFAULT 0");
+    addColumnIfNotExists($pdo, 'settings', 'disabledServices', "TEXT");
+    addColumnIfNotExists($pdo, 'settings', 'adminSecuritySettings', "TEXT");
 
     // API Hub Restructured Settings
     addColumnIfNotExists($pdo, 'settings', 'airtimeSettings', "TEXT");
@@ -60,6 +65,10 @@ try {
     addColumnIfNotExists($pdo, 'transactions', 'provider', "VARCHAR(50)");
     addColumnIfNotExists($pdo, 'transactions', 'apiAmount', "DECIMAL(15, 2) DEFAULT 0.00");
     addColumnIfNotExists($pdo, 'transactions', 'profit', "DECIMAL(15, 2) DEFAULT 0.00");
+    addColumnIfNotExists($pdo, 'transactions', 'refunded', "TINYINT(1) DEFAULT 0");
+    addColumnIfNotExists($pdo, 'transactions', 'query_count', "INT DEFAULT 0");
+    addColumnIfNotExists($pdo, 'transactions', 'last_queried_at', "DATETIME");
+    addColumnIfNotExists($pdo, 'transactions', 'provider_ref', "VARCHAR(100)");
 
     // KYC Submissions Table Updates
     addColumnIfNotExists($pdo, 'kyc_submissions', 'selfieImageUrl', "VARCHAR(255)");
@@ -73,8 +82,9 @@ try {
     addColumnIfNotExists($pdo, 'users', 'google2faSecret', "VARCHAR(100)");
     addColumnIfNotExists($pdo, 'users', 'google2faEnabled', "TINYINT(1) DEFAULT 0");
     addColumnIfNotExists($pdo, 'users', 'email2faEnabled', "TINYINT(1) DEFAULT 0");
-    addColumnIfNotExists($pdo, 'users', 'loginSecurityPin', "VARCHAR(10)");
+    addColumnIfNotExists($pdo, 'users', 'loginSecurityPin', "VARCHAR(255)");
     addColumnIfNotExists($pdo, 'users', 'configuredSecurityMethods', "TEXT");
+    addColumnIfNotExists($pdo, 'users', 'googleId', "VARCHAR(255)");
 
     // Virtual Cards Table
     $pdo->exec("CREATE TABLE IF NOT EXISTS virtual_cards (
@@ -238,6 +248,30 @@ try {
         expiry DATETIME,
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE KEY type_value (type, value)
+    )");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS transaction_reports (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        txId VARCHAR(50),
+        userId VARCHAR(50),
+        subject VARCHAR(255),
+        message TEXT,
+        status ENUM('pending', 'resolved', 'dismissed') DEFAULT 'pending',
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX(txId),
+        INDEX(userId)
+    )");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS crypto_deposits (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        userId VARCHAR(50),
+        txHash VARCHAR(255) UNIQUE,
+        amount DECIMAL(20, 8),
+        coin VARCHAR(20),
+        network VARCHAR(50),
+        status ENUM('pending', 'completed', 'failed') DEFAULT 'pending',
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX(userId)
     )");
 
     // Ensure all countries are initialized in access_control if not present

@@ -55,32 +55,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 updateWallet($pdo, $currentUser['id'], $chargedAmount, 'debit');
 
             $gateway = $pkg['provider'] ?: 'vtpass';
+            $isSuccess = false;
+            $isPending = false;
+            $ref = null;
             if ($gateway === 'vtpass') {
+                $ref = date('YmdHi') . bin2hex(random_bytes(3));
                 $res = callVtpass($pdo, $serviceId, [
+                    'request_id' => $ref,
                     'billersCode' => $meterNumber,
                     'variation_code' => $type,
                     'amount' => $amount,
                     'phone' => $currentUser['phone']
                 ]);
-                $isSuccess = isset($res['code']) && $res['code'] === '000';
+                if (isset($res['code']) && $res['code'] === '000') {
+                    $st = $res['content']['transactions']['status'] ?? 'pending';
+                    if ($st === 'delivered' || $st === 'successful') $isSuccess = true;
+                    else $isPending = true;
+                    $token = $res['mainToken'] ?? $res['token'] ?? ($res['purchased_code'] ?? '');
+                } elseif (isset($res['code']) && ($res['code'] === '099' || $res['code'] === '020')) {
+                    $isPending = true;
+                }
                 $errMsg = $res['response_description'] ?? 'API Error';
-                $token = $res['mainToken'] ?? $res['token'] ?? ($res['purchased_code'] ?? '');
             } else {
-                $isSuccess = false;
                 $errMsg = "Gateway $gateway not implemented for Electric";
             }
 
-            if ($isSuccess) {
+            if ($isSuccess || $isPending) {
+                $status = $isSuccess ? 'successful' : 'pending';
                 $apiCost = $amount * (1 - ($apiDisc / 100));
                 $profitVal = $chargedAmount - $apiCost;
 
-                logTransaction($pdo, $currentUser['id'], 'Electricity', $chargedAmount, 'successful', "Electric ($serviceId $type) for $meterNumber", $meterNumber, $serviceId, $token, $apiCost, $profitVal);
-                sendMail($pdo, $currentUser['email'], "Electricity Receipt", "Successful recharge for $meterNumber. Token: $token");
-                claimDailyRewardIfEligible($pdo, $currentUser['id']);
+                logTransaction($pdo, $currentUser['id'], 'Electricity', $chargedAmount, $status, "Electric ($serviceId $type) for $meterNumber", $meterNumber, $gateway, $token, $apiCost, $profitVal, $ref, 0);
+                sendMail($pdo, $currentUser['email'], "Electricity Receipt", "Recharge request for $meterNumber. Status: " . strtoupper($status) . ($token ? ". Token: $token" : ""));
+                if ($isSuccess) claimDailyRewardIfEligible($pdo, $currentUser['id']);
                 $success = true;
             } else {
                 updateWallet($pdo, $currentUser['id'], $chargedAmount, 'credit');
-                logTransaction($pdo, $currentUser['id'], 'Electricity', $chargedAmount, 'failed', "Electric failed: $errMsg", $meterNumber, $serviceId);
+                logTransaction($pdo, $currentUser['id'], 'Electricity', $chargedAmount, 'failed', "Electric failed: $errMsg", $meterNumber, $gateway, null, 0, 0, $ref, 1);
                 $error = 'Transaction failed: ' . $errMsg;
             }
 

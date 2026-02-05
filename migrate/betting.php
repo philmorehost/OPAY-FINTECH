@@ -67,16 +67,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $isSuccess = is_array($res) && isset($res['status']) && ($res['status'] === 'ORDER_RECEIVED' || $res['status'] === 'ORDER_COMPLETED');
             if (!$isSuccess && is_string($res) && (strpos($res, 'ORDER_RECEIVED') !== false || strpos($res, 'ORDER_COMPLETED') !== false)) $isSuccess = true;
 
-            if ($isSuccess) {
+            $isPending = is_array($res) && isset($res['status']) && strpos($res['status'], 'PENDING') !== false;
+            if (!$isPending && is_string($res) && strpos($res, 'PENDING') !== false) $isPending = true;
+
+            if ($isSuccess || $isPending) {
+                $status = $isSuccess ? 'successful' : 'pending';
                 $profitVal = $chargedAmount - $apiCost;
-                logTransaction($pdo, $currentUser['id'], 'Betting', $chargedAmount, 'successful', "Betting Fund ($providerId) for $customerId", $customerId, 'Nellobyte', null, $apiCost, $profitVal);
-                sendMail($pdo, $currentUser['email'], "Betting Funding Receipt", "Successful funding for $customerId. Amount: " . formatCurrency($chargedAmount));
-                claimDailyRewardIfEligible($pdo, $currentUser['id']);
+                logTransaction($pdo, $currentUser['id'], 'Betting', $chargedAmount, $status, "Betting Fund ($providerId) for $customerId", $customerId, 'nellobyte', null, $apiCost, $profitVal, $requestId, 0);
+                sendMail($pdo, $currentUser['email'], "Betting Funding Receipt", "Betting fund request for $customerId. Status: " . strtoupper($status));
+                if ($isSuccess) claimDailyRewardIfEligible($pdo, $currentUser['id']);
                 $success = true;
             } else {
                 updateWallet($pdo, $currentUser['id'], $chargedAmount, 'credit');
                 $errMsg = is_array($res) ? ($res['status'] ?? $res['msg'] ?? 'API Error') : $res;
-                logTransaction($pdo, $currentUser['id'], 'Betting', $chargedAmount, 'failed', "Betting failed: $errMsg", $customerId, 'Nellobyte');
+                logTransaction($pdo, $currentUser['id'], 'Betting', $chargedAmount, 'failed', "Betting failed: $errMsg", $customerId, 'nellobyte', null, 0, 0, $requestId, 1);
                 $error = 'Transaction failed: ' . $errMsg;
             }
 

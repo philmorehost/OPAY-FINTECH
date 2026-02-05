@@ -218,10 +218,49 @@ function verifyFundPassword($pdo, $userId, $password) {
 }
 
 if (!function_exists('logTransaction')) {
-function logTransaction($pdo, $userId, $type, $amount, $status, $details, $recipient, $provider = null, $token = null, $apiAmount = 0, $profit = 0) {
+function logTransaction($pdo, $userId, $type, $amount, $status, $details, $recipient, $provider = null, $token = null, $apiAmount = 0, $profit = 0, $providerRef = null, $refunded = 0) {
     $id = 'TX-' . strtoupper(bin2hex(random_bytes(4)));
-    $stmt = $pdo->prepare("INSERT INTO transactions (id, userId, type, amount, status, details, recipient, provider, token, apiAmount, profit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    return $stmt->execute([$id, $userId, $type, $amount, $status, $details, $recipient, $provider, $token, $apiAmount, $profit]);
+    $stmt = $pdo->prepare("INSERT INTO transactions (id, userId, type, amount, status, details, recipient, provider, token, apiAmount, profit, provider_ref, refunded) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    return $stmt->execute([$id, $userId, $type, $amount, $status, $details, $recipient, $provider, $token, $apiAmount, $profit, $providerRef, $refunded]);
+}
+}
+
+if (!function_exists('changeTransactionStatus')) {
+function changeTransactionStatus($pdo, $txId, $newStatus) {
+    $stmt = $pdo->prepare("SELECT * FROM transactions WHERE id = ?");
+    $stmt->execute([$txId]);
+    $tx = $stmt->fetch();
+    if (!$tx) return false;
+
+    if ($tx['status'] === $newStatus) return true;
+
+    $pdo->beginTransaction();
+    try {
+        // failed -> successful: DEBIT user (if not already debited)
+        if ($tx['status'] === 'failed' && $newStatus === 'successful') {
+             // If 'refunded' flag is 1, we re-debit.
+             if ($tx['refunded']) {
+                updateWallet($pdo, $tx['userId'], $tx['amount'], 'debit');
+                $pdo->prepare("UPDATE transactions SET refunded = 0 WHERE id = ?")->execute([$txId]);
+             }
+        }
+        // any active state -> failed: REFUND user (if not already refunded)
+        elseif (($tx['status'] === 'successful' || $tx['status'] === 'pending') && $newStatus === 'failed') {
+            if (!$tx['refunded']) {
+                updateWallet($pdo, $tx['userId'], $tx['amount'], 'credit');
+                $pdo->prepare("UPDATE transactions SET refunded = 1 WHERE id = ?")->execute([$txId]);
+            }
+        }
+
+        $stmt = $pdo->prepare("UPDATE transactions SET status = ? WHERE id = ?");
+        $stmt->execute([$newStatus, $txId]);
+
+        $pdo->commit();
+        return true;
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        return false;
+    }
 }
 }
 

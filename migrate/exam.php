@@ -63,14 +63,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     }
 
                     $profitVal = $totalCost - ($apiCost * $qty);
-                    logTransaction($pdo, $currentUser['id'], 'Exam PIN', $totalCost, 'successful', "Purchase of $qty " . $pkg['name'] . " PIN(s)", 'Self', $pkg['provider'], $tokenStr, ($apiCost * $qty), $profitVal);
+                    logTransaction($pdo, $currentUser['id'], 'Exam PIN', $totalCost, 'successful', "Purchase of $qty " . $pkg['name'] . " PIN(s)", 'Self', $pkg['provider'], $tokenStr, ($apiCost * $qty), $profitVal, null, 0);
                     sendMail($pdo, $currentUser['email'], "Exam PIN Receipt", "Successful purchase of $qty PIN(s). <br>Product: {$pkg['name']} <br>PIN: $tokenStr");
                     claimDailyRewardIfEligible($pdo, $currentUser['id']);
                     $success = true;
                 } else {
                     updateWallet($pdo, $currentUser['id'], $totalCost, 'credit');
                     $errMsg = is_array($res) ? ($res['response_description'] ?? $res['msg'] ?? $res['message'] ?? 'API Error') : 'Provider Error';
-                    logTransaction($pdo, $currentUser['id'], 'Exam PIN', $totalCost, 'failed', "Exam PIN failed: $errMsg", 'Self', $pkg['provider']);
+                    logTransaction($pdo, $currentUser['id'], 'Exam PIN', $totalCost, 'failed', "Exam PIN failed: $errMsg", 'Self', $pkg['provider'], null, 0, 0, null, 1);
                     $error = 'Transaction failed: ' . $errMsg;
                 }
 

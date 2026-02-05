@@ -69,16 +69,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     updateWallet($pdo, $currentUser['id'], $totalCost, 'debit');
 
                     $successCount = 0;
+                    $ds = $settings['dataSettings'] ?? [];
+                    $provider = $selectedPlan['gateway'] ?? ($ds['routing'][$networkName] ?? 'datagifting');
+
                     foreach ($recipients as $num) {
                         $response = purchaseData($pdo, $networkName, $selectedPlan['apiCode'] ?? $selectedPlan['id'], $num);
-                        $isSuccess = (isset($response['status']) && $response['status'] === 'success');
+                        $status = $response['status'] ?? 'failed';
+                        $ref = $response['ref'] ?? null;
 
-                        if ($isSuccess) {
-                            $successCount++;
-                            logTransaction($pdo, $currentUser['id'], 'Data', $userPrice, 'successful', "{$selectedPlan['size']} {$selectedPlan['type']} for $num", $num, $networkName, null, $apiPrice, $profit);
+                        if ($status === 'success' || $status === 'pending') {
+                            if ($status === 'success') $successCount++;
+                            logTransaction($pdo, $currentUser['id'], 'Data', $userPrice, ($status === 'success' ? 'successful' : 'pending'), "{$selectedPlan['size']} {$selectedPlan['type']} for $num", $num, $provider, null, $apiPrice, $profit, $ref, 0);
                         } else {
                             updateWallet($pdo, $currentUser['id'], $userPrice, 'credit');
-                            logTransaction($pdo, $currentUser['id'], 'Data', $userPrice, 'failed', "{$selectedPlan['size']} failed: " . ($response['message'] ?? 'Error'), $num, $networkName);
+                            logTransaction($pdo, $currentUser['id'], 'Data', $userPrice, 'failed', "{$selectedPlan['size']} failed: " . ($response['message'] ?? 'Error'), $num, $provider, null, 0, 0, $ref, 1);
                         }
                     }
 

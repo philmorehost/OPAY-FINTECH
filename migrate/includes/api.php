@@ -307,11 +307,17 @@ function purchaseData($pdo, $network, $planId, $phone) {
                 'type' => $type,
                 'quantity' => $qty
             ]);
-            if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['desc'] ?? $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
+            if (isset($res['status'])) {
+                if ($res['status'] === 'success') return ['status' => 'success', 'message' => $res['desc'] ?? 'Successful', 'ref' => $res['reference'] ?? $res['order_id'] ?? uniqid()];
+                if ($res['status'] === 'pending') return ['status' => 'pending', 'message' => $res['desc'] ?? 'Processing', 'ref' => $res['reference'] ?? $res['order_id'] ?? uniqid()];
+            }
             return ['status' => 'failed', 'message' => $res['desc'] ?? $res['msg'] ?? 'Provider Error'];
         case 'nellobyte':
             $res = callApi("https://nellobytesystems.com/api/data?userid=" . ($creds['userId'] ?? '') . "&apikey=" . ($creds['apiKey'] ?? '') . "&network=$netCode&plan=$planId&phone=$phone");
-            if (isset($res['status']) && $res['status'] === 'success') return ['status' => 'success', 'message' => $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
+            if (isset($res['status'])) {
+                if ($res['status'] === 'success') return ['status' => 'success', 'message' => $res['msg'] ?? 'Successful', 'ref' => $res['ref'] ?? uniqid()];
+                if (strpos($res['status'], 'PENDING') !== false) return ['status' => 'pending', 'message' => 'Processing', 'ref' => $res['ref'] ?? uniqid()];
+            }
             return ['status' => 'failed', 'message' => $res['msg'] ?? 'Provider Error'];
         case 'datastation':
             $res = callApi("https://datastationapi.com/api/data/", 'POST', [
@@ -320,7 +326,10 @@ function purchaseData($pdo, $network, $planId, $phone) {
                 'mobile_number' => $phone,
                 'Ported_number' => true
             ], ["Authorization: Token " . ($creds['token'] ?? '')]);
-            if (empty($res) || (isset($res['Status']) && $res['Status'] === 'successful')) return ['status' => 'success', 'message' => 'Successful', 'ref' => uniqid()];
+            if (isset($res['Status'])) {
+                if ($res['Status'] === 'successful') return ['status' => 'success', 'message' => 'Successful', 'ref' => $res['id'] ?? uniqid()];
+                if ($res['Status'] === 'pending') return ['status' => 'pending', 'message' => 'Processing', 'ref' => $res['id'] ?? uniqid()];
+            }
             return ['status' => 'failed', 'message' => 'Provider Error'];
         case 'hdkdata':
             $res = callApi("https://hdkdata.com/api/data/", 'POST', [
@@ -329,7 +338,10 @@ function purchaseData($pdo, $network, $planId, $phone) {
                 'mobile_number' => $phone,
                 'Ported_number' => true
             ], ["Authorization: Token " . ($creds['token'] ?? '')]);
-            if (empty($res) || (isset($res['Status']) && $res['Status'] === 'successful')) return ['status' => 'success', 'message' => 'Successful', 'ref' => uniqid()];
+            if (isset($res['Status'])) {
+                if ($res['Status'] === 'successful') return ['status' => 'success', 'message' => 'Successful', 'ref' => $res['id'] ?? uniqid()];
+                if ($res['Status'] === 'pending') return ['status' => 'pending', 'message' => 'Processing', 'ref' => $res['id'] ?? uniqid()];
+            }
             return ['status' => 'failed', 'message' => 'Provider Error'];
     }
     return ['status' => 'failed', 'message' => 'No provider'];
@@ -823,6 +835,89 @@ function naijaresultpinsExams($pdo, $action, $params = []) {
     $url = "https://naijaresultpins.com/api/$action?api_key=$apiKey";
     foreach ($params as $k => $v) { $url .= "&$k=" . urlencode($v); }
     return callApi($url);
+}
+}
+
+if (!function_exists('requeryTransaction')) {
+function requeryTransaction($pdo, $txId) {
+    $stmt = $pdo->prepare("SELECT * FROM transactions WHERE id = ?");
+    $stmt->execute([$txId]);
+    $tx = $stmt->fetch();
+    if (!$tx) return ['status' => 'error', 'message' => 'Transaction not found'];
+
+    $settings = fetchSettings($pdo);
+    $provider = $tx['provider'] ?: 'manual';
+    $ref = $tx['provider_ref'] ?: $tx['token'];
+
+    if (!$ref || $provider === 'manual' || $provider === 'Internal' || $provider === 'System') {
+        return ['status' => 'error', 'message' => 'Transaction not requeryable'];
+    }
+
+    $newStatus = null;
+    $apiMsg = '';
+
+    switch ($provider) {
+        case 'vtpass':
+            $us = $settings['utilitySettings']['vtpass'] ?? [];
+            $headers = ["Content-Type: application/json"];
+            if (!empty($us['username']) && !empty($us['password'])) {
+                $headers[] = "Authorization: Basic " . base64_encode($us['username'] . ":" . $us['password']);
+            } elseif (!empty($us['apiKey'])) {
+                $headers[] = "api-key: " . $us['apiKey'];
+                $headers[] = "public-key: " . ($us['publicKey'] ?? '');
+            }
+            $url = (!empty($us['sandbox'])) ? "https://sandbox.vtpass.com/api/requery" : "https://vtpass.com/api/requery";
+            $res = callApi($url, 'POST', ['request_id' => $ref], $headers);
+            if (isset($res['code']) && $res['code'] === '000') {
+                $apiStatus = $res['content']['transactions']['status'] ?? '';
+                if ($apiStatus === 'delivered' || $apiStatus === 'successful') $newStatus = 'successful';
+                elseif ($apiStatus === 'failed') $newStatus = 'failed';
+                $apiMsg = $res['response_description'] ?? $apiStatus;
+            }
+            break;
+
+        case 'nellobyte':
+            $creds = ($tx['type'] === 'Airtime') ? ($settings['airtimeSettings']['providers']['nellobyte'] ?? []) : ($settings['dataSettings']['providers']['nellobyte'] ?? []);
+            $url = "https://www.nellobytesystems.com/APIQueryV1.asp?UserID=" . ($creds['userId'] ?? '') . "&APIKey=" . ($creds['apiKey'] ?? '') . "&OrderID=" . $ref;
+            $res = callApi($url);
+            if (isset($res['status'])) {
+                if (strpos($res['status'], 'COMPLETED') !== false || strpos($res['status'], 'SUCCESSFUL') !== false) $newStatus = 'successful';
+                elseif (strpos($res['status'], 'FAILED') !== false) $newStatus = 'failed';
+                $apiMsg = $res['status'];
+            }
+            break;
+
+        case 'datagifting':
+            $creds = ($tx['type'] === 'Airtime') ? ($settings['airtimeSettings']['providers']['datagifting'] ?? []) : ($settings['dataSettings']['providers']['datagifting'] ?? []);
+            $apiKey = $creds['apiKey'] ?? '';
+            $res = callApi("https://v6.datagifting.com.ng/web/api/requery.php?api_key=$apiKey&reference=$ref");
+            if (isset($res['status'])) {
+                if ($res['status'] === 'success') $newStatus = 'successful';
+                elseif ($res['status'] === 'fail' || $res['status'] === 'failed') $newStatus = 'failed';
+                $apiMsg = $res['desc'] ?? $res['msg'] ?? $res['status'];
+            }
+            break;
+
+        case 'juicyway':
+            $res = callJuicyWay($pdo, "transactions/$ref", 'GET');
+            if (isset($res['data']['status'])) {
+                if ($res['data']['status'] === 'success' || $res['data']['status'] === 'successful') $newStatus = 'successful';
+                elseif ($res['data']['status'] === 'failed' || $res['data']['status'] === 'fail') $newStatus = 'failed';
+                $apiMsg = $res['data']['status'];
+            }
+            break;
+    }
+
+    if ($newStatus && $newStatus !== $tx['status']) {
+        if (changeTransactionStatus($pdo, $txId, $newStatus)) {
+            $pdo->prepare("UPDATE transactions SET details = CONCAT(details, ' | Requery: ', ?), last_queried_at = NOW(), query_count = query_count + 1 WHERE id = ?")
+                ->execute([$apiMsg, $txId]);
+            return ['status' => 'success', 'new_status' => $newStatus, 'message' => "Updated to $newStatus"];
+        }
+    }
+
+    $pdo->prepare("UPDATE transactions SET last_queried_at = NOW(), query_count = query_count + 1 WHERE id = ?")->execute([$txId]);
+    return ['status' => 'no_change', 'current_status' => $tx['status'], 'message' => $apiMsg ?: 'No change detected'];
 }
 }
 

@@ -67,33 +67,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 updateWallet($pdo, $currentUser['id'], $amount, 'debit');
 
                 $gateway = $pkg['provider'] ?: 'vtpass';
+                $isSuccess = false;
+                $isPending = false;
+                $ref = null;
                 if ($gateway === 'vtpass') {
+                    $ref = date('YmdHi') . bin2hex(random_bytes(3));
                     $res = callVtpass($pdo, $providerId, [
+                        'request_id' => $ref,
                         'billersCode' => $iucNumber,
                         'variation_code' => $variationCode,
                         'amount' => $pkg['api_price'],
                         'phone' => $currentUser['phone']
                     ]);
-                    $isSuccess = isset($res['code']) && $res['code'] === '000';
+                    if (isset($res['code']) && $res['code'] === '000') {
+                        $st = $res['content']['transactions']['status'] ?? 'pending';
+                        if ($st === 'delivered' || $st === 'successful') $isSuccess = true;
+                        else $isPending = true;
+                    } elseif (isset($res['code']) && ($res['code'] === '099' || $res['code'] === '020')) {
+                        $isPending = true;
+                    }
                     $errMsg = $res['response_description'] ?? 'API Error';
                 } else {
-                    // Placeholder for other gateways
-                    $isSuccess = false;
                     $errMsg = "Gateway $gateway not implemented for Cable";
                 }
 
-                if ($isSuccess) {
+                if ($isSuccess || $isPending) {
+                    $status = $isSuccess ? 'successful' : 'pending';
                     $profitVal = $amount - $apiCost;
-                    logTransaction($pdo, $currentUser['id'], 'Cable TV', $amount, 'successful', "Cable Subscription ($providerId) for $iucNumber", $iucNumber, $providerId, null, $apiCost, $profitVal);
+                    logTransaction($pdo, $currentUser['id'], 'Cable TV', $amount, $status, "Cable Subscription ($providerId) for $iucNumber", $iucNumber, $gateway, null, $apiCost, $profitVal, $ref, 0);
                     // Receipt Email
-                    $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Your cable subscription request was processed.<br><br>Provider: $providerId<br>IUC: $iucNumber<br>Amount: " . formatCurrency($amount) . "<br>Status: Successful";
-                    sendMail($pdo, $currentUser['email'], "Cable TV Receipt", $receiptMsg, 'successful');
-                    claimDailyRewardIfEligible($pdo, $currentUser['id']);
+                    $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Your cable subscription request was processed.<br><br>Provider: $providerId<br>IUC: $iucNumber<br>Amount: " . formatCurrency($amount) . "<br>Status: " . strtoupper($status);
+                    sendMail($pdo, $currentUser['email'], "Cable TV Receipt", $receiptMsg, $status);
+                    if ($isSuccess) claimDailyRewardIfEligible($pdo, $currentUser['id']);
                     $success = true;
                 } else {
                     // Refund
                     updateWallet($pdo, $currentUser['id'], $amount, 'credit');
-                    logTransaction($pdo, $currentUser['id'], 'Cable TV', $amount, 'failed', "Cable failed: $errMsg", $iucNumber, $providerId);
+                    logTransaction($pdo, $currentUser['id'], 'Cable TV', $amount, 'failed', "Cable failed: $errMsg", $iucNumber, $gateway, null, 0, 0, $ref, 1);
                     $error = 'Transaction failed: ' . $errMsg;
                     sendMail($pdo, $currentUser['email'], "Cable TV Failed", "Your cable subscription for $iucNumber failed and has been refunded.", 'failed');
                 }

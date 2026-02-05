@@ -16,10 +16,19 @@ $error = '';
 
 // Determine required steps for this user
 $requiredSteps = [];
+$as = $settings['adminSecuritySettings'] ?? []; if(is_string($as)) $as = json_decode($as, true) ?: [];
+
+if ($pendingUser['role'] === 'admin') {
+    if (!empty($as['pin']['enabled'])) $requiredSteps[] = 'pin';
+    if (!empty($as['email']['enabled'])) $requiredSteps[] = 'email';
+}
+
 if (!empty($ls['biometric']['enabled']) && !empty($pendingUser['biometricEnabled']) && !empty($pendingUser['biometricCredentialId'])) $requiredSteps[] = 'biometric';
-if (!empty($ls['pin']['enabled']) && !empty($pendingUser['loginSecurityPin'])) $requiredSteps[] = 'pin';
-if (!empty($ls['email']['enabled']) && !empty($pendingUser['email2faEnabled'])) $requiredSteps[] = 'email';
+if (!empty($ls['pin']['enabled']) && !empty($pendingUser['loginSecurityPin']) && !in_array('pin', $requiredSteps)) $requiredSteps[] = 'pin';
+if (!empty($ls['email']['enabled']) && !empty($pendingUser['email2faEnabled']) && !in_array('email', $requiredSteps)) $requiredSteps[] = 'email';
 if (!empty($ls['google2fa']['enabled']) && !empty($pendingUser['google2faEnabled'])) $requiredSteps[] = 'google2fa';
+
+$requiredSteps = array_values(array_unique($requiredSteps));
 
 if (empty($requiredSteps)) {
     // Nothing to verify, complete login
@@ -122,21 +131,21 @@ if ($currentStep === 'email' && !isset($_SESSION['email_2fa_code'])) {
             <?php if ($currentStep === 'pin'): ?>
                 <div class="space-y-4 text-center">
                     <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Enter Security PIN</label>
-                    <input type="password" name="pin" maxlength="6" autofocus class="w-full text-center p-5 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-black text-3xl tracking-[0.5em]" required>
+                    <input type="password" name="pin" maxlength="6" inputmode="numeric" pattern="[0-9]*" autofocus class="w-full text-center p-5 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-black text-3xl tracking-[0.5em]" required>
                 </div>
 
             <?php elseif ($currentStep === 'email'): ?>
                 <div class="space-y-4 text-center">
                     <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Email Verification Code</label>
                     <p class="text-[9px] font-bold text-gray-400 uppercase">A 6-digit code was sent to your email.</p>
-                    <input type="text" name="code" maxlength="6" autofocus placeholder="000000" class="w-full text-center p-5 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-black text-3xl tracking-[0.2em]" required>
+                    <input type="text" name="code" maxlength="6" inputmode="numeric" pattern="[0-9]*" autofocus placeholder="000000" class="w-full text-center p-5 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-black text-3xl tracking-[0.2em]" required>
                 </div>
 
             <?php elseif ($currentStep === 'google2fa'): ?>
                 <div class="space-y-4 text-center">
                     <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Authenticator App Code</label>
                     <p class="text-[9px] font-bold text-gray-400 uppercase">Enter the 6-digit code from your app.</p>
-                    <input type="text" name="code" maxlength="6" autofocus placeholder="000000" class="w-full text-center p-5 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-black text-3xl tracking-[0.2em]" required>
+                    <input type="text" name="code" maxlength="6" inputmode="numeric" pattern="[0-9]*" autofocus placeholder="000000" class="w-full text-center p-5 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-black text-3xl tracking-[0.2em]" required>
                 </div>
 
             <?php elseif ($currentStep === 'biometric'): ?>

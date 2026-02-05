@@ -85,14 +85,40 @@ require_once __DIR__ . '/includes/header.php';
             </div>
         </div>
 
-        <!-- Sharing Actions -->
-        <div class="grid grid-cols-2 gap-4 no-print">
-            <button onclick="downloadAsImage()" class="bg-gray-900 text-white p-5 rounded-3xl font-black text-[10px] uppercase tracking-widest shadow-xl flex items-center justify-center gap-3">
-                <i data-lucide="image" class="w-4 h-4 text-billpay-green"></i> Save Image
-            </button>
-            <button onclick="window.print()" class="bg-white text-gray-900 border border-gray-100 p-5 rounded-3xl font-black text-[10px] uppercase tracking-widest shadow-xl flex items-center justify-center gap-3">
-                <i data-lucide="file-text" class="w-4 h-4 text-indigo-500"></i> Print PDF
-            </button>
+        <!-- Actions -->
+        <div class="space-y-4 no-print">
+            <?php if (($tx['status'] === 'pending' || $tx['status'] === 'failed') && (!empty($tx['provider_ref']) || !empty($tx['token']))): ?>
+            <form method="POST" id="requeryForm">
+                <input type="hidden" name="action" value="requery">
+                <button type="submit" id="requeryBtn" class="w-full bg-indigo-600 text-white p-5 rounded-3xl font-black text-[10px] uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all">
+                    <i data-lucide="refresh-cw" class="w-4 h-4" id="requeryIcon"></i> <span id="requeryText">Requery Status</span>
+                </button>
+            </form>
+
+            <?php if (isset($_POST['action']) && $_POST['action'] === 'requery'): ?>
+                <?php
+                    require_once __DIR__ . '/includes/api.php';
+                    $res = requeryTransaction($pdo, $tx['id']);
+                ?>
+                <div class="p-4 rounded-2xl text-[10px] font-black uppercase text-center border <?php echo $res['status'] === 'success' ? 'bg-green-50 text-green-600 border-green-100' : 'bg-amber-50 text-amber-600 border-amber-100'; ?>">
+                    <?php echo $res['message']; ?>
+                </div>
+                <script>setTimeout(() => { window.location.reload(); }, 2000);</script>
+            <?php endif; ?>
+            <?php endif; ?>
+
+            <div class="grid grid-cols-2 gap-4">
+                <button onclick="downloadAsImage()" class="bg-gray-900 text-white p-5 rounded-3xl font-black text-[10px] uppercase tracking-widest shadow-xl flex items-center justify-center gap-3">
+                    <i data-lucide="image" class="w-4 h-4 text-billpay-green"></i> Save Image
+                </button>
+                <button onclick="window.print()" class="bg-white text-gray-900 border border-gray-100 p-5 rounded-3xl font-black text-[10px] uppercase tracking-widest shadow-xl flex items-center justify-center gap-3">
+                    <i data-lucide="file-text" class="w-4 h-4 text-indigo-500"></i> Print PDF
+                </button>
+            </div>
+
+            <a href="/report-issue?txId=<?php echo $tx['id']; ?>" class="block w-full py-5 bg-red-50 text-red-600 rounded-[24px] font-black text-[10px] uppercase tracking-widest text-center border border-red-100 shadow-sm hover:bg-red-100 transition-all">
+                <i data-lucide="alert-triangle" class="w-4 h-4 inline-block mr-2 mb-0.5"></i> Report an Issue
+            </a>
         </div>
     </div>
 </div>
@@ -116,6 +142,18 @@ require_once __DIR__ . '/includes/header.php';
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
+    if (document.getElementById('requeryForm')) {
+        document.getElementById('requeryForm').addEventListener('submit', function() {
+            const btn = document.getElementById('requeryBtn');
+            const icon = document.getElementById('requeryIcon');
+            const text = document.getElementById('requeryText');
+            btn.disabled = true;
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+            icon.classList.add('animate-spin');
+            text.innerText = 'Checking Status...';
+        });
+    }
+
     function downloadAsImage() {
         const element = document.getElementById('receiptContent');
         const actions = document.querySelector('.no-print');

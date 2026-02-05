@@ -69,15 +69,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $successCount = 0;
                 foreach ($recipients as $num) {
                     $response = purchaseAirtime($pdo, $network, $amount, $num);
-                    $isSuccess = (isset($response['status']) && $response['status'] === 'success');
+                    $status = $response['status'] ?? 'failed';
+                    $ref = $response['ref'] ?? null;
 
-                    if ($isSuccess) {
-                        $successCount++;
+                    if ($status === 'success' || $status === 'pending') {
+                        if ($status === 'success') $successCount++;
                         $unitProfitVal = $unitCost - $unitApiCost;
-                        logTransaction($pdo, $currentUser['id'], 'Airtime', $unitCost, 'successful', "$network Airtime for $num", $num, $network, null, $unitApiCost, $unitProfitVal);
+                        logTransaction($pdo, $currentUser['id'], 'Airtime', $unitCost, ($status === 'success' ? 'successful' : 'pending'), "$network Airtime for $num", $num, $provider, null, $unitApiCost, $unitProfitVal, $ref, 0);
                     } else {
                         updateWallet($pdo, $currentUser['id'], $unitCost, 'credit');
-                        logTransaction($pdo, $currentUser['id'], 'Airtime', $unitCost, 'failed', "$network Airtime failed for $num: " . ($response['message'] ?? 'Error'), $num, $network);
+                        logTransaction($pdo, $currentUser['id'], 'Airtime', $unitCost, 'failed', "$network Airtime failed for $num: " . ($response['message'] ?? 'Error'), $num, $provider, null, 0, 0, $ref, 1);
                     }
                 }
 

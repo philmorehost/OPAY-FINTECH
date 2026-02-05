@@ -7,6 +7,23 @@ $pageTitle = 'Login Security Management';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrfToken($_POST['csrf_token'])) die('CSRF Failed');
 
+    // Handle Admin Personal PIN Update
+    if (!empty($_POST['admin_personal_pin'])) {
+        $hashedPin = password_hash(sanitize($_POST['admin_personal_pin']), PASSWORD_DEFAULT);
+        $stmt = $pdo->prepare("UPDATE users SET loginSecurityPin = ? WHERE id = ?");
+        $stmt->execute([$hashedPin, $_SESSION['user_id']]);
+        $success = "Your personal Security PIN has been updated!";
+
+        // Update Configured Methods Cache
+        $u = fetchUser($pdo, $_SESSION['user_id']);
+        $configured = $u['configuredSecurityMethods'] ?? [];
+        if (is_string($configured)) $configured = json_decode($configured, true) ?: [];
+        if (!in_array('pin', $configured)) {
+            $configured[] = 'pin';
+            $pdo->prepare("UPDATE users SET configuredSecurityMethods = ? WHERE id = ?")->execute([json_encode($configured), $_SESSION['user_id']]);
+        }
+    }
+
     $securitySettings = [
         'biometric' => [
             'enabled' => isset($_POST['biometric_enabled']) ? 1 : 0,
@@ -26,10 +43,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]
     ];
 
-    $stmt = $pdo->prepare("UPDATE settings SET loginSecuritySettings = ? WHERE id = 1");
-    $stmt->execute([json_encode($securitySettings)]);
+    $adminSecuritySettings = [
+        'pin' => [
+            'enabled' => isset($_POST['admin_pin_enabled']) ? 1 : 0,
+        ],
+        'email' => [
+            'enabled' => isset($_POST['admin_email_enabled']) ? 1 : 0,
+        ]
+    ];
 
-    $success = "Login security settings updated successfully!";
+    // Safety Check: Preventing Lockout
+    $currentAdmin = fetchUser($pdo, $_SESSION['user_id']);
+    if ($adminSecuritySettings['pin']['enabled'] && empty($currentAdmin['loginSecurityPin']) && empty($_POST['admin_personal_pin'])) {
+        $error = "CRITICAL: You must set a personal Security PIN before enabling mandatory PIN for admins to prevent lockout.";
+    } else {
+        $stmt = $pdo->prepare("UPDATE settings SET loginSecuritySettings = ?, googleClientId = ?, googleClientSecret = ?, googleAuthEnabled = ?, adminSecuritySettings = ? WHERE id = 1");
+        $stmt->execute([
+            json_encode($securitySettings),
+            sanitize($_POST['google_client_id']),
+            sanitize($_POST['google_client_secret']),
+            isset($_POST['google_auth_enabled']) ? 1 : 0,
+            json_encode($adminSecuritySettings)
+        ]);
+
+        $success = ($success ?? '') . " Login security policy updated successfully!";
+    }
     $settings = fetchSettings($pdo);
 }
 
@@ -53,6 +91,9 @@ require_once __DIR__ . '/header.php';
 
     <?php if (isset($success)): ?>
         <div class="p-4 bg-green-50 text-green-800 rounded-2xl text-xs font-black border border-green-100 uppercase text-center shadow-sm"><?php echo $success; ?></div>
+    <?php endif; ?>
+    <?php if (isset($error)): ?>
+        <div class="p-4 bg-red-50 text-red-800 rounded-2xl text-xs font-black border border-red-100 uppercase text-center shadow-sm"><?php echo $error; ?></div>
     <?php endif; ?>
 
     <form method="POST" class="space-y-10">
@@ -176,7 +217,109 @@ require_once __DIR__ . '/header.php';
             </div>
         </div>
 
-        <button type="submit" class="w-full bg-gray-900 text-white py-6 rounded-[32px] font-black uppercase shadow-xl hover:bg-black transition-all">Save Security Policy</button>
+        <!-- Google SSO Configuration -->
+        <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100 space-y-10">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-gray-100 text-gray-900 rounded-2xl flex items-center justify-center">
+                    <i data-lucide="chrome" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-black uppercase tracking-widest">Google SSO (Login/Register)</h3>
+                    <p class="text-[9px] font-bold text-gray-400 uppercase">Allow users to sign in with their Google account</p>
+                    <a href="google-auth-guide.php" class="text-[9px] font-black text-billpay-green uppercase underline mt-2 inline-block">View Setup Guide</a>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                        <span class="text-[10px] font-black uppercase text-gray-500">Enable Google SSO</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" name="google_auth_enabled" class="sr-only peer" <?php echo !empty($settings['googleAuthEnabled']) ? 'checked' : ''; ?>>
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-billpay-green"></div>
+                        </label>
+                    </div>
+
+                    <div class="p-6 bg-blue-50 rounded-3xl border border-blue-100">
+                        <h4 class="text-[10px] font-black uppercase text-blue-600 mb-2 flex items-center gap-2">
+                            <i data-lucide="help-circle" class="w-4 h-4"></i> Configuration Guide
+                        </h4>
+                        <ol class="text-[9px] font-bold text-blue-900/60 uppercase space-y-2 list-decimal ml-4">
+                            <li>Go to <a href="https://console.cloud.google.com/" target="_blank" class="underline">Google Cloud Console</a>.</li>
+                            <li>Create a new project or select an existing one.</li>
+                            <li>Navigate to <strong>APIs & Services > Credentials</strong>.</li>
+                            <li>Click <strong>Create Credentials > OAuth client ID</strong>.</li>
+                            <li>Choose <strong>Web application</strong>.</li>
+                            <li>Add your domain to <strong>Authorized JavaScript origins</strong>.</li>
+                            <li>Add <code><?php echo (isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST]/google-callback.php"; ?></code> to <strong>Authorized redirect URIs</strong>.</li>
+                            <li>Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> here.</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <div class="space-y-6">
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black uppercase text-gray-400 ml-1">Google Client ID</label>
+                        <input type="text" name="google_client_id" value="<?php echo $settings['googleClientId'] ?? ''; ?>" placeholder="Enter Client ID from Google Console" class="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-bold text-xs">
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black uppercase text-gray-400 ml-1">Google Client Secret</label>
+                        <input type="password" name="google_client_secret" value="<?php echo $settings['googleClientSecret'] ?? ''; ?>" placeholder="Enter Client Secret from Google Console" class="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-billpay-green font-bold text-xs">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Dashboard Security -->
+        <div class="bg-gray-900 p-10 rounded-[40px] shadow-2xl text-white space-y-8">
+            <?php $as = $settings['adminSecuritySettings'] ?? []; if(is_string($as)) $as = json_decode($as, true) ?: []; ?>
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-white/10 text-white rounded-2xl flex items-center justify-center">
+                    <i data-lucide="shield-check" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-black uppercase tracking-widest text-white">Admin Account Security</h3>
+                    <p class="text-[9px] font-bold text-white/40 uppercase">Protect the management portal from unauthorized access</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="flex items-center justify-between p-6 bg-white/5 rounded-3xl border border-white/10">
+                    <div>
+                        <div class="text-sm font-black uppercase">Mandatory Security PIN</div>
+                        <p class="text-[8px] text-white/40 font-bold uppercase">Require 6-digit PIN for all admins</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" name="admin_pin_enabled" class="sr-only peer" <?php echo !empty($as['pin']['enabled']) ? 'checked' : ''; ?>>
+                        <div class="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-gray-900 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-billpay-green"></div>
+                    </label>
+                </div>
+
+                <div class="flex items-center justify-between p-6 bg-white/5 rounded-3xl border border-white/10">
+                    <div>
+                        <div class="text-sm font-black uppercase">Mandatory Email Auth</div>
+                        <p class="text-[8px] text-white/40 font-bold uppercase">OTP via Email required for dashboard access</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" name="admin_email_enabled" class="sr-only peer" <?php echo !empty($as['email']['enabled']) ? 'checked' : ''; ?>>
+                        <div class="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-gray-900 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-billpay-green"></div>
+                    </label>
+                </div>
+
+                <div class="col-span-1 md:col-span-2 p-6 bg-white/5 rounded-3xl border border-white/10 space-y-4">
+                    <label class="text-[10px] font-black uppercase text-white/60 ml-1">Your Personal Security PIN (Required to enable Mandatory PIN)</label>
+                    <input type="password" name="admin_personal_pin" maxlength="6" inputmode="numeric" pattern="[0-9]*" placeholder="••••••" class="w-full p-4 bg-white/10 rounded-2xl border border-white/10 text-white font-black text-xl text-center tracking-[0.5em] outline-none focus:border-billpay-green">
+                    <p class="text-[8px] text-white/40 font-bold uppercase text-center italic">Only fill this to set or update your own login PIN.</p>
+                </div>
+            </div>
+
+            <div class="p-6 bg-white/5 rounded-3xl border border-white/10 flex items-start gap-4">
+                <i data-lucide="info" class="w-5 h-5 text-billpay-green shrink-0 mt-0.5"></i>
+                <p class="text-[9px] font-bold text-white/60 uppercase leading-relaxed">Admin security settings apply to all administrator accounts. Ensure you have configured your individual Security PIN and have access to your email before enabling these features.</p>
+            </div>
+        </div>
+
+        <button type="submit" class="w-full bg-gray-900 text-white py-6 rounded-[32px] font-black uppercase shadow-xl hover:bg-black transition-all border-4 border-transparent hover:border-billpay-green">Save Security Policy</button>
     </form>
 </div>
 

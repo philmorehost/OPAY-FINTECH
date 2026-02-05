@@ -145,10 +145,11 @@ if (isset($_GET['print_batch'])) {
     $stmt->execute([$batch, $currentUser['id']]);
     $pins = $stmt->fetchAll(PDO::FETCH_ASSOC);
     if ($pins) {
-        $network = $pins[0]['network'];
-        $es = $settings['epinSettings'] ?? [];
-        if (is_string($es)) $es = json_decode($es, true) ?: [];
-        $adminPhone = $es['phones'][$network] ?? 'Not Set';
+        $network = strtoupper($pins[0]['network']);
+        $os = $settings['otherApiSettings'] ?? [];
+        if (is_string($os)) $os = json_decode($os, true) ?: [];
+        $en = $os['epin_sms_numbers'] ?? [];
+        $adminPhone = $en[$network] ?? $en[strtolower($network)] ?? 'Not Set';
 ?>
 <div class="fixed inset-0 bg-white z-[200] overflow-y-auto p-4 md:p-10 no-print" id="printPreview">
     <div class="max-w-4xl mx-auto space-y-8">
