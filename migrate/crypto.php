@@ -4,6 +4,9 @@ if (!isLoggedIn()) redirect('/login');
 checkKycRestriction($settings, $currentUser);
 
 $pageTitle = 'Crypto Hub';
+$fs = $settings['financialSettings'] ?? [];
+if (is_string($fs)) $fs = json_decode($fs, true) ?: [];
+$primaryProvider = $fs['primaryCrypto'] ?? 'bybit';
 $error = '';
 $success = '';
 
@@ -17,23 +20,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Handle Buy (Simulated via Bybit Price)
+// Handle Buy (Simulated via Price)
 if (!$error && isset($_POST['buy_amount'])) {
     $coin = $_POST['coin'];
     $amountNgn = (float)$_POST['buy_amount'];
-    $rate = bybitGetMarketPrice($pdo, $coin . 'USDT') ?: 95000; // Simplified fallback rate
-    // Simplified conversion NGN -> USDT -> Coin
+
+    $chargePct = getApiCharge($pdo, 'crypto_buy');
+    $totalToPay = $amountNgn * (1 + ($chargePct / 100));
+
+    $rate = cryptoGetPrice($pdo, $coin) ?: 95000;
     $usdtRate = 1600; // Mock NGN/USDT
     $coinAmount = ($amountNgn / $usdtRate) / $rate;
 
-    if ($currentUser['walletBalance'] >= $amountNgn) {
-        if (updateWallet($pdo, $currentUser['id'], $amountNgn, 'debit')) {
-            logTransaction($pdo, $currentUser['id'], "Crypto Buy", $amountNgn, 'successful', "Bought " . number_format($coinAmount, 8) . " $coin", "Bybit Hub");
+    if ($currentUser['walletBalance'] >= $totalToPay) {
+        if (updateWallet($pdo, $currentUser['id'], $totalToPay, 'debit')) {
+                        logTransaction($pdo, $currentUser['id'], "Crypto Buy", $totalToPay, 'successful', "Bought " . number_format($coinAmount, 8) . " $coin", ucfirst($primaryProvider) . " Hub", null, null, $amountNgn, ($totalToPay - $amountNgn));
             $success = "Purchase successful! " . number_format($coinAmount, 8) . " $coin added to your portfolio.";
             $currentUser = fetchUser($pdo, $currentUser['id']); // Refresh
         }
     } else {
-        $error = "Insufficient balance.";
+        $error = "Insufficient balance. Total with charge: " . formatCurrency($totalToPay);
     }
 }
 
@@ -41,14 +47,18 @@ if (!$error && isset($_POST['buy_amount'])) {
 if (!$error && isset($_POST['sell_amount'])) {
     $coin = $_POST['coin'];
     $coinAmount = (float)$_POST['sell_amount'];
-    $rate = bybitGetMarketPrice($pdo, $coin . 'USDT') ?: 95000;
+
+    $rate = cryptoGetPrice($pdo, $coin) ?: 95000;
     $usdtRate = 1580; // Mock NGN/USDT Sell rate
     $amountNgn = ($coinAmount * $rate) * $usdtRate;
 
-    // In a real system we would check user's crypto balance in Bybit or local table
-    if (updateWallet($pdo, $currentUser['id'], $amountNgn, 'credit')) {
-        logTransaction($pdo, $currentUser['id'], "Crypto Sell", $amountNgn, 'successful', "Sold " . number_format($coinAmount, 8) . " $coin", "Bybit Hub");
-        $success = "Sale successful! " . formatCurrency($amountNgn) . " added to your wallet.";
+    $chargePct = getApiCharge($pdo, 'crypto_sell');
+    $finalCredit = $amountNgn * (1 - ($chargePct / 100));
+
+    // In a real system we would check user's crypto balance in local table
+    if (updateWallet($pdo, $currentUser['id'], $finalCredit, 'credit')) {
+        logTransaction($pdo, $currentUser['id'], "Crypto Sell", $finalCredit, 'successful', "Sold " . number_format($coinAmount, 8) . " $coin", ucfirst($primaryProvider) . " Hub", null, null, $amountNgn, ($amountNgn - $finalCredit));
+        $success = "Sale successful! " . formatCurrency($finalCredit) . " added to your wallet.";
         $currentUser = fetchUser($pdo, $currentUser['id']);
     }
 }
@@ -64,6 +74,9 @@ if (!$error && isset($_POST['withdraw_address'])) {
     $address = $_POST['withdraw_address'];
     $amount = (float)$_POST['withdraw_amount'];
 
+    $chargePct = getApiCharge($pdo, 'crypto_withdraw');
+    $totalDeduct = $amount * (1 + ($chargePct / 100));
+
     // Check Whitelist & Lock
     $stmt = $pdo->prepare("SELECT isLocked, unlockedAt FROM withdrawal_whitelist WHERE userId = ? AND address = ?");
     $stmt->execute([$currentUser['id'], $address]);
@@ -75,21 +88,30 @@ if (!$error && isset($_POST['withdraw_address'])) {
         $timeLeft = round((strtotime($wl['unlockedAt']) - time()) / 3600, 1);
         $error = "Address is under 24h cooling period. $timeLeft hours remaining.";
     } else {
-        // Execute Withdrawal via Bybit
-        $res = bybitWithdraw($pdo, $_POST['coin'], $amount, $address);
-        if (isset($res['retCode']) && $res['retCode'] == 0) {
-            $success = "Withdrawal request submitted successfully.";
+        // Deduct from wallet if needed or just process from crypto balance
+        // For simplicity, we deduct from main wallet in this mock
+        if ($currentUser['walletBalance'] < $totalDeduct) {
+            $error = "Insufficient balance for withdrawal + charge.";
         } else {
-            $error = "Withdrawal failed: " . ($res['retMsg'] ?? 'Provider error');
+            updateWallet($pdo, $currentUser['id'], $totalDeduct, 'debit');
+            // Execute Withdrawal via Primary Provider
+            $res = cryptoWithdraw($pdo, $_POST['coin'], $amount, $address);
+            if (isset($res['retCode']) && $res['retCode'] == 0) {
+                logTransaction($pdo, $currentUser['id'], "Crypto Withdrawal", $totalDeduct, 'successful', "Withdrew $amount {$_POST['coin']} to $address", $address, null, null, $amount, ($totalDeduct - $amount));
+                $success = "Withdrawal request submitted successfully.";
+            } else {
+                updateWallet($pdo, $currentUser['id'], $totalDeduct, 'credit'); // Refund
+                $error = "Withdrawal failed: " . ($res['retMsg'] ?? $res['msg'] ?? 'Provider error');
+            }
         }
     }
 }
 
 // Get Market Prices
 $prices = [
-    'BTC' => bybitGetMarketPrice($pdo, 'BTCUSDT'),
-    'ETH' => bybitGetMarketPrice($pdo, 'ETHUSDT'),
-    'SOL' => bybitGetMarketPrice($pdo, 'SOLUSDT'),
+    'BTC' => cryptoGetPrice($pdo, 'BTC'),
+    'ETH' => cryptoGetPrice($pdo, 'ETH'),
+    'SOL' => cryptoGetPrice($pdo, 'SOL'),
     'USDT' => 1.00
 ];
 
@@ -165,7 +187,10 @@ require_once __DIR__ . '/includes/header.php';
                             <input type="password" name="fund_password" placeholder="••••••" class="w-full bg-white/5 border-none rounded-2xl p-5 text-sm font-black focus:ring-2 focus:ring-amber-500">
                         </div>
 
-                        <button type="submit" class="w-full bg-amber-500 text-white py-6 rounded-[32px] font-black uppercase tracking-widest shadow-xl shadow-amber-500/20 hover:scale-[1.02] active:scale-95 transition-all">Execute Buy Order</button>
+                        <button type="submit" class="submit-btn w-full bg-amber-500 text-white py-6 rounded-[32px] font-black uppercase tracking-widest shadow-xl shadow-amber-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3">
+                            <span class="btn-text">Execute Buy Order</span>
+                            <div class="btn-loader hidden w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        </button>
                     </form>
 
                     <!-- Sell Form -->
@@ -191,7 +216,10 @@ require_once __DIR__ . '/includes/header.php';
                             <input type="password" name="fund_password" placeholder="••••••" class="w-full bg-white/5 border-none rounded-2xl p-5 text-sm font-black focus:ring-2 focus:ring-red-500">
                         </div>
 
-                        <button type="submit" class="w-full bg-red-500 text-white py-6 rounded-[32px] font-black uppercase tracking-widest shadow-xl shadow-red-500/20 hover:scale-[1.02] active:scale-95 transition-all">Execute Sell Order</button>
+                        <button type="submit" class="submit-btn w-full bg-red-500 text-white py-6 rounded-[32px] font-black uppercase tracking-widest shadow-xl shadow-red-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3">
+                            <span class="btn-text">Execute Sell Order</span>
+                            <div class="btn-loader hidden w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        </button>
                     </form>
 
                     <!-- Withdraw Section (P2P) -->
@@ -226,7 +254,10 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
                         </div>
 
-                        <button type="submit" class="w-full bg-white text-gray-900 py-6 rounded-[32px] font-black uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all">Submit Withdrawal</button>
+                        <button type="submit" class="submit-btn w-full bg-white text-gray-900 py-6 rounded-[32px] font-black uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3">
+                            <span class="btn-text">Submit Withdrawal</span>
+                            <div class="btn-loader hidden w-5 h-5 border-2 border-gray-900/30 border-t-gray-900 rounded-full animate-spin"></div>
+                        </button>
                     </form>
                 </div>
             </div>
@@ -270,6 +301,20 @@ require_once __DIR__ . '/includes/header.php';
         const active = document.getElementById(tab + 'Tab');
         active.className = 'px-8 py-3 rounded-full text-[10px] font-black uppercase bg-white text-gray-900 shadow-xl';
     }
+
+    document.querySelectorAll('form').forEach(form => {
+        form.addEventListener('submit', function() {
+            const btn = this.querySelector('.submit-btn');
+            if (!btn) return;
+            const text = btn.querySelector('.btn-text');
+            const loader = btn.querySelector('.btn-loader');
+
+            btn.disabled = true;
+            btn.classList.add('opacity-70', 'cursor-not-allowed');
+            if (text) text.innerText = 'Processing...';
+            if (loader) loader.classList.remove('hidden');
+        });
+    });
 </script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

@@ -24,6 +24,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $error = $testRes['message'];
         }
+    } elseif (isset($_POST['action']) && $_POST['action'] === 'test_mexc') {
+        $testRes = testMexcConnection($pdo);
+        if ($testRes['status'] === 'success') $success = $testRes['message'];
+        else $error = $testRes['message'];
     } else {
         $finSettings = [
             'paystack' => [
@@ -35,18 +39,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'apiKey' => $_POST['jw_apiKey'],
                 'businessId' => $_POST['jw_businessId'],
                 'webhookUrl' => $_POST['jw_webhookUrl'],
-                'liveMode' => isset($_POST['jw_liveMode']) ? 1 : 0,
-                'cryptoCharges' => [
-                    'buy' => (float)$_POST['jw_crypto_buy_charge'],
-                    'sell' => (float)$_POST['jw_crypto_sell_charge'],
-                    'swap' => (float)$_POST['jw_crypto_swap_charge'],
-                    'withdraw' => (float)$_POST['jw_crypto_withdraw_charge']
-                ]
+                'liveMode' => isset($_POST['jw_liveMode']) ? 1 : 0
             ],
             'bybit' => [
                 'apiKey' => $_POST['bb_apiKey'],
                 'apiSecret' => $_POST['bb_apiSecret'],
                 'testnet' => isset($_POST['bb_testnet']) ? 1 : 0
+            ],
+            'mexc' => [
+                'apiKey' => $_POST['mx_apiKey'],
+                'apiSecret' => $_POST['mx_apiSecret']
+            ],
+            'primaryCrypto' => $_POST['primary_crypto'],
+            'globalCharges' => [
+                'airtime' => (float)$_POST['charge_airtime'],
+                'data' => (float)$_POST['charge_data'],
+                'cable' => (float)$_POST['charge_cable'],
+                'electric' => (float)$_POST['charge_electric'],
+                'betting' => (float)$_POST['charge_betting'],
+                'exam' => (float)$_POST['charge_exam'],
+                'crypto_buy' => (float)$_POST['charge_crypto_buy'],
+                'crypto_sell' => (float)$_POST['charge_crypto_sell'],
+                'crypto_swap' => (float)$_POST['charge_crypto_swap'],
+                'crypto_withdraw' => (float)$_POST['charge_crypto_withdraw']
             ]
         ];
 
@@ -73,7 +88,7 @@ require_once __DIR__ . '/header.php';
 
 <div class="space-y-10 animate-fade-in pb-20 text-gray-900">
     <div class="flex items-center justify-between">
-        <h2 class="text-2xl font-black uppercase tracking-tight">Financial & Banking API</h2>
+        <h2 class="text-2xl font-black uppercase tracking-tight">Financial API Service Charges</h2>
     </div>
 
     <?php if (isset($success)): ?><div class="p-4 bg-green-50 text-green-800 rounded-2xl text-xs font-black border border-green-100 uppercase text-center"><?php echo $success; ?></div><?php endif; ?>
@@ -108,7 +123,7 @@ require_once __DIR__ . '/header.php';
             <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
                 <div class="flex justify-between items-center mb-6">
                     <h3 class="text-sm font-black uppercase tracking-widest flex items-center gap-3 text-amber-500">
-                        <i data-lucide="bar-chart-3" class="w-5 h-5"></i> Bybit API (Crypto Hub)
+                        <i data-lucide="bar-chart-3" class="w-5 h-5"></i> Bybit API
                     </h3>
                     <div class="flex items-center gap-4">
                         <label class="flex items-center cursor-pointer gap-2">
@@ -131,11 +146,31 @@ require_once __DIR__ . '/header.php';
                 </div>
             </div>
 
+            <!-- MEXC API -->
+            <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-sm font-black uppercase tracking-widest flex items-center gap-3 text-emerald-500">
+                        <i data-lucide="activity" class="w-5 h-5"></i> MEXC API
+                    </h3>
+                    <button type="submit" name="action" value="test_mexc" class="text-[10px] font-black uppercase text-emerald-500 hover:underline">Test API</button>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1">API Key</label>
+                        <input type="password" name="mx_apiKey" value="<?php echo $fs['mexc']['apiKey'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-emerald-500">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1">API Secret</label>
+                        <input type="password" name="mx_apiSecret" value="<?php echo $fs['mexc']['apiSecret'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-emerald-500">
+                    </div>
+                </div>
+            </div>
+
             <!-- JuicyWay -->
             <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
                 <div class="flex justify-between items-center mb-6">
                     <h3 class="text-sm font-black uppercase tracking-widest flex items-center gap-3 text-purple-600">
-                        <i data-lucide="layout-grid" class="w-5 h-5"></i> JuicyWay (Crypto & Cards)
+                        <i data-lucide="layout-grid" class="w-5 h-5"></i> JuicyWay
                     </h3>
                     <div class="flex items-center gap-4">
                         <label class="flex items-center cursor-pointer gap-2">
@@ -152,41 +187,66 @@ require_once __DIR__ . '/header.php';
                         <input type="password" name="jw_apiKey" value="<?php echo $fs['juicyway']['apiKey'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
                     </div>
                     <div>
-                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Business ID (For Webhook verification)</label>
+                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Business ID</label>
                         <input type="text" name="jw_businessId" value="<?php echo $fs['juicyway']['businessId'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
                     </div>
                     <div>
-                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1 text-red-500">Webhook URL (Set in JuicyWay Dashboard)</label>
+                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1 text-red-500">Webhook URL</label>
                         <input type="text" readonly name="jw_webhookUrl" value="<?php echo $fs['juicyway']['webhookUrl'] ?? ((isset($_SERVER['HTTPS']) ? 'https' : 'http') . "://$_SERVER[HTTP_HOST]/webhook-juicyway.php"); ?>" class="w-full p-4 bg-gray-100 rounded-2xl font-mono text-[10px] mt-1 outline-none border border-transparent">
                     </div>
-
-                    <div class="pt-4 border-t border-gray-50">
-                        <h4 class="text-[10px] font-black uppercase text-gray-400 mb-4">Crypto Service Charges (%)</h4>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="text-[8px] font-black text-gray-400 uppercase ml-1">Buy Charge</label>
-                                <input type="number" step="0.01" name="jw_crypto_buy_charge" value="<?php echo $fs['juicyway']['cryptoCharges']['buy'] ?? 0; ?>" class="w-full p-3 bg-gray-50 rounded-xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
-                            </div>
-                            <div>
-                                <label class="text-[8px] font-black text-gray-400 uppercase ml-1">Sell Charge</label>
-                                <input type="number" step="0.01" name="jw_crypto_sell_charge" value="<?php echo $fs['juicyway']['cryptoCharges']['sell'] ?? 0; ?>" class="w-full p-3 bg-gray-50 rounded-xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
-                            </div>
-                            <div>
-                                <label class="text-[8px] font-black text-gray-400 uppercase ml-1">Swap Charge</label>
-                                <input type="number" step="0.01" name="jw_crypto_swap_charge" value="<?php echo $fs['juicyway']['cryptoCharges']['swap'] ?? 0; ?>" class="w-full p-3 bg-gray-50 rounded-xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
-                            </div>
-                            <div>
-                                <label class="text-[8px] font-black text-gray-400 uppercase ml-1">Withdraw Charge</label>
-                                <input type="number" step="0.01" name="jw_crypto_withdraw_charge" value="<?php echo $fs['juicyway']['cryptoCharges']['withdraw'] ?? 0; ?>" class="w-full p-3 bg-gray-50 rounded-xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
-                            </div>
-                        </div>
-                    </div>
-
                     <div class="pt-4 border-t border-gray-50">
                         <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Card Issuance Fee (NGN)</label>
                         <input type="number" name="vc_fee" value="<?php echo $settings['vcardIssuanceFee'] ?? 1000; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
                     </div>
                 </div>
+            </div>
+
+            <!-- Provider Selection -->
+            <div class="bg-gray-900 p-8 rounded-[40px] shadow-2xl text-white">
+                <h3 class="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-3">
+                    <i data-lucide="settings-2" class="w-5 h-5 text-billpay-green"></i> System Routing
+                </h3>
+                <div>
+                    <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Primary Crypto Provider</label>
+                    <select name="primary_crypto" class="w-full p-4 bg-white/10 rounded-2xl font-black mt-1 outline-none border border-transparent focus:border-billpay-green text-white">
+                        <option value="bybit" <?php echo ($fs['primaryCrypto'] ?? 'bybit') === 'bybit' ? 'selected' : ''; ?> class="text-gray-900">Bybit Exchange</option>
+                        <option value="mexc" <?php echo ($fs['primaryCrypto'] ?? '') === 'mexc' ? 'selected' : ''; ?> class="text-gray-900">MEXC Global</option>
+                    </select>
+                </div>
+                <p class="text-[9px] text-gray-500 mt-4 uppercase font-bold leading-relaxed">This selection determines which API is used for the 'Crypto Hub' balances, trading, and withdrawals.</p>
+            </div>
+        </div>
+
+        <!-- Service Charges Manager -->
+        <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
+            <h3 class="text-sm font-black uppercase tracking-widest mb-8 flex items-center gap-3">
+                <i data-lucide="percent" class="text-indigo-500"></i> Financial Service Charges
+            </h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <?php
+                $chargeKeys = [
+                    'crypto_buy' => 'Crypto Buy',
+                    'crypto_sell' => 'Crypto Sell',
+                    'crypto_swap' => 'Crypto Swap',
+                    'crypto_withdraw' => 'Crypto Withdraw',
+                    'vcard_deposit_fee' => 'VCard Deposit (NGN)'
+                ];
+                // Maintain hidden values for removed keys to prevent settings wipe
+                $removedKeys = ['airtime', 'data', 'cable', 'electric', 'betting', 'exam'];
+                foreach($removedKeys as $rk) echo '<input type="hidden" name="charge_'.$rk.'" value="'.($fs['globalCharges'][$rk] ?? 0).'">';
+
+                foreach ($chargeKeys as $key => $label):
+                    $isFlat = ($key === 'vcard_deposit_fee');
+                ?>
+                <div>
+                    <label class="text-[10px] font-black text-gray-400 uppercase ml-1"><?php echo $label; ?> <?php echo $isFlat ? '(Flat ₦)' : '(%)'; ?></label>
+                    <input type="number" step="0.01" name="charge_<?php echo $key; ?>" value="<?php echo $fs['globalCharges'][$key] ?? 0; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-black mt-1 outline-none border-2 border-transparent focus:border-indigo-500 text-center">
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <div class="mt-8 p-6 bg-indigo-50 rounded-3xl border border-indigo-100 flex gap-4">
+                <i data-lucide="shield-alert" class="w-6 h-6 text-indigo-500"></i>
+                <p class="text-[10px] font-bold text-indigo-700 uppercase leading-relaxed">These charges are applied specifically to financial operations managed on this page. VTU/Utility charges are now managed per network/provider in their respective API hubs.</p>
             </div>
         </div>
 

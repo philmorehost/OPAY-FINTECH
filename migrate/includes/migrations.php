@@ -17,23 +17,39 @@ function addColumnIfNotExists($pdo, $table, $column, $definition) {
 }
 }
 
+if (!function_exists('addIndexIfNotExists')) {
+function addIndexIfNotExists($pdo, $table, $indexName, $definition) {
+    try {
+        $stmt = $pdo->query("SHOW INDEX FROM `$table` WHERE Key_name = '$indexName'");
+        if ($stmt->rowCount() == 0) {
+            $pdo->exec("ALTER TABLE `$table` ADD $definition");
+        }
+    } catch (PDOException $e) {
+        // Silent fail
+    }
+}
+}
+
 try {
     // Settings Table Updates
     addColumnIfNotExists($pdo, 'settings', 'templateId', "INT DEFAULT 1");
     addColumnIfNotExists($pdo, 'settings', 'primaryColor', "VARCHAR(20) DEFAULT '#00c689'");
     addColumnIfNotExists($pdo, 'settings', 'isKycEnforced', "TINYINT(1) DEFAULT 1");
     addColumnIfNotExists($pdo, 'settings', 'isMinDepositForced', "TINYINT(1) DEFAULT 0");
+    addColumnIfNotExists($pdo, 'settings', 'smsApiRate', 'DECIMAL(15, 2) DEFAULT 3.50');
     addColumnIfNotExists($pdo, 'settings', 'minDepositAmount', "DECIMAL(15, 2) DEFAULT 100.00");
     addColumnIfNotExists($pdo, 'settings', 'pwaEnabled', "TINYINT(1) DEFAULT 1");
     addColumnIfNotExists($pdo, 'settings', 'pwaIcon', "VARCHAR(255)");
     addColumnIfNotExists($pdo, 'settings', 'pwaSplash', "VARCHAR(255)");
     addColumnIfNotExists($pdo, 'settings', 'siteDescription', "TEXT");
     addColumnIfNotExists($pdo, 'settings', 'isBiometricEnforced', "TINYINT(1) DEFAULT 0");
+    addColumnIfNotExists($pdo, 'settings', 'loginSecuritySettings', "TEXT");
     addColumnIfNotExists($pdo, 'settings', 'siteVersion', "VARCHAR(50) DEFAULT '1.0.0'");
     addColumnIfNotExists($pdo, 'settings', 'vcardIssuanceFee', "DECIMAL(15, 2) DEFAULT 1500.00");
 
     // API Hub Restructured Settings
     addColumnIfNotExists($pdo, 'settings', 'airtimeSettings', "TEXT");
+    addColumnIfNotExists($pdo, 'settings', 'dataProducts', "TEXT");
     addColumnIfNotExists($pdo, 'settings', 'dataSettings', "TEXT");
     addColumnIfNotExists($pdo, 'settings', 'utilitySettings', "TEXT");
     addColumnIfNotExists($pdo, 'settings', 'financialSettings', "TEXT");
@@ -57,6 +73,8 @@ try {
     addColumnIfNotExists($pdo, 'users', 'google2faSecret', "VARCHAR(100)");
     addColumnIfNotExists($pdo, 'users', 'google2faEnabled', "TINYINT(1) DEFAULT 0");
     addColumnIfNotExists($pdo, 'users', 'email2faEnabled', "TINYINT(1) DEFAULT 0");
+    addColumnIfNotExists($pdo, 'users', 'loginSecurityPin', "VARCHAR(10)");
+    addColumnIfNotExists($pdo, 'users', 'configuredSecurityMethods', "TEXT");
 
     // Virtual Cards Table
     $pdo->exec("CREATE TABLE IF NOT EXISTS virtual_cards (
@@ -133,6 +151,97 @@ try {
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
         INDEX (userId)
     )");
+
+    // Data Plans Table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS data_plans (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        network VARCHAR(50),
+        plan_id VARCHAR(50),
+        name VARCHAR(100),
+        data_size VARCHAR(50),
+        api_price DECIMAL(10,2),
+        user_price DECIMAL(10,2),
+        api_discount DECIMAL(5, 2) DEFAULT 0.00,
+        user_discount DECIMAL(5, 2) DEFAULT 0.00,
+        duration VARCHAR(50),
+        gateway VARCHAR(50),
+        type VARCHAR(50) DEFAULT 'sme',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )");
+    addColumnIfNotExists($pdo, 'data_plans', 'api_discount', "DECIMAL(5, 2) DEFAULT 0.00");
+    addColumnIfNotExists($pdo, 'data_plans', 'user_discount', "DECIMAL(5, 2) DEFAULT 0.00");
+    addIndexIfNotExists($pdo, 'data_plans', 'gateway_net_plan', "UNIQUE KEY gateway_net_plan (gateway, network, plan_id)");
+
+    // Data cleanup
+    $pdo->exec("UPDATE data_plans SET gateway = 'manual' WHERE gateway IS NULL OR gateway = ''");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS utility_packages (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        category ENUM('cable', 'electric', 'exam', 'betting') NOT NULL,
+        provider VARCHAR(50),
+        package_id VARCHAR(100),
+        name VARCHAR(255),
+        api_price DECIMAL(15, 2) DEFAULT 0.00,
+        user_price DECIMAL(15, 2) DEFAULT 0.00,
+        api_discount DECIMAL(5, 2) DEFAULT 0.00,
+        user_discount DECIMAL(5, 2) DEFAULT 0.00,
+        enabled TINYINT(1) DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )");
+    addColumnIfNotExists($pdo, 'utility_packages', 'service_id', "VARCHAR(50) AFTER provider");
+
+    // Data EPINs Table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS data_epins (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        userId VARCHAR(50),
+        network VARCHAR(50),
+        planId VARCHAR(50),
+        planName VARCHAR(100),
+        pin VARCHAR(100),
+        serial VARCHAR(100),
+        batchId VARCHAR(50),
+        status ENUM('active', 'used', 'processing') DEFAULT 'active',
+        processorPhone VARCHAR(20),
+        processedAt DATETIME,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+    )");
+
+    // Settings for EPIN Phone Numbers
+    addColumnIfNotExists($pdo, 'settings', 'epinSettings', "TEXT");
+
+    // Anti-Bruteforce Settings
+    addColumnIfNotExists($pdo, 'settings', 'bruteforceSettings', "TEXT");
+
+    // Fix missing fundPassword columns if any (based on error report)
+    addColumnIfNotExists($pdo, 'users', 'fundPassword', "VARCHAR(255)");
+    addColumnIfNotExists($pdo, 'users', 'fundPasswordVtuEnabled', "TINYINT(1) DEFAULT 0");
+    addColumnIfNotExists($pdo, 'users', 'fundPasswordResetCode', "VARCHAR(20)");
+    addColumnIfNotExists($pdo, 'users', 'fundPasswordResetExpiry', "DATETIME");
+
+    // Brute Force Logs & Control
+    $pdo->exec("CREATE TABLE IF NOT EXISTS login_history (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        userId VARCHAR(50),
+        ip VARCHAR(45),
+        userAgent TEXT,
+        status ENUM('success', 'failed') DEFAULT 'success',
+        attemptedUsername VARCHAR(100),
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS access_control (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        type ENUM('ip', 'user', 'country') NOT NULL,
+        value VARCHAR(255) NOT NULL,
+        status ENUM('whitelisted', 'blacklisted', 'not_specified') DEFAULT 'not_specified',
+        successCount INT DEFAULT 0,
+        expiry DATETIME,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY type_value (type, value)
+    )");
+
+    // Ensure all countries are initialized in access_control if not present
+    // (We'll do this lazily or in the admin page)
 
 } catch (PDOException $e) {
     // Silent fail

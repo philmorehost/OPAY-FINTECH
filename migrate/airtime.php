@@ -28,18 +28,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
     // Calculate Costs & Profit
     $userDiscount = (float)($settings['airtimeDiscounts'][$network] ?? 0);
-    $unitCost = $amount * (1 - $userDiscount / 100);
+    $globalChargePct = getApiCharge($pdo, 'airtime');
+
+    $unitCost = ($amount * (1 - $userDiscount / 100)) * (1 + ($globalChargePct / 100));
     $totalCost = count($recipients) * $unitCost;
 
     // API Info for Profit
     $as = $settings['airtimeSettings'] ?? [];
     $provider = $as['routing'][$network] ?? 'datagifting';
-    $apiDiscount = (float)($as['providers'][$provider]['discount'] ?? 0);
+    $apiDiscount = (float)($as['networkDiscounts'][$network] ?? 0);
     $unitApiCost = $amount * (1 - $apiDiscount / 100);
     $unitProfit = $unitCost - $unitApiCost;
 
+    $ls = $settings['loginSecuritySettings'] ?? [];
+    $isPinForced = !empty($ls['pin']['forced']);
+    $userPinEnabled = !empty($currentUser['fundPasswordVtuEnabled']);
+
     if (isKycRejected($currentUser)) {
         $error = 'Account restricted. Please update your KYC.';
+    } elseif (($isPinForced || $userPinEnabled) && !verifyFundPassword($pdo, $currentUser['id'], $_POST['fund_password'] ?? '')) {
+        $error = 'Invalid Security PIN';
     } elseif ($amount < ($settings['minAirtimePurchase'] ?? 50)) {
         $error = 'Minimum airtime is ' . formatCurrency($settings['minAirtimePurchase'] ?? 50);
     } elseif (empty($recipients)) {
@@ -65,7 +73,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
                     if ($isSuccess) {
                         $successCount++;
-                        logTransaction($pdo, $currentUser['id'], 'Airtime', $unitCost, 'successful', "$network Airtime for $num", $num, $network, null, $unitApiCost, $unitProfit);
+                        $unitProfitVal = $unitCost - $unitApiCost;
+                        logTransaction($pdo, $currentUser['id'], 'Airtime', $unitCost, 'successful', "$network Airtime for $num", $num, $network, null, $unitApiCost, $unitProfitVal);
                     } else {
                         updateWallet($pdo, $currentUser['id'], $unitCost, 'credit');
                         logTransaction($pdo, $currentUser['id'], 'Airtime', $unitCost, 'failed', "$network Airtime failed for $num: " . ($response['message'] ?? 'Error'), $num, $network);
@@ -75,9 +84,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $stmt = $pdo->prepare("SELECT walletBalance FROM users WHERE id = ?"); $stmt->execute([$currentUser['id']]);
                 $currentUser['walletBalance'] = $stmt->fetchColumn();
 
-                $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Airtime purchase processed.<br>Network: $network<br>Total: " . formatCurrency($totalCost);
-                sendMail($pdo, $currentUser['email'], "Airtime Receipt", $receiptMsg);
-                claimDailyRewardIfEligible($pdo, $currentUser['id']);
+                $status = ($successCount > 0) ? 'successful' : 'failed';
+                $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Airtime purchase processed.<br>Network: $network<br>Total: " . formatCurrency($totalCost) . "<br>Status: " . strtoupper($status);
+                sendMail($pdo, $currentUser['email'], "Airtime Receipt", $receiptMsg, $status);
+                if ($successCount > 0) claimDailyRewardIfEligible($pdo, $currentUser['id']);
                 $pdo->commit();
 
                 $statusDetails = ['status' => $successCount > 0 ? 'success' : 'failed', 'amount' => $totalCost, 'count' => $successCount, 'total' => count($recipients), 'msg' => $successCount > 0 ? "Processed $successCount/" . count($recipients) . " successfully." : "Purchase failed."];
@@ -146,12 +156,21 @@ require_once __DIR__ . '/includes/header.php';
                 <input type="hidden" name="network" id="networkInput" required>
             </div>
 
-            <div>
-                <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Amount (₦)</label>
-                <input type="number" name="amount" id="amountInput" placeholder="Enter amount" min="50" class="w-full p-5 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" required>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Amount (₦)</label>
+                    <input type="number" name="amount" id="amountInput" placeholder="Enter amount" min="50" class="w-full p-5 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" required>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Security PIN</label>
+                    <input type="password" name="fund_password" maxlength="6" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" <?php echo ($isPinForced || $userPinEnabled) ? 'required' : ''; ?>>
+                </div>
             </div>
 
-            <button type="submit" class="w-full bg-billpay-green text-white font-black py-5 rounded-[24px] shadow-xl active:scale-95 transition-all uppercase">Confirm Purchase</button>
+            <button type="submit" id="submitBtn" class="w-full bg-billpay-green text-white font-black py-5 rounded-[24px] shadow-xl active:scale-95 transition-all uppercase flex items-center justify-center gap-3">
+                <span id="btnText">Confirm Purchase</span>
+                <div id="btnLoader" class="hidden w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+            </button>
         </form>
     </div>
 </div>
@@ -187,6 +206,17 @@ require_once __DIR__ . '/includes/header.php';
         const activeBtn = document.getElementById('net_' + name);
         activeBtn.className = 'network-btn p-3 rounded-2xl border-2 font-black text-[10px] transition-all border-billpay-green shadow-md ' + activeBtn.dataset.color + ' ' + activeBtn.dataset.text + ' flex flex-col items-center gap-2';
     }
+
+    document.getElementById('airtimeForm').addEventListener('submit', function() {
+        const btn = document.getElementById('submitBtn');
+        const text = document.getElementById('btnText');
+        const loader = document.getElementById('btnLoader');
+
+        btn.disabled = true;
+        btn.classList.add('opacity-70', 'cursor-not-allowed');
+        text.innerText = 'Processing...';
+        loader.classList.remove('hidden');
+    });
 </script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

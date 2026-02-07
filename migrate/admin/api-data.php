@@ -7,10 +7,18 @@ $pageTitle = 'Data API Settings';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrfToken($_POST['csrf_token'])) die('CSRF Failed');
 
+    if (isset($_POST['action']) && $_POST['action'] === 'test_api') {
+        $provider = sanitize($_POST['provider']);
+        $testRes = testDataConnection($pdo, $provider);
+        if ($testRes['status'] === 'success') $success = "Test Successful: " . $testRes['message'];
+        else $error = "Test Failed: " . $testRes['message'];
+    }
+
     $dataSettings = [
         'providers' => [
             'datagifting' => ['apiKey' => $_POST['dg_apiKey']],
             'nellobyte' => ['userId' => $_POST['nb_userId'], 'apiKey' => $_POST['nb_apiKey']],
+            'datastation' => ['token' => $_POST['ds_token']],
             'hdkdata' => ['token' => $_POST['hdk_token']]
         ],
         'routing' => [
@@ -21,9 +29,158 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]
     ];
 
-    $stmt = $pdo->prepare("UPDATE settings SET dataSettings = ? WHERE id = 1");
-    $stmt->execute([json_encode($dataSettings)]);
-    $success = "Data settings updated!";
+    if (isset($_POST['action']) && $_POST['action'] === 'save_epin_settings') {
+        $epinSettings = [
+            'phones' => [
+                'MTN' => $_POST['epin_phone_mtn'],
+                'Airtel' => $_POST['epin_phone_airtel'],
+                'Glo' => $_POST['epin_phone_glo'],
+                '9mobile' => $_POST['epin_phone_9mobile']
+            ]
+        ];
+        $stmt = $pdo->prepare("UPDATE settings SET epinSettings = ? WHERE id = 1");
+        $stmt->execute([json_encode($epinSettings)]);
+        $success = "EPIN settings updated!";
+    } elseif (isset($_POST['action']) && $_POST['action'] === 'add_plan') {
+        $stmt = $pdo->prepare("INSERT INTO data_plans (network, plan_id, data_size, type, api_price, user_price, gateway) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE data_size = VALUES(data_size), user_price = VALUES(user_price), api_price = VALUES(api_price)");
+        $stmt->execute([
+            sanitize($_POST['plan_network']),
+            sanitize($_POST['plan_apiCode']),
+            sanitize($_POST['plan_size']),
+            sanitize($_POST['plan_type']),
+            (float)$_POST['plan_apiPrice'],
+            (float)$_POST['plan_userPrice'],
+            sanitize($_POST['plan_gateway'] ?: 'manual')
+        ]);
+        $success = "New data plan added!";
+    } elseif (isset($_POST['action']) && $_POST['action'] === 'fetch_vtpass_data') {
+        $network = sanitize($_POST['fetch_network']);
+        $serviceId = strtolower($network) . '-data';
+        $res = vtpassGetVariations($pdo, $serviceId);
+        $vars = (is_array($res) && isset($res['content'])) ? ($res['content']['varations'] ?? $res['content']['variations'] ?? null) : null;
+        if (is_array($vars)) {
+            $count = 0;
+            foreach ($vars as $v) {
+                $stmt = $pdo->prepare("INSERT INTO data_plans (network, plan_id, data_size, type, api_price, user_price, gateway) VALUES (?, ?, ?, ?, ?, ?, 'vtpass') ON DUPLICATE KEY UPDATE data_size = VALUES(data_size), api_price = VALUES(api_price), gateway = VALUES(gateway)");
+                $stmt->execute([
+                    $network,
+                    $v['variation_code'] ?? $v['id'] ?? '',
+                    $v['name'] ?? '',
+                    'DataBundle',
+                    (float)($v['variation_amount'] ?? 0),
+                    (float)($v['variation_amount'] ?? 0)
+                ]);
+                $count++;
+            }
+            $success = "Successfully fetched and updated $count plans for $network!";
+        } else {
+            $error = "Failed to fetch from VTpass: " . (is_array($res) ? ($res['response_description'] ?? 'No variations found') : 'Unknown error');
+        }
+    } elseif (isset($_POST['action']) && $_POST['action'] === 'fetch_nb_data') {
+        $res = nellobyteGetDataPlans($pdo);
+        if (is_array($res) && isset($res['MOBILE_NETWORK'])) {
+            $count = 0;
+            $nb_map = [
+                'MTN' => 'MTN',
+                'Airtel' => 'Airtel',
+                'Glo' => 'Glo',
+                '9mobile' => 'm_9mobile'
+            ];
+            foreach ($nb_map as $db_net => $api_key) {
+                if (isset($res['MOBILE_NETWORK'][$api_key]) && is_array($res['MOBILE_NETWORK'][$api_key])) {
+                    foreach ($res['MOBILE_NETWORK'][$api_key] as $cat) {
+                        if (isset($cat['PRODUCT']) && is_array($cat['PRODUCT'])) {
+                            foreach ($cat['PRODUCT'] as $p) {
+                                $stmt = $pdo->prepare("INSERT INTO data_plans (network, plan_id, data_size, type, api_price, user_price, gateway) VALUES (?, ?, ?, ?, ?, ?, 'nellobyte') ON DUPLICATE KEY UPDATE data_size = VALUES(data_size), api_price = VALUES(api_price), gateway = VALUES(gateway)");
+                                $stmt->execute([
+                                    $db_net,
+                                    $p['PRODUCT_CODE'] ?? '',
+                                    $p['PRODUCT_NAME'] ?? '',
+                                    'DataBundle',
+                                    (float)($p['PRODUCT_AMOUNT'] ?? 0),
+                                    (float)($p['PRODUCT_AMOUNT'] ?? 0)
+                                ]);
+                                $count++;
+                            }
+                        }
+                    }
+                }
+            }
+            $success = "Successfully fetched and updated $count Nellobyte plans across all networks!";
+        } else {
+            $desc = is_array($res) ? ($res['status'] ?? 'Invalid Response') : (is_string($res) ? substr($res, 0, 100) : 'Unknown error');
+            $error = "Failed to fetch from Nellobyte: " . $desc;
+        }
+    } elseif (isset($_POST['action']) && $_POST['action'] === 'fetch_dg_data') {
+        $res = datagiftingGetDataPlans($pdo);
+        if (is_array($res) && isset($res['MOBILE_NETWORK'])) {
+            $count = 0;
+            $dg_map = [
+                'MTN' => 'MTN',
+                'Airtel' => 'AIRTEL',
+                'Glo' => 'GLO',
+                '9mobile' => '9MOBILE'
+            ];
+            foreach ($dg_map as $db_net => $api_key) {
+                if (isset($res['MOBILE_NETWORK'][$api_key]) && is_array($res['MOBILE_NETWORK'][$api_key])) {
+                    foreach ($res['MOBILE_NETWORK'][$api_key] as $p) {
+                        $stmt = $pdo->prepare("INSERT INTO data_plans (network, plan_id, data_size, type, api_price, user_price, gateway) VALUES (?, ?, ?, ?, ?, ?, 'datagifting') ON DUPLICATE KEY UPDATE data_size = VALUES(data_size), api_price = VALUES(api_price), gateway = VALUES(gateway)");
+                        $stmt->execute([
+                            $db_net,
+                            $p['PRODUCT_CODE'] ?? '',
+                            $p['PRODUCT_NAME'] ?? '',
+                            $p['DATA_TYPE_CODE'] ?? 'DataBundle',
+                            (float)($p['AMOUNT'] ?? 0),
+                            (float)($p['AMOUNT'] ?? 0)
+                        ]);
+                        $count++;
+                    }
+                }
+            }
+            $success = "Successfully fetched and updated $count DataGifting plans across all networks!";
+        } else {
+            $desc = is_array($res) ? ($res['desc'] ?? 'Invalid Response') : (is_string($res) ? substr($res, 0, 100) : 'Unknown error');
+            $error = "Failed to fetch from DataGifting: " . $desc;
+        }
+    } elseif (isset($_POST['action']) && $_POST['action'] === 'clear_provider_data') {
+        $provider = sanitize($_POST['clear_provider']);
+        $stmt = $pdo->prepare("DELETE FROM data_plans WHERE gateway = ?");
+        $stmt->execute([$provider]);
+        $success = "Cleared all data plans for $provider!";
+    } elseif (isset($_POST['action']) && $_POST['action'] === 'apply_all_discounts') {
+        $apiDisc = (float)$_POST['all_api_discount'];
+        $userDisc = (float)$_POST['all_user_discount'];
+        $stmt = $pdo->prepare("UPDATE data_plans SET api_discount = ?, user_discount = ?");
+        $stmt->execute([$apiDisc, $userDisc]);
+        $success = "Applied discounts to all data plans!";
+    } elseif (isset($_POST['action']) && $_POST['action'] === 'update_plan') {
+        $id = (int)$_POST['plan_id'];
+        $stmt = $pdo->prepare("UPDATE data_plans SET api_discount = ?, user_discount = ?, user_price = ? WHERE id = ?");
+        $stmt->execute([(float)$_POST['api_discount'], (float)$_POST['user_discount'], (float)$_POST['user_price'], $id]);
+        $success = "Data plan updated!";
+    } elseif (isset($_POST['action']) && $_POST['action'] === 'delete_plan') {
+        $stmt = $pdo->prepare("DELETE FROM data_plans WHERE id = ?");
+        $stmt->execute([$_POST['plan_id']]);
+        $success = "Data plan deleted!";
+    } else {
+        $dataSettings = [
+            'providers' => [
+                'datagifting' => ['apiKey' => $_POST['dg_apiKey']],
+                'nellobyte' => ['userId' => $_POST['nb_userId'], 'apiKey' => $_POST['nb_apiKey']],
+                'datastation' => ['token' => $_POST['ds_token']]
+            ],
+            'routing' => [
+                'MTN' => $_POST['route_mtn'],
+                'Airtel' => $_POST['route_airtel'],
+                'Glo' => $_POST['route_glo'],
+                '9mobile' => $_POST['route_9mobile']
+            ]
+        ];
+
+        $stmt = $pdo->prepare("UPDATE settings SET dataSettings = ? WHERE id = 1");
+        $stmt->execute([json_encode($dataSettings)]);
+        $success = "Data settings updated!";
+    }
     $settings = fetchSettings($pdo);
 }
 
@@ -32,7 +189,7 @@ if (is_string($ds)) $ds = json_decode($ds, true) ?: [];
 
 if (empty($ds)) {
     $ds = [
-        'providers' => ['datagifting' => ['apiKey' => ''], 'nellobyte' => ['userId' => '', 'apiKey' => ''], 'hdkdata' => ['token' => '']],
+        'providers' => ['datagifting' => ['apiKey' => ''], 'nellobyte' => ['userId' => '', 'apiKey' => ''], 'datastation' => ['token' => '']],
         'routing' => ['MTN' => 'datagifting', 'Airtel' => 'datagifting', 'Glo' => 'datagifting', '9mobile' => 'datagifting']
     ];
 }
@@ -45,7 +202,8 @@ require_once __DIR__ . '/header.php';
         <h2 class="text-2xl font-black uppercase tracking-tight">Data API Gateway</h2>
     </div>
 
-    <?php if (isset($success)): ?><div class="p-4 bg-green-50 text-green-800 rounded-2xl text-xs font-black border border-green-100 uppercase text-center"><?php echo $success; ?></div><?php endif; ?>
+    <?php if (isset($success)): ?><div class="p-4 bg-green-50 text-green-800 rounded-2xl text-xs font-black border border-green-100 uppercase text-center shadow-sm"><?php echo $success; ?></div><?php endif; ?>
+    <?php if (isset($error)): ?><div class="p-4 bg-red-50 text-red-800 rounded-2xl text-xs font-black border border-red-100 uppercase text-center shadow-sm"><?php echo $error; ?></div><?php endif; ?>
 
     <form method="POST" class="space-y-10">
         <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
@@ -53,17 +211,23 @@ require_once __DIR__ . '/header.php';
         <!-- Provider Credentials -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-                <h3 class="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-3 text-billpay-green">
-                    <i data-lucide="key" class="w-5 h-5"></i> DataGifting (1)
-                </h3>
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-sm font-black uppercase tracking-widest flex items-center gap-3 text-billpay-green">
+                        <i data-lucide="key" class="w-5 h-5"></i> DataGifting (1)
+                    </h3>
+                    <button type="submit" name="action" value="test_api" onclick="this.form.provider.value='datagifting'" class="text-[10px] font-black text-billpay-green uppercase hover:underline">Test</button>
+                </div>
                 <label class="text-[10px] font-black text-gray-400 uppercase ml-1">API Key</label>
                 <input type="password" name="dg_apiKey" value="<?php echo $ds['providers']['datagifting']['apiKey'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
             </div>
 
             <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-                <h3 class="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-3 text-orange-500">
-                    <i data-lucide="key" class="w-5 h-5"></i> Nellobyte (2)
-                </h3>
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-sm font-black uppercase tracking-widest flex items-center gap-3 text-orange-500">
+                        <i data-lucide="key" class="w-5 h-5"></i> Nellobyte (2)
+                    </h3>
+                    <button type="submit" name="action" value="test_api" onclick="this.form.provider.value='nellobyte'" class="text-[10px] font-black text-orange-500 uppercase hover:underline">Test</button>
+                </div>
                 <div class="space-y-4">
                     <div>
                         <label class="text-[10px] font-black text-gray-400 uppercase ml-1">User ID</label>
@@ -77,14 +241,28 @@ require_once __DIR__ . '/header.php';
             </div>
 
             <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-                <h3 class="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-3 text-blue-600">
-                    <i data-lucide="key" class="w-5 h-5"></i> HDKData (3)
-                </h3>
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-sm font-black uppercase tracking-widest flex items-center gap-3 text-blue-600">
+                        <i data-lucide="key" class="w-5 h-5"></i> Datastationapi (3)
+                    </h3>
+                    <button type="submit" name="action" value="test_api" onclick="this.form.provider.value='datastation'" class="text-[10px] font-black text-blue-600 uppercase hover:underline">Test</button>
+                </div>
+                <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Token</label>
+                <input type="password" name="ds_token" value="<?php echo $ds['providers']['datastation']['token'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
+            </div>
+
+            <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-sm font-black uppercase tracking-widest flex items-center gap-3 text-cyan-600">
+                        <i data-lucide="key" class="w-5 h-5"></i> HDKData (4)
+                    </h3>
+                    <button type="submit" name="action" value="test_api" onclick="this.form.provider.value='hdkdata'" class="text-[10px] font-black text-cyan-600 uppercase hover:underline">Test</button>
+                </div>
                 <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Token</label>
                 <input type="password" name="hdk_token" value="<?php echo $ds['providers']['hdkdata']['token'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
-                <p class="text-[8px] font-bold text-gray-400 mt-2">Authorization: Token [your_token]</p>
             </div>
         </div>
+        <input type="hidden" name="provider" value="">
 
         <!-- Routing -->
         <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
@@ -98,6 +276,7 @@ require_once __DIR__ . '/header.php';
                     <select name="route_<?php echo strtolower($net); ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
                         <option value="datagifting" <?php echo ($ds['routing'][$net] ?? '') === 'datagifting' ? 'selected' : ''; ?>>DataGifting</option>
                         <option value="nellobyte" <?php echo ($ds['routing'][$net] ?? '') === 'nellobyte' ? 'selected' : ''; ?>>Nellobyte</option>
+                        <option value="datastation" <?php echo ($ds['routing'][$net] ?? '') === 'datastation' ? 'selected' : ''; ?>>Datastationapi</option>
                         <option value="hdkdata" <?php echo ($ds['routing'][$net] ?? '') === 'hdkdata' ? 'selected' : ''; ?>>HDKData</option>
                     </select>
                 </div>
@@ -117,6 +296,203 @@ require_once __DIR__ . '/header.php';
 
         <button type="submit" class="w-full bg-gray-900 text-white py-5 rounded-[32px] font-black uppercase shadow-xl hover:bg-black transition-all">Save Data Configuration</button>
     </form>
+
+    <!-- EPIN Phone Settings -->
+    <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100 mt-10">
+        <h3 class="text-sm font-black uppercase tracking-widest mb-8 flex items-center gap-3"><i data-lucide="smartphone" class="text-indigo-500"></i> EPIN Instruction Phone Numbers</h3>
+        <?php
+            $es = $settings['epinSettings'] ?? [];
+            if (is_string($es)) $es = json_decode($es, true) ?: [];
+            $eph = $es['phones'] ?? [];
+        ?>
+        <form method="POST" class="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+            <div><label class="text-[10px] font-black text-gray-400 uppercase">MTN Phone</label><input type="text" name="epin_phone_mtn" value="<?php echo $eph['MTN'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none text-xs border border-transparent focus:border-billpay-green"></div>
+            <div><label class="text-[10px] font-black text-gray-400 uppercase">Airtel Phone</label><input type="text" name="epin_phone_airtel" value="<?php echo $eph['Airtel'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none text-xs border border-transparent focus:border-billpay-green"></div>
+            <div><label class="text-[10px] font-black text-gray-400 uppercase">Glo Phone</label><input type="text" name="epin_phone_glo" value="<?php echo $eph['Glo'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none text-xs border border-transparent focus:border-billpay-green"></div>
+            <div><label class="text-[10px] font-black text-gray-400 uppercase">9mobile Phone</label><input type="text" name="epin_phone_9mobile" value="<?php echo $eph['9mobile'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none text-xs border border-transparent focus:border-billpay-green"></div>
+            <div class="col-span-2 md:col-span-4"><button type="submit" name="action" value="save_epin_settings" class="w-full py-4 bg-gray-900 text-white rounded-2xl font-black uppercase text-xs">Update EPIN Phones</button></div>
+        </form>
+    </div>
+
+    <!-- Data Package Manager -->
+    <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100 mt-10">
+        <div class="flex items-center justify-between mb-8">
+            <h3 class="text-sm font-black uppercase tracking-widest flex items-center gap-3"><i data-lucide="package" class="text-orange-500"></i> Data Package Manager</h3>
+
+            <div class="flex items-center gap-4">
+                <form method="POST" class="flex items-center gap-2 border-r pr-4">
+                    <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                    <input type="hidden" name="action" value="clear_provider_data">
+                    <select name="clear_provider" class="p-2 bg-red-50 text-red-600 rounded-lg font-bold outline-none text-[10px] border border-red-100">
+                        <option value="vtpass">VTpass</option>
+                        <option value="nellobyte">Nellobyte</option>
+                        <option value="datagifting">DataGifting</option>
+                        <option value="datastation">Datastationapi</option>
+                        <option value="manual">Manual</option>
+                    </select>
+                    <button type="submit" onclick="return confirm('Clear all plans for this provider?')" class="px-4 py-2 bg-red-500 text-white rounded-lg font-black uppercase text-[8px] whitespace-nowrap">Clear Data</button>
+                </form>
+
+                <form method="POST" class="flex items-center gap-2">
+                    <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                    <input type="hidden" name="action" value="fetch_vtpass_data">
+                    <select name="fetch_network" class="p-2 bg-gray-50 rounded-lg font-bold outline-none text-[10px] border border-gray-100">
+                        <option value="MTN">MTN</option>
+                        <option value="Airtel">Airtel</option>
+                        <option value="Glo">Glo</option>
+                        <option value="9mobile">9mobile</option>
+                    </select>
+                    <button type="submit" class="px-4 py-2 bg-billpay-green text-white rounded-lg font-black uppercase text-[8px] whitespace-nowrap">Fetch VTpass</button>
+                </form>
+
+                <form method="POST" class="flex items-center gap-2">
+                    <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                    <input type="hidden" name="action" value="fetch_nb_data">
+                    <button type="submit" class="px-4 py-2 bg-orange-500 text-white rounded-lg font-black uppercase text-[8px] whitespace-nowrap">Fetch All Nellobyte</button>
+                </form>
+
+                <form method="POST" class="flex items-center gap-2">
+                    <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                    <input type="hidden" name="action" value="fetch_dg_data">
+                    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-lg font-black uppercase text-[8px] whitespace-nowrap">Fetch All DataGifting</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Apply to All Discounts -->
+        <div class="bg-indigo-50 p-6 rounded-[32px] border border-indigo-100 mb-10 flex flex-wrap items-center justify-between gap-6">
+            <div>
+                <h4 class="text-[10px] font-black uppercase text-indigo-900">Batch Discount Manager</h4>
+                <p class="text-[8px] font-bold text-indigo-700 uppercase">Apply the same discount percentage to all data plans at once.</p>
+            </div>
+            <form method="POST" class="flex items-center gap-4">
+                <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                <input type="hidden" name="action" value="apply_all_discounts">
+                <div class="flex items-center gap-2">
+                    <label class="text-[8px] font-black uppercase text-indigo-400">API Disc %</label>
+                    <input type="number" step="0.01" name="all_api_discount" placeholder="0.00" class="w-20 p-3 bg-white rounded-xl font-black text-[10px] outline-none border border-indigo-200">
+                </div>
+                <div class="flex items-center gap-2">
+                    <label class="text-[8px] font-black uppercase text-indigo-400">User Disc %</label>
+                    <input type="number" step="0.01" name="all_user_discount" placeholder="0.00" class="w-20 p-3 bg-white rounded-xl font-black text-[10px] outline-none border border-indigo-200">
+                </div>
+                <button type="submit" class="px-6 py-3 bg-indigo-600 text-white rounded-xl font-black uppercase text-[8px] shadow-lg hover:bg-indigo-700 transition-all">Apply to All Plans</button>
+            </form>
+        </div>
+
+        <!-- Add Plan Form -->
+        <form method="POST" x-data="{ api: 0, user: 0 }" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-12 p-8 bg-gray-50 rounded-[32px] border border-gray-100">
+            <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+            <input type="hidden" name="action" value="add_plan">
+            <div>
+                <label class="text-[10px] font-black text-gray-400 uppercase">Network</label>
+                <select name="plan_network" class="w-full p-3 bg-white rounded-xl font-bold mt-1 outline-none text-xs">
+                    <option value="MTN">MTN</option>
+                    <option value="Airtel">Airtel</option>
+                    <option value="Glo">Glo</option>
+                    <option value="9mobile">9mobile</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-[10px] font-black text-gray-400 uppercase">Gateway</label>
+                <select name="plan_gateway" class="w-full p-3 bg-white rounded-xl font-bold mt-1 outline-none text-xs">
+                    <option value="manual">Manual</option>
+                    <option value="vtpass">VTpass</option>
+                    <option value="nellobyte">Nellobyte</option>
+                    <option value="datagifting">DataGifting</option>
+                    <option value="datastation">Datastationapi</option>
+                    <option value="hdkdata">HDKData</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-[10px] font-black text-gray-400 uppercase">Product ID (API Code)</label>
+                <input type="text" name="plan_apiCode" required class="w-full p-3 bg-white rounded-xl font-bold mt-1 outline-none text-xs">
+            </div>
+            <div>
+                <label class="text-[10px] font-black text-gray-400 uppercase">Size (e.g. 1GB)</label>
+                <input type="text" name="plan_size" required class="w-full p-3 bg-white rounded-xl font-bold mt-1 outline-none text-xs">
+            </div>
+            <div>
+                <label class="text-[10px] font-black text-gray-400 uppercase">Type (SME, CG, Gifting)</label>
+                <input type="text" name="plan_type" required class="w-full p-3 bg-white rounded-xl font-bold mt-1 outline-none text-xs">
+            </div>
+            <div>
+                <label class="text-[10px] font-black text-gray-400 uppercase">API Cost (₦)</label>
+                <input type="number" step="0.01" name="plan_apiPrice" x-model="api" required class="w-full p-3 bg-white rounded-xl font-bold mt-1 outline-none text-xs">
+            </div>
+            <div>
+                <label class="text-[10px] font-black text-gray-400 uppercase">User Price (₦)</label>
+                <input type="number" step="0.01" name="plan_userPrice" x-model="user" required class="w-full p-3 bg-white rounded-xl font-bold mt-1 outline-none text-xs">
+            </div>
+            <div class="flex items-end">
+                <div class="w-full p-3 bg-indigo-50 rounded-xl border border-indigo-100 flex flex-col items-center justify-center">
+                    <span class="text-[8px] font-black text-indigo-400 uppercase">Est. Profit</span>
+                    <span class="text-xs font-black text-indigo-600" x-text="'₦' + (parseFloat(user || 0) - parseFloat(api || 0)).toFixed(2)"></span>
+                </div>
+            </div>
+            <div class="flex items-end">
+                <button type="submit" class="w-full bg-orange-500 text-white py-3 rounded-xl font-black uppercase text-xs shadow-lg hover:bg-orange-600 transition-all">Add New Plan</button>
+            </div>
+        </form>
+
+        <!-- Plans Table -->
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">
+                        <th class="pb-6">Info</th>
+                        <th class="pb-6">API Code</th>
+                        <th class="pb-6">API Disc (%)</th>
+                        <th class="pb-6">User Price</th>
+                        <th class="pb-6">User Disc (%)</th>
+                        <th class="pb-6">Profit</th>
+                        <th class="pb-6 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50">
+                    <?php
+                    $stmt = $pdo->query("SELECT * FROM data_plans ORDER BY network ASC, gateway ASC, user_price ASC");
+                    $allPlansCount = 0;
+                    while ($p = $stmt->fetch()):
+                        $allPlansCount++;
+                        $apiCost = $p['api_price'] * (1 - ($p['api_discount'] / 100));
+                        $sellingPrice = $p['user_price'] * (1 - ($p['user_discount'] / 100));
+                        $profitVal = $sellingPrice - $apiCost;
+                    ?>
+                    <form method="POST">
+                        <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                        <input type="hidden" name="action" value="update_plan">
+                        <input type="hidden" name="plan_id" value="<?php echo $p['id']; ?>">
+                        <tr>
+                            <td class="py-6">
+                                <div class="font-black text-sm uppercase"><?php echo $p['network']; ?> - <?php echo $p['gateway']; ?></div>
+                                <div class="font-black text-xs text-gray-400"><?php echo $p['data_size']; ?> (<?php echo $p['type']; ?>)</div>
+                            </td>
+                            <td class="py-6 font-mono text-xs"><?php echo $p['plan_id']; ?></td>
+                            <td class="py-6">
+                                <input type="number" step="0.01" name="api_discount" value="<?php echo $p['api_discount']; ?>" class="w-16 p-2 bg-gray-50 rounded-lg text-[10px] font-black outline-none border border-transparent focus:border-billpay-green">
+                            </td>
+                            <td class="py-6">
+                                <input type="number" step="0.01" name="user_price" value="<?php echo $p['user_price']; ?>" class="w-24 p-2 bg-gray-50 rounded-lg text-[10px] font-black outline-none border border-transparent focus:border-billpay-green">
+                            </td>
+                            <td class="py-6">
+                                <input type="number" step="0.01" name="user_discount" value="<?php echo $p['user_discount']; ?>" class="w-16 p-2 bg-gray-50 rounded-lg text-[10px] font-black outline-none border border-transparent focus:border-billpay-green">
+                            </td>
+                            <td class="py-6">
+                                <span class="px-2 py-1 <?php echo $profitVal >= 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'; ?> text-[9px] font-black rounded-md">₦<?php echo number_format($profitVal, 2); ?></span>
+                            </td>
+                            <td class="py-6 text-right space-x-2">
+                                <button type="submit" class="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-[8px] font-black uppercase">Save</button>
+                                <button type="submit" name="action" value="delete_plan" onclick="return confirm('Delete?')" class="text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                            </td>
+                        </tr>
+                    </form>
+                    <?php endwhile; if($allPlansCount === 0) echo '<tr><td colspan="7" class="py-10 text-center text-[10px] font-black text-gray-300 uppercase">No data plans configured</td></tr>'; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
 <?php require_once __DIR__ . '/footer.php'; ?>

@@ -224,4 +224,18 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
             </div>
             <?php endif; ?>
 
+            <?php if (defined('SECURITY_COMPLIANCE_ERROR')): ?>
+            <div class="p-6">
+                <div class="bg-red-50 border border-red-100 p-6 rounded-[32px] flex items-center gap-6 animate-slide-down">
+                    <div class="w-12 h-12 bg-red-500 text-white rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-red-200">
+                        <i data-lucide="shield-alert" class="w-6 h-6"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-xs font-black text-red-800 uppercase leading-relaxed"><?php echo SECURITY_COMPLIANCE_ERROR; ?></p>
+                    </div>
+                    <a href="/login-settings" class="bg-red-500 text-white px-6 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg shadow-red-200 hover:bg-red-600 transition-all active:scale-95 whitespace-nowrap">Configure Now</a>
+                </div>
+            </div>
+            <?php endif; ?>
+
             <div class="px-4 py-6 lg:p-12 lg:max-w-6xl mx-auto w-full">

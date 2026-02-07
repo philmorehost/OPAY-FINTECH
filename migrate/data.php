@@ -17,11 +17,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $planId = $_POST['planId'];
     $networkName = sanitize($_POST['networkName']);
 
-    $selectedPlan = null;
-    $allPlans = $settings['dataProducts'] ?? [];
-    if (is_string($allPlans)) $allPlans = json_decode($allPlans, true) ?: [];
-    foreach ($allPlans as $p) {
-        if ($p['id'] == $planId) { $selectedPlan = $p; break; }
+    $stmt = $pdo->prepare("SELECT * FROM data_plans WHERE id = ?");
+    $stmt->execute([$planId]);
+    $selectedPlan = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($selectedPlan) {
+        $selectedPlan['userPrice'] = (float)$selectedPlan['user_price'] * (1 - ((float)$selectedPlan['user_discount'] / 100));
+        $selectedPlan['apiPrice'] = (float)$selectedPlan['api_price'] * (1 - ((float)$selectedPlan['api_discount'] / 100));
+        $selectedPlan['size'] = $selectedPlan['data_size'];
+        $selectedPlan['apiCode'] = $selectedPlan['plan_id'];
     }
 
     $recipients = [];
@@ -31,15 +34,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $recipients = array_unique($recipients);
     } else { $recipients[] = sanitize($_POST['phoneNumber']); }
 
+    $ls = $settings['loginSecuritySettings'] ?? [];
+    $isPinForced = !empty($ls['pin']['forced']);
+    $userPinEnabled = !empty($currentUser['fundPasswordVtuEnabled']);
+
     if (isKycRejected($currentUser)) {
         $error = 'Account restricted. Please update your KYC.';
+    } elseif (($isPinForced || $userPinEnabled) && !verifyFundPassword($pdo, $currentUser['id'], $_POST['fund_password'] ?? '')) {
+        $error = 'Invalid Security PIN';
     } elseif (!$selectedPlan) {
         $error = 'Invalid data plan selected';
     } elseif (empty($recipients)) {
         $error = 'Enter valid phone numbers';
     } else {
-        $userPrice = (float)$selectedPlan['userPrice'];
-        $apiPrice = (float)($selectedPlan['apiPrice'] ?? $userPrice * 0.9); // Fallback to 10% profit if not set
+        $globalChargePct = getApiCharge($pdo, 'data');
+        $userPrice = (float)$selectedPlan['userPrice'] * (1 + ($globalChargePct / 100));
+
+        $apiPrice = (float)($selectedPlan['apiPrice'] ?? (float)$selectedPlan['userPrice'] * 0.9);
         $profit = $userPrice - $apiPrice;
         $totalCost = count($recipients) * $userPrice;
 
@@ -74,8 +85,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     $stmt = $pdo->prepare("SELECT walletBalance FROM users WHERE id = ?"); $stmt->execute([$currentUser['id']]);
                     $currentUser['walletBalance'] = $stmt->fetchColumn();
 
-                    sendMail($pdo, $currentUser['email'], "Data Receipt", "Request processed for $networkName. Total: " . formatCurrency($totalCost));
-                    claimDailyRewardIfEligible($pdo, $currentUser['id']);
+                    $status = ($successCount > 0) ? 'successful' : 'failed';
+                    sendMail($pdo, $currentUser['email'], "Data Receipt", "Data request processed for $networkName.<br>Total: " . formatCurrency($totalCost) . "<br>Status: " . strtoupper($status), $status);
+                    if ($successCount > 0) claimDailyRewardIfEligible($pdo, $currentUser['id']);
                     $pdo->commit();
 
                     $statusDetails = ['status' => $successCount > 0 ? 'success' : 'failed', 'amount' => $totalCost, 'count' => $successCount, 'total' => count($recipients), 'msg' => $successCount > 0 ? "Processed $successCount/" . count($recipients) . " successfully." : "Purchase failed."];
@@ -137,15 +149,24 @@ require_once __DIR__ . '/includes/header.php';
                 <input type="hidden" name="networkName" id="networkInput">
             </div>
 
-            <div>
-                <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest ml-1">Available Packages</label>
-                <div id="plansList" class="flex flex-col gap-3 max-h-80 overflow-y-auto pr-1 scrollbar-hide">
-                    <div class="py-12 text-center text-gray-300 font-black text-[9px] uppercase border-2 border-dashed border-gray-100 rounded-[32px] flex flex-col items-center gap-3"><i data-lucide="wifi" class="w-6 h-6 opacity-20"></i>Select provider</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest ml-1">Available Packages</label>
+                    <div id="plansList" class="flex flex-col gap-3 max-h-80 overflow-y-auto pr-1 scrollbar-hide">
+                        <div class="py-12 text-center text-gray-300 font-black text-[9px] uppercase border-2 border-dashed border-gray-100 rounded-[32px] flex flex-col items-center gap-3"><i data-lucide="wifi" class="w-6 h-6 opacity-20"></i>Select provider</div>
+                    </div>
+                    <input type="hidden" name="planId" id="planInput" required>
                 </div>
-                <input type="hidden" name="planId" id="planInput" required>
+                <div class="flex flex-col justify-end">
+                    <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest ml-1">Security PIN</label>
+                    <input type="password" name="fund_password" maxlength="6" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" <?php echo ($isPinForced || $userPinEnabled) ? 'required' : ''; ?>>
+                </div>
             </div>
 
-            <button type="submit" class="w-full bg-billpay-green text-white font-black py-5 rounded-[24px] shadow-xl active:scale-95 transition-all uppercase">Proceed to Pay</button>
+            <button type="submit" id="submitBtn" class="w-full bg-billpay-green text-white font-black py-5 rounded-[24px] shadow-xl active:scale-95 transition-all uppercase flex items-center justify-center gap-3">
+                <span id="btnText">Proceed to Pay</span>
+                <div id="btnLoader" class="hidden w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+            </button>
         </form>
     </div>
 </div>
@@ -166,7 +187,18 @@ require_once __DIR__ . '/includes/header.php';
 <?php endif; ?>
 
 <script>
-    const allPlans = <?php echo json_encode($allPlans); ?>;
+    <?php
+    $allPlansStmt = $pdo->query("SELECT * FROM data_plans ORDER BY network ASC, user_price ASC");
+    $allPlansRaw = $allPlansStmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($allPlansRaw as &$p) {
+        $p['size'] = $p['data_size'];
+        $p['userPrice'] = (float)$p['user_price'] * (1 - ((float)($p['user_discount'] ?? 0) / 100));
+        $p['enabled'] = true;
+    }
+    ?>
+    const allPlans = <?php echo json_encode($allPlansRaw ?: []); ?>;
+    const dataRouting = <?php echo json_encode($settings['dataSettings']['routing'] ?? []); ?>;
+    console.log("Data Plans Loaded:", allPlans.length);
     function setBulk(isBulk) {
         document.getElementById('isBulkInput').value = isBulk;
         document.getElementById('singlePhoneGroup').classList.toggle('hidden', isBulk);
@@ -189,8 +221,15 @@ require_once __DIR__ . '/includes/header.php';
     }
     function renderPlans(net) {
         const list = document.getElementById('plansList');
-        const filtered = allPlans.filter(p => p.network.toUpperCase() === net.toUpperCase() && p.enabled);
-        if (!filtered.length) { list.innerHTML = `<div class="py-12 text-center text-gray-300 font-black text-[9px] uppercase border-2 border-dashed border-gray-100 rounded-[32px] flex flex-col items-center gap-3"><i data-lucide="wifi" class="w-6 h-6 opacity-20"></i>No plans</div>`; lucide.createIcons(); return; }
+        const activeProvider = (dataRouting[net] || 'datagifting').toLowerCase();
+
+        const filtered = allPlans.filter(p =>
+            p.network.toUpperCase() === net.toUpperCase() &&
+            p.enabled &&
+            (p.gateway || 'manual').toLowerCase() === activeProvider
+        );
+
+        if (!filtered.length) { list.innerHTML = `<div class="py-12 text-center text-gray-300 font-black text-[9px] uppercase border-2 border-dashed border-gray-100 rounded-[32px] flex flex-col items-center gap-3"><i data-lucide="wifi" class="w-6 h-6 opacity-20"></i>No active plans via ${activeProvider}</div>`; lucide.createIcons(); return; }
         list.innerHTML = filtered.map(p => `
             <div onclick="selectPlan('${p.id}')" id="plan_${p.id}" class="plan-item p-5 rounded-[24px] border-2 cursor-pointer transition-all active:scale-[0.98] flex items-center justify-between border-gray-50 bg-gray-50">
                 <div class="flex items-center gap-4">
@@ -206,6 +245,17 @@ require_once __DIR__ . '/includes/header.php';
         const active = document.getElementById('plan_' + id);
         active.className = 'plan-item p-5 rounded-[24px] border-2 cursor-pointer transition-all active:scale-[0.98] flex items-center justify-between border-billpay-green bg-green-50 shadow-md';
     }
+
+    document.getElementById('dataForm').addEventListener('submit', function() {
+        const btn = document.getElementById('submitBtn');
+        const text = document.getElementById('btnText');
+        const loader = document.getElementById('btnLoader');
+
+        btn.disabled = true;
+        btn.classList.add('opacity-70', 'cursor-not-allowed');
+        text.innerText = 'Processing...';
+        loader.classList.remove('hidden');
+    });
 </script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

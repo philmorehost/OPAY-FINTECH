@@ -55,6 +55,8 @@ if ($stage === 2 && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 password VARCHAR(255) NOT NULL,
                 paymentPin VARCHAR(10) DEFAULT '0000',
                 isSuspended BOOLEAN DEFAULT FALSE,
+                loginSecurityPin VARCHAR(10),
+                configuredSecurityMethods TEXT,
                 streakCount INT DEFAULT 0,
                 referralCount INT DEFAULT 0,
                 referralEarnings DECIMAL(15, 2) DEFAULT 0.00,
@@ -125,6 +127,7 @@ if ($stage === 2 && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 siteDescription TEXT,
                 siteVersion VARCHAR(50) DEFAULT '1.0.0',
                 isMaintenanceMode BOOLEAN DEFAULT FALSE,
+                loginSecuritySettings TEXT,
                 adminTheme ENUM('light', 'dark') DEFAULT 'light',
                 smtpHost VARCHAR(255),
                 smtpPort VARCHAR(10),
@@ -150,7 +153,12 @@ if ($stage === 2 && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 electricProviders TEXT,
                 bettingProviders TEXT,
                 airtimeDiscounts TEXT,
-                dataProducts TEXT
+                dataProducts TEXT,
+                dataSettings TEXT,
+                airtimeSettings TEXT,
+                utilitySettings TEXT,
+                financialSettings TEXT,
+                otherApiSettings TEXT
             )",
             "CREATE TABLE IF NOT EXISTS support_tickets (
                 id VARCHAR(50) PRIMARY KEY,

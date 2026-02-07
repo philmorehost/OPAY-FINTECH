@@ -7,35 +7,50 @@ $pageTitle = 'Airtime API Settings';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrfToken($_POST['csrf_token'])) die('CSRF Failed');
 
-    $airtimeSettings = [
-        'providers' => [
-            'datagifting' => ['apiKey' => $_POST['dg_apiKey'], 'discount' => $_POST['dg_discount']],
-            'nellobyte' => ['userId' => $_POST['nb_userId'], 'apiKey' => $_POST['nb_apiKey'], 'discount' => $_POST['nb_discount']],
-            'hdkdata' => ['token' => $_POST['hdk_token'], 'discount' => $_POST['hdk_discount']]
-        ],
-        'routing' => [
-            'MTN' => $_POST['route_mtn'],
-            'Airtel' => $_POST['route_airtel'],
-            'Glo' => $_POST['route_glo'],
-            '9mobile' => $_POST['route_9mobile']
-        ]
-    ];
+    if (isset($_POST['action']) && $_POST['action'] === 'test_api') {
+        $provider = sanitize($_POST['provider']);
+        $testRes = testAirtimeConnection($pdo, $provider);
+        if ($testRes['status'] === 'success') $success = "Test Successful: " . $testRes['message'];
+        else $error = "Test Failed: " . $testRes['message'];
+    } else {
+        $airtimeSettings = [
+            'providers' => [
+                'datagifting' => ['apiKey' => $_POST['dg_apiKey']],
+                'nellobyte' => ['userId' => $_POST['nb_userId'], 'apiKey' => $_POST['nb_apiKey']],
+                'datastation' => ['token' => $_POST['ds_token']],
+                'hdkdata' => ['token' => $_POST['hdk_token']],
+                'vtpass' => ['username' => $_POST['vtp_username'], 'password' => $_POST['vtp_password']]
+            ],
+            'routing' => [
+                'MTN' => $_POST['route_mtn'],
+                'Airtel' => $_POST['route_airtel'],
+                'Glo' => $_POST['route_glo'],
+                '9mobile' => $_POST['route_9mobile']
+            ],
+            'networkDiscounts' => [
+                'MTN' => (float)$_POST['api_discount_mtn'],
+                'Airtel' => (float)$_POST['api_discount_airtel'],
+                'Glo' => (float)$_POST['api_discount_glo'],
+                '9mobile' => (float)$_POST['api_discount_9mobile']
+            ]
+        ];
 
-    $stmt = $pdo->prepare("UPDATE settings SET airtimeSettings = ? WHERE id = 1");
-    $stmt->execute([json_encode($airtimeSettings)]);
+        $stmt = $pdo->prepare("UPDATE settings SET airtimeSettings = ? WHERE id = 1");
+        $stmt->execute([json_encode($airtimeSettings)]);
 
-    // Update user-facing discounts
-    $userDiscounts = [
-        'MTN' => $_POST['user_discount_mtn'],
-        'Airtel' => $_POST['user_discount_airtel'],
-        'Glo' => $_POST['user_discount_glo'],
-        '9mobile' => $_POST['user_discount_9mobile']
-    ];
-    $stmt = $pdo->prepare("UPDATE settings SET airtimeDiscounts = ? WHERE id = 1");
-    $stmt->execute([json_encode($userDiscounts)]);
+        // Update user-facing discounts
+        $userDiscounts = [
+            'MTN' => (float)$_POST['user_discount_mtn'],
+            'Airtel' => (float)$_POST['user_discount_airtel'],
+            'Glo' => (float)$_POST['user_discount_glo'],
+            '9mobile' => (float)$_POST['user_discount_9mobile']
+        ];
+        $stmt = $pdo->prepare("UPDATE settings SET airtimeDiscounts = ? WHERE id = 1");
+        $stmt->execute([json_encode($userDiscounts)]);
 
-    $success = "Airtime settings and routing updated!";
-    $settings = fetchSettings($pdo);
+        $success = "Airtime settings updated!";
+        $settings = fetchSettings($pdo);
+    }
 }
 
 $as = $settings['airtimeSettings'] ?? [];
@@ -44,11 +59,13 @@ if (is_string($as)) $as = json_decode($as, true) ?: [];
 if (empty($as)) {
     $as = [
         'providers' => [
-            'datagifting' => ['apiKey' => '', 'discount' => 2.06],
-            'nellobyte' => ['userId' => '', 'apiKey' => '', 'discount' => 2],
-            'hdkdata' => ['token' => '', 'discount' => 2]
+            'datagifting' => ['apiKey' => ''],
+            'nellobyte' => ['userId' => '', 'apiKey' => ''],
+            'datastation' => ['token' => ''],
+            'vtpass' => ['username' => '', 'password' => '']
         ],
-        'routing' => ['MTN' => 'datagifting', 'Airtel' => 'datagifting', 'Glo' => 'datagifting', '9mobile' => 'datagifting']
+        'routing' => ['MTN' => 'datagifting', 'Airtel' => 'datagifting', 'Glo' => 'datagifting', '9mobile' => 'datagifting'],
+        'networkDiscounts' => ['MTN' => 2.0, 'Airtel' => 2.0, 'Glo' => 2.0, '9mobile' => 2.0]
     ];
 }
 
@@ -58,54 +75,81 @@ require_once __DIR__ . '/header.php';
 <div class="space-y-10 animate-fade-in pb-20 text-gray-900">
     <div class="flex items-center justify-between">
         <h2 class="text-2xl font-black uppercase tracking-tight">Airtime API Gateway</h2>
+        <div class="flex gap-4">
+            <button onclick="document.getElementById('batchModal').classList.remove('hidden')" class="bg-billpay-green text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase shadow-lg hover:bg-black transition-all flex items-center gap-2">
+                <i data-lucide="percent" class="w-4 h-4"></i> Apply All Discounts
+            </button>
+        </div>
     </div>
 
     <?php if (isset($success)): ?>
-        <div class="p-4 bg-green-50 text-green-800 rounded-2xl text-xs font-black border border-green-100 uppercase text-center"><?php echo $success; ?></div>
+        <div class="p-4 bg-green-50 text-green-800 rounded-2xl text-xs font-black border border-green-100 uppercase text-center shadow-sm"><?php echo $success; ?></div>
+    <?php endif; ?>
+    <?php if (isset($error)): ?>
+        <div class="p-4 bg-red-50 text-red-800 rounded-2xl text-xs font-black border border-red-100 uppercase text-center shadow-sm"><?php echo $error; ?></div>
     <?php endif; ?>
 
     <form method="POST" class="space-y-10">
         <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
 
         <!-- Provider Credentials -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-                <h3 class="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-3 text-billpay-green">
-                    <i data-lucide="key" class="w-5 h-5"></i> DataGifting (1)
-                </h3>
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-billpay-green"><i data-lucide="key" class="w-4 h-4"></i> DataGifting</h3>
+                    <button type="submit" name="action" value="test_api" onclick="this.form.provider.value='datagifting'" class="text-[8px] font-black text-billpay-green uppercase hover:underline">Test</button>
+                </div>
                 <div class="space-y-4">
                     <div>
-                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1">API Key</label>
-                        <input type="password" name="dg_apiKey" value="<?php echo $as['providers']['datagifting']['apiKey'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
-                    </div>
-                    <div>
-                        <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Your API Discount (%)</label>
-                        <input type="number" step="0.01" name="dg_discount" value="<?php echo $as['providers']['datagifting']['discount'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
+                        <label class="text-[8px] font-black text-gray-400 uppercase ml-1">API Key</label>
+                        <input type="password" name="dg_apiKey" value="<?php echo $as['providers']['datagifting']['apiKey'] ?? ''; ?>" class="w-full p-3 bg-gray-50 rounded-xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green text-xs">
                     </div>
                 </div>
             </div>
 
             <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-                <h3 class="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-3 text-orange-500">
-                    <i data-lucide="key" class="w-5 h-5"></i> Nellobyte (2)
-                </h3>
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-cyan-600"><i data-lucide="key" class="w-4 h-4"></i> HDKData</h3>
+                    <button type="submit" name="action" value="test_api" onclick="this.form.provider.value='hdkdata'" class="text-[8px] font-black text-cyan-600 uppercase hover:underline">Test</button>
+                </div>
                 <div class="space-y-4">
-                    <div><label class="text-[10px] font-black text-gray-400 uppercase ml-1">User ID</label><input type="text" name="nb_userId" value="<?php echo $as['providers']['nellobyte']['userId'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none"></div>
-                    <div><label class="text-[10px] font-black text-gray-400 uppercase ml-1">API Key</label><input type="password" name="nb_apiKey" value="<?php echo $as['providers']['nellobyte']['apiKey'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none"></div>
-                    <div><label class="text-[10px] font-black text-gray-400 uppercase ml-1">Your API Discount (%)</label><input type="number" step="0.01" name="nb_discount" value="<?php echo $as['providers']['nellobyte']['discount'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none"></div>
+                    <div><label class="text-[8px] font-black text-gray-400 uppercase ml-1">Token</label><input type="password" name="hdk_token" value="<?php echo $as['providers']['hdkdata']['token'] ?? ''; ?>" class="w-full p-3 bg-gray-50 rounded-xl font-bold mt-1 outline-none text-xs"></div>
                 </div>
             </div>
 
             <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-                <h3 class="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-3 text-blue-600">
-                    <i data-lucide="key" class="w-5 h-5"></i> HDKData (3)
-                </h3>
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-orange-500"><i data-lucide="key" class="w-4 h-4"></i> Nellobyte</h3>
+                    <button type="submit" name="action" value="test_api" onclick="this.form.provider.value='nellobyte'" class="text-[8px] font-black text-orange-500 uppercase hover:underline">Test</button>
+                </div>
                 <div class="space-y-4">
-                    <div><label class="text-[10px] font-black text-gray-400 uppercase ml-1">Token</label><input type="password" name="hdk_token" value="<?php echo $as['providers']['hdkdata']['token'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none"></div>
-                    <div><label class="text-[10px] font-black text-gray-400 uppercase ml-1">Your API Discount (%)</label><input type="number" step="0.01" name="hdk_discount" value="<?php echo $as['providers']['hdkdata']['discount'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none"></div>
+                    <div><label class="text-[8px] font-black text-gray-400 uppercase ml-1">User ID</label><input type="text" name="nb_userId" value="<?php echo $as['providers']['nellobyte']['userId'] ?? ''; ?>" class="w-full p-3 bg-gray-50 rounded-xl font-bold mt-1 outline-none text-xs"></div>
+                    <div><label class="text-[8px] font-black text-gray-400 uppercase ml-1">API Key</label><input type="password" name="nb_apiKey" value="<?php echo $as['providers']['nellobyte']['apiKey'] ?? ''; ?>" class="w-full p-3 bg-gray-50 rounded-xl font-bold mt-1 outline-none text-xs"></div>
+                </div>
+            </div>
+
+            <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-blue-600"><i data-lucide="key" class="w-4 h-4"></i> Datastationapi</h3>
+                    <button type="submit" name="action" value="test_api" onclick="this.form.provider.value='datastation'" class="text-[8px] font-black text-blue-600 uppercase hover:underline">Test</button>
+                </div>
+                <div class="space-y-4">
+                    <div><label class="text-[8px] font-black text-gray-400 uppercase ml-1">Token</label><input type="password" name="ds_token" value="<?php echo $as['providers']['datastation']['token'] ?? ''; ?>" class="w-full p-3 bg-gray-50 rounded-xl font-bold mt-1 outline-none text-xs"></div>
+                </div>
+            </div>
+
+            <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-purple-600"><i data-lucide="key" class="w-4 h-4"></i> VTpass</h3>
+                    <button type="submit" name="action" value="test_api" onclick="this.form.provider.value='vtpass'" class="text-[8px] font-black text-purple-600 uppercase hover:underline">Test</button>
+                </div>
+                <div class="space-y-4">
+                    <div><label class="text-[8px] font-black text-gray-400 uppercase ml-1">Username (Email)</label><input type="text" name="vtp_username" value="<?php echo $as['providers']['vtpass']['username'] ?? ''; ?>" class="w-full p-3 bg-gray-50 rounded-xl font-bold mt-1 outline-none text-xs"></div>
+                    <div><label class="text-[8px] font-black text-gray-400 uppercase ml-1">Password</label><input type="password" name="vtp_password" value="<?php echo $as['providers']['vtpass']['password'] ?? ''; ?>" class="w-full p-3 bg-gray-50 rounded-xl font-bold mt-1 outline-none text-xs"></div>
                 </div>
             </div>
         </div>
+        <input type="hidden" name="provider" value="">
 
         <!-- Routing & Pricing Table -->
         <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100 overflow-hidden">
@@ -125,7 +169,7 @@ require_once __DIR__ . '/header.php';
                         <?php foreach (['MTN', 'Airtel', 'Glo', '9mobile'] as $net): ?>
                         <?php
                             $route = $as['routing'][$net] ?? 'datagifting';
-                            $apiDisc = (float)($as['providers'][$route]['discount'] ?? 0);
+                            $apiDisc = (float)($as['networkDiscounts'][$net] ?? 0);
                             $userDisc = (float)($settings['airtimeDiscounts'][$net] ?? 0);
                         ?>
                         <tr x-data="{ userDisc: <?php echo $userDisc; ?>, apiDisc: <?php echo $apiDisc; ?> }">
@@ -134,21 +178,20 @@ require_once __DIR__ . '/header.php';
                                 <select name="route_<?php echo strtolower($net); ?>" class="p-3 bg-gray-50 rounded-xl font-bold outline-none text-xs border border-transparent focus:border-billpay-green">
                                     <option value="datagifting" <?php echo $route === 'datagifting' ? 'selected' : ''; ?>>DataGifting</option>
                                     <option value="nellobyte" <?php echo $route === 'nellobyte' ? 'selected' : ''; ?>>Nellobyte</option>
+                                    <option value="datastation" <?php echo $route === 'datastation' ? 'selected' : ''; ?>>Datastationapi</option>
                                     <option value="hdkdata" <?php echo $route === 'hdkdata' ? 'selected' : ''; ?>>HDKData</option>
+                                    <option value="vtpass" <?php echo $route === 'vtpass' ? 'selected' : ''; ?>>VTpass</option>
                                 </select>
                             </td>
                             <td class="py-6">
-                                <div class="flex items-center gap-2 text-xs font-black text-gray-400">
-                                    <span x-text="apiDisc.toFixed(2) + '%'"></span>
-                                    <i data-lucide="info" class="w-3 h-3 opacity-30"></i>
-                                </div>
+                                <input type="number" step="0.01" name="api_discount_<?php echo strtolower($net); ?>" x-model="apiDisc" class="w-24 p-3 bg-gray-50 rounded-xl font-black text-xs outline-none border-2 border-transparent focus:border-billpay-green">
                             </td>
                             <td class="py-6">
                                 <input type="number" step="0.01" name="user_discount_<?php echo strtolower($net); ?>" x-model="userDisc" class="w-24 p-3 bg-gray-50 rounded-xl font-black text-xs outline-none border-2 border-transparent focus:border-billpay-green">
                             </td>
                             <td class="py-6">
-                                <div class="inline-flex px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest" :class="(apiDisc - userDisc) >= 0 ? 'bg-green-50 text-green-500' : 'bg-red-50 text-red-500'">
-                                    <span x-text="((apiDisc - userDisc) >= 0 ? '+' : '') + (apiDisc - userDisc).toFixed(2) + '%'"></span>
+                                <div class="inline-flex px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest" :class="(parseFloat(apiDisc) - parseFloat(userDisc)) >= 0 ? 'bg-green-50 text-green-500' : 'bg-red-50 text-red-500'">
+                                    <span x-text="((parseFloat(apiDisc) - parseFloat(userDisc)) >= 0 ? '+' : '') + (parseFloat(apiDisc) - parseFloat(userDisc)).toFixed(2) + '%'"></span>
                                 </div>
                             </td>
                         </tr>
@@ -161,5 +204,49 @@ require_once __DIR__ . '/header.php';
         <button type="submit" class="w-full bg-gray-900 text-white py-6 rounded-[32px] font-black uppercase shadow-xl hover:bg-black transition-all">Save Airtime Configuration</button>
     </form>
 </div>
+
+<!-- Batch Modal -->
+<div id="batchModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-6">
+    <div class="bg-white rounded-[40px] w-full max-w-md p-10 shadow-2xl animate-scale-up">
+        <h3 class="text-xl font-black uppercase tracking-tight mb-2">Apply Global Discount</h3>
+        <p class="text-[10px] font-bold text-gray-400 uppercase mb-8">Update all networks simultaneously</p>
+
+        <div class="space-y-6">
+            <div>
+                <label class="text-[10px] font-black text-gray-400 uppercase ml-1">API Discount (%)</label>
+                <input type="number" id="batchApi" placeholder="e.g. 3.0" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green">
+            </div>
+            <div>
+                <label class="text-[10px] font-black text-gray-400 uppercase ml-1">User Discount (%)</label>
+                <input type="number" id="batchUser" placeholder="e.g. 2.0" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-2 outline-none border border-transparent focus:border-billpay-green">
+            </div>
+            <div class="flex gap-4 pt-4">
+                <button onclick="document.getElementById('batchModal').classList.add('hidden')" class="flex-1 py-4 bg-gray-100 text-gray-400 rounded-2xl font-black uppercase text-[10px]">Cancel</button>
+                <button onclick="applyBatch()" class="flex-2 px-10 py-4 bg-billpay-green text-white rounded-2xl font-black uppercase text-[10px] shadow-lg">Apply Now</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function applyBatch() {
+    const api = document.getElementById('batchApi').value;
+    const user = document.getElementById('batchUser').value;
+
+    if (api !== '') {
+        document.querySelectorAll('input[name^="api_discount_"]').forEach(el => el.value = api);
+    }
+    if (user !== '') {
+        document.querySelectorAll('input[name^="user_discount_"]').forEach(el => el.value = user);
+    }
+
+    // Trigger Alpine.js models if they exist (though here we might just need to trigger 'input' event)
+    document.querySelectorAll('input[name^="api_discount_"], input[name^="user_discount_"]').forEach(el => {
+        el.dispatchEvent(new Event('input'));
+    });
+
+    document.getElementById('batchModal').classList.add('hidden');
+}
+</script>
 
 <?php require_once __DIR__ . '/footer.php'; ?>

@@ -3,11 +3,32 @@ require_once __DIR__ . '/includes/config.php';
 if (!isLoggedIn()) redirect('/login');
 $pageTitle = 'Cable TV';
 
-$cableProviders = $settings['cableProviders'] ?? [];
-if (is_string($cableProviders)) $cableProviders = json_decode($cableProviders, true) ?: [];
+$cableProviders = [
+    ['id' => 'dstv', 'name' => 'DSTV'],
+    ['id' => 'gotv', 'name' => 'GOTV'],
+    ['id' => 'startimes', 'name' => 'Startimes'],
+    ['id' => 'showmax', 'name' => 'Showmax']
+];
 
 $error = '';
 $success = false;
+
+if (isset($_GET['ajax'])) {
+    header('Content-Type: application/json');
+    if ($_GET['ajax'] === 'verify') {
+        $serviceId = sanitize($_GET['serviceId']);
+        $iuc = sanitize($_GET['iuc']);
+        echo json_encode(vtpassVerifyMerchant($pdo, $serviceId, $iuc));
+        exit;
+    }
+    if ($_GET['ajax'] === 'get_packages') {
+        $provider = sanitize($_GET['provider']);
+        $stmt = $pdo->prepare("SELECT package_id, name, user_price, user_discount FROM utility_packages WHERE category = 'cable' AND service_id = ? AND enabled = 1");
+        $stmt->execute([$provider]);
+        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+        exit;
+    }
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'purchase') {
     if (!verifyCsrfToken($_POST['csrf_token'])) { die('CSRF token validation failed'); }
@@ -15,52 +36,77 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $providerId = $_POST['providerId'];
     $variationCode = $_POST['variationCode'];
     $iucNumber = sanitize($_POST['iucNumber']);
-    $amount = (float)$_POST['amount'];
 
-    if (isKycRejected($currentUser)) {
-        $error = 'Account restricted. Please update your KYC.';
-    } elseif ($currentUser['walletBalance'] < $amount) {
-        $error = 'Insufficient balance';
-    } elseif (!checkDailyLimit($pdo, $currentUser['id'], $iucNumber, $settings['maxDailyTxPerId'] ?? 50)) {
-        $error = "Daily transaction limit reached for $iucNumber";
+    // Fetch details from DB to prevent tampering
+    $stmt = $pdo->prepare("SELECT * FROM utility_packages WHERE category = 'cable' AND service_id = ? AND package_id = ?");
+    $stmt->execute([$providerId, $variationCode]);
+    $pkg = $stmt->fetch();
+
+    $ls = $settings['loginSecuritySettings'] ?? [];
+    $isPinForced = !empty($ls['pin']['forced']);
+    $userPinEnabled = !empty($currentUser['fundPasswordVtuEnabled']);
+
+    if (!$pkg) {
+        $error = 'Invalid package selected';
+    } elseif (($isPinForced || $userPinEnabled) && !verifyFundPassword($pdo, $currentUser['id'], $_POST['fund_password'] ?? '')) {
+        $error = 'Invalid Security PIN';
     } else {
-        $pdo->beginTransaction();
-        try {
-            updateWallet($pdo, $currentUser['id'], $amount, 'debit');
+        $globalChargePct = getApiCharge($pdo, 'cable');
+        $amount = ((float)$pkg['user_price'] * (1 - ($pkg['user_discount'] / 100))) * (1 + ($globalChargePct / 100));
+        $apiCost = (float)$pkg['api_price'] * (1 - ($pkg['api_discount'] / 100));
 
-            $vtRes = callVtpass($pdo, $providerId, [
-                'billersCode' => $iucNumber,
-                'variation_code' => $variationCode,
-                'amount' => $amount,
-                'phone' => $currentUser['phone']
-            ]);
+        if (isKycRejected($currentUser)) {
+            $error = 'Account restricted. Please update your KYC.';
+        } elseif ($currentUser['walletBalance'] < $amount) {
+            $error = 'Insufficient balance';
+        } elseif (!checkDailyLimit($pdo, $currentUser['id'], $iucNumber, $settings['maxDailyTxPerId'] ?? 50)) {
+            $error = "Daily transaction limit reached for $iucNumber";
+        } else {
+            $pdo->beginTransaction();
+            try {
+                updateWallet($pdo, $currentUser['id'], $amount, 'debit');
 
-            $isSuccess = isset($vtRes['code']) && $vtRes['code'] === '000';
+                $gateway = $pkg['provider'] ?: 'vtpass';
+                if ($gateway === 'vtpass') {
+                    $res = callVtpass($pdo, $providerId, [
+                        'billersCode' => $iucNumber,
+                        'variation_code' => $variationCode,
+                        'amount' => $pkg['api_price'],
+                        'phone' => $currentUser['phone']
+                    ]);
+                    $isSuccess = isset($res['code']) && $res['code'] === '000';
+                    $errMsg = $res['response_description'] ?? 'API Error';
+                } else {
+                    // Placeholder for other gateways
+                    $isSuccess = false;
+                    $errMsg = "Gateway $gateway not implemented for Cable";
+                }
 
-            if ($isSuccess) {
-                $profit = $amount * 0.01; // Placeholder 1% profit
-                $apiAmount = $amount - $profit;
-                logTransaction($pdo, $currentUser['id'], 'Cable TV', $amount, 'successful', "Cable Subscription ($providerId) for $iucNumber", $iucNumber, $providerId, null, $apiAmount, $profit);
-                // Receipt Email
-                $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Your cable subscription was successful.<br><br>Provider: $providerId<br>IUC: $iucNumber<br>Amount: " . formatCurrency($amount);
-                sendMail($pdo, $currentUser['email'], "Cable TV Receipt", $receiptMsg);
-                claimDailyRewardIfEligible($pdo, $currentUser['id']);
-                $success = true;
-            } else {
-                // Refund
-                updateWallet($pdo, $currentUser['id'], $amount, 'credit');
-                logTransaction($pdo, $currentUser['id'], 'Cable TV', $amount, 'failed', "Cable failed: " . ($vtRes['response_description'] ?? 'API Error'), $iucNumber, $providerId);
-                $error = 'Transaction failed: ' . ($vtRes['response_description'] ?? 'Provider Error');
+                if ($isSuccess) {
+                    $profitVal = $amount - $apiCost;
+                    logTransaction($pdo, $currentUser['id'], 'Cable TV', $amount, 'successful', "Cable Subscription ($providerId) for $iucNumber", $iucNumber, $providerId, null, $apiCost, $profitVal);
+                    // Receipt Email
+                    $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Your cable subscription request was processed.<br><br>Provider: $providerId<br>IUC: $iucNumber<br>Amount: " . formatCurrency($amount) . "<br>Status: Successful";
+                    sendMail($pdo, $currentUser['email'], "Cable TV Receipt", $receiptMsg, 'successful');
+                    claimDailyRewardIfEligible($pdo, $currentUser['id']);
+                    $success = true;
+                } else {
+                    // Refund
+                    updateWallet($pdo, $currentUser['id'], $amount, 'credit');
+                    logTransaction($pdo, $currentUser['id'], 'Cable TV', $amount, 'failed', "Cable failed: $errMsg", $iucNumber, $providerId);
+                    $error = 'Transaction failed: ' . $errMsg;
+                    sendMail($pdo, $currentUser['email'], "Cable TV Failed", "Your cable subscription for $iucNumber failed and has been refunded.", 'failed');
+                }
+
+                $pdo->commit();
+                // Refresh balance
+                $stmt = $pdo->prepare("SELECT walletBalance FROM users WHERE id = ?");
+                $stmt->execute([$currentUser['id']]);
+                $currentUser['walletBalance'] = $stmt->fetchColumn();
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                $error = 'Internal Error: ' . $e->getMessage();
             }
-
-            $pdo->commit();
-            // Refresh balance
-            $stmt = $pdo->prepare("SELECT walletBalance FROM users WHERE id = ?");
-            $stmt->execute([$currentUser['id']]);
-            $currentUser['walletBalance'] = $stmt->fetchColumn();
-        } catch (Exception $e) {
-            $pdo->rollBack();
-            $error = 'Internal Error: ' . $e->getMessage();
         }
     }
 }
@@ -76,7 +122,7 @@ require_once __DIR__ . '/includes/header.php';
         <?php if ($error): ?><div class="p-4 bg-red-50 text-red-800 rounded-2xl text-xs font-black border border-red-100 uppercase text-center"><?php echo $error; ?></div><?php endif; ?>
         <?php if ($success): ?><div class="p-4 bg-green-50 text-green-800 rounded-2xl text-xs font-black border border-green-100 uppercase text-center">Subscription Successful!</div><?php endif; ?>
 
-        <form method="POST" class="bg-white p-6 rounded-[40px] shadow-sm space-y-8 border border-gray-100">
+        <form method="POST" id="purchaseForm" class="bg-white p-6 rounded-[40px] shadow-sm space-y-8 border border-gray-100">
             <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
             <input type="hidden" name="action" value="purchase">
 
@@ -84,7 +130,7 @@ require_once __DIR__ . '/includes/header.php';
                 <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest ml-1">Select Provider</label>
                 <div class="grid grid-cols-4 gap-3">
                     <?php foreach ($cableProviders as $p): ?>
-                    <button type="button" onclick="setProvider('<?php echo $p['id']; ?>')" id="prov_<?php echo $p['id']; ?>" class="prov-btn flex flex-col items-center gap-2 p-2 rounded-2xl border-2 transition-all border-transparent bg-gray-50 <?php echo !($p['enabled'] ?? true) ? 'opacity-30 pointer-events-none' : ''; ?>">
+                    <button type="button" onclick="setProvider('<?php echo $p['id']; ?>')" id="prov_<?php echo $p['id']; ?>" class="prov-btn flex flex-col items-center gap-2 p-2 rounded-2xl border-2 transition-all border-transparent bg-gray-50">
                         <div class="w-10 h-10 rounded-full bg-gray-900 flex items-center justify-center text-white text-[10px] font-black"><?php echo substr($p['name'], 0, 2); ?></div>
                         <span class="text-[8px] font-black uppercase text-gray-800"><?php echo $p['name']; ?></span>
                     </button>
@@ -96,43 +142,101 @@ require_once __DIR__ . '/includes/header.php';
             <div>
                 <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">IUC / Smartcard Number</label>
                 <input type="text" name="iucNumber" placeholder="Enter number" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" required>
+                <div id="iucInfo" class="mt-2 ml-1"></div>
             </div>
 
-            <div>
-                <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Package</label>
-                <select name="variationCode" id="variationSelect" class="w-full p-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:border-billpay-green outline-none font-bold text-sm" required>
-                    <option value="">Select Package</option>
-                </select>
-                <input type="hidden" name="amount" id="amountInput">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Package</label>
+                    <select name="variationCode" id="variationSelect" class="w-full p-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:border-billpay-green outline-none font-bold text-sm" required>
+                        <option value="">Select Package</option>
+                    </select>
+                    <input type="hidden" name="amount" id="amountInput">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest px-1">Security PIN</label>
+                    <input type="password" name="fund_password" maxlength="6" placeholder="••••••" class="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" <?php echo ($isPinForced || $userPinEnabled) ? 'required' : ''; ?>>
+                </div>
             </div>
 
-            <button type="submit" class="w-full bg-billpay-green text-white font-black py-5 rounded-[24px] shadow-xl active:scale-95 transition-all uppercase">Subscribe Now</button>
+            <button type="submit" id="submitBtn" class="w-full bg-billpay-green text-white font-black py-5 rounded-[24px] shadow-xl active:scale-95 transition-all uppercase flex items-center justify-center gap-3">
+                <span id="btnText">Subscribe Now</span>
+                <div id="btnLoader" class="hidden w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+            </button>
         </form>
     </div>
 </div>
 <script>
-    const providers = <?php echo json_encode($cableProviders); ?>;
-    function setProvider(id) {
+    async function setProvider(id) {
         document.getElementById('providerInput').value = id;
         document.querySelectorAll('.prov-btn').forEach(btn => btn.classList.remove('border-billpay-green', 'bg-green-50'));
-        document.getElementById('prov_' + id).classList.add('border-billpay-green', 'bg-green-50');
+        const active = document.getElementById('prov_' + id);
+        if (active) active.classList.add('border-billpay-green', 'bg-green-50');
 
-        const prov = providers.find(p => p.id === id);
         const select = document.getElementById('variationSelect');
-        select.innerHTML = '<option value="">Select Package</option>';
-        if (prov && prov.variations) {
-            prov.variations.forEach(v => {
+        select.innerHTML = '<option value="">Loading Packages...</option>';
+
+        try {
+            const res = await fetch('?ajax=get_packages&provider=' + id);
+            const pkgs = await res.json();
+            select.innerHTML = '<option value="">Select Package</option>';
+            pkgs.forEach(p => {
                 const opt = document.createElement('option');
-                opt.value = v.variation_code;
-                opt.text = v.name + ' - ₦' + parseFloat(v.variation_amount).toLocaleString();
-                opt.dataset.amount = v.variation_amount;
+                opt.value = p.package_id;
+                // Apply discount if set
+                const price = parseFloat(p.user_price) * (1 - (parseFloat(p.user_discount) / 100));
+                opt.text = p.name + ' - ₦' + price.toLocaleString();
+                opt.dataset.amount = price;
                 select.appendChild(opt);
             });
+            if (pkgs.length === 0) select.innerHTML = '<option value="">No packages found. Contact Admin.</option>';
+        } catch (e) {
+            select.innerHTML = '<option value="">Error loading packages</option>';
+        }
+
+        // Trigger verification if IUC is already entered
+        verifyIUC();
+    }
+
+    async function verifyIUC() {
+        const iuc = document.querySelector('input[name="iucNumber"]').value;
+        const provider = document.getElementById('providerInput').value;
+        const infoDiv = document.getElementById('iucInfo');
+
+        if (iuc.length >= 8 && provider) {
+            infoDiv.innerHTML = '<div class="text-[9px] font-black text-amber-500 uppercase animate-pulse">Verifying IUC...</div>';
+            try {
+                const res = await fetch(`?ajax=verify&serviceId=${provider}&iuc=${iuc}`);
+                const data = await res.json();
+                if (data.code === '000' && data.content && data.content.Customer_Name) {
+                    infoDiv.innerHTML = `<div class="text-[9px] font-black text-green-500 uppercase">Verified: ${data.content.Customer_Name}</div>`;
+                } else {
+                    infoDiv.innerHTML = `<div class="text-[9px] font-black text-red-500 uppercase">Verification Failed: ${data.response_description || 'Invalid IUC'}</div>`;
+                }
+            } catch (e) {
+                infoDiv.innerHTML = '';
+            }
+        } else {
+            infoDiv.innerHTML = '';
         }
     }
+
+    document.querySelector('input[name="iucNumber"]').addEventListener('input', verifyIUC);
+
     document.getElementById('variationSelect').addEventListener('change', function(e) {
         const opt = e.target.options[e.target.selectedIndex];
         document.getElementById('amountInput').value = opt.dataset.amount || 0;
+    });
+
+    document.getElementById('purchaseForm').addEventListener('submit', function() {
+        const btn = document.getElementById('submitBtn');
+        const text = document.getElementById('btnText');
+        const loader = document.getElementById('btnLoader');
+
+        btn.disabled = true;
+        btn.classList.add('opacity-70', 'cursor-not-allowed');
+        text.innerText = 'Processing...';
+        loader.classList.remove('hidden');
     });
 </script>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

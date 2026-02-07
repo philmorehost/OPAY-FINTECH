@@ -12,14 +12,30 @@ if (isset($_GET['ajax'])) {
     header('Content-Type: application/json');
     if ($_GET['ajax'] === 'getBanks') {
         $country = sanitize($_GET['country'] ?? 'NG');
-        echo json_encode(juicywayGetBanks($pdo, $country));
+        $res = juicywayGetBanks($pdo, $country);
+        // Ensure consistent response format for JS
+        if (isset($res['data'])) echo json_encode($res);
+        elseif (is_array($res)) echo json_encode(['status' => 'success', 'data' => $res]);
+        else echo json_encode(['status' => 'error', 'message' => 'Failed to fetch banks']);
         exit;
     }
     if ($_GET['ajax'] === 'getQuote') {
         $amount = (float)$_GET['amount'];
         $from = sanitize($_GET['from']);
         $to = sanitize($_GET['to']);
-        echo json_encode(juicywayGetQuote($pdo, $amount, $from, $to));
+        $res = juicywayGetQuote($pdo, $amount, $from, $to);
+        echo json_encode($res);
+        exit;
+    }
+    if ($_GET['ajax'] === 'getCountries') {
+        // JuicyWay might have an endpoint for countries, or we can use a standard list
+        // For now, providing a supported list for SWIFT
+        echo json_encode(['status' => 'success', 'data' => [
+            ['code' => 'US', 'name' => 'United States'], ['code' => 'GB', 'name' => 'United Kingdom'],
+            ['code' => 'CA', 'name' => 'Canada'], ['code' => 'EU', 'name' => 'European Union'],
+            ['code' => 'CN', 'name' => 'China'], ['code' => 'IN', 'name' => 'India'],
+            ['code' => 'NG', 'name' => 'Nigeria'], ['code' => 'AE', 'name' => 'United Arab Emirates']
+        ]]);
         exit;
     }
     if ($_GET['ajax'] === 'getBeneficiaries') {
@@ -71,6 +87,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             } elseif ($currency === 'USD') {
                 $payoutData['routing_number'] = sanitize($_POST['routing_number']);
                 $payoutData['transfer_type'] = sanitize($_POST['usd_type']); // ach, fedwire, swift
+                if ($payoutData['transfer_type'] === 'swift') {
+                    $payoutData['recipient_country'] = sanitize($_POST['recipient_country']);
+                }
             }
 
             $res = juicywayInitiatePayout($pdo, $payoutData);
@@ -141,11 +160,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $to = sanitize($_POST['to_currency']);
             $quoteId = sanitize($_POST['quote_id']);
 
+            $chargePct = getApiCharge($pdo, 'crypto_swap');
+            $totalDeduct = $amount * (1 + ($chargePct / 100));
+
             $res = juicywaySwap($pdo, $amount, $from, $to, $quoteId);
             $resData = $res['data'] ?? $res;
-            if ((isset($resData['status']) && $resData['status'] === 'failed') || (isset($res['status']) && $res['status'] === 'error')) throw new Exception($res['message'] ?? $resData['message'] ?? 'Conversion failed');
 
-            logTransaction($pdo, $currentUser['id'], "Currency Conversion", $amount, 'successful', "Converted $from to $to", 'System');
+            if ((isset($resData['status']) && ($resData['status'] === 'failed' || $resData['status'] === 'error')) ||
+                (isset($res['status']) && ($res['status'] === 'error' || $res['status'] === 'failed')) ||
+                isset($res['errors']) ||
+                (is_array($res) && isset($res['code']) && $res['code'] === 'invalid_token') ||
+                (is_string($res) && strpos($res, 'invalid_token') !== false)) {
+
+                $msg = $res['message'] ?? $resData['message'] ?? 'Conversion failed';
+                if (is_array($res) && isset($res['code']) && $res['code'] === 'invalid_token') $msg = "Authentication Failure: Invalid API Token";
+                if (isset($res['errors']) && is_array($res['errors'])) {
+                    $msg .= ": " . implode(", ", array_map(fn($e) => is_array($e) ? implode(" ", $e) : $e, $res['errors']));
+                }
+                throw new Exception($msg);
+            }
+
+            $profitVal = $totalDeduct - $amount;
+            logTransaction($pdo, $currentUser['id'], "Currency Conversion", $totalDeduct, 'successful', "Converted $from to $to", 'System', null, null, $amount, $profitVal);
             $success = "Successfully converted $from to $to!";
         }
 
@@ -259,12 +295,12 @@ require_once __DIR__ . '/includes/header.php';
                                 <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Select Currency</label>
                                 <select name="currency" id="transferCurrency" onchange="onTransferCurrencyChange()" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm border-2 border-transparent focus:border-billpay-green outline-none transition-all">
                                     <option value="NGN">Naira (NGN)</option>
+                                    <option value="GBP">Great British Pound (GBP)</option>
                                     <option value="USD">US Dollar (USD)</option>
-                                    <option value="GBP">British Pound (GBP)</option>
-                                    <option value="CAD">Canadian Dollar (CAD)</option>
-                                    <option value="EUR">Euro (EUR)</option>
                                     <option value="USDT">Tether (USDT)</option>
                                     <option value="USDC">USD Coin (USDC)</option>
+                                    <option value="CAD">Canadian Dollar (CAD)</option>
+                                    <option value="EUR">Euro (EUR)</option>
                                 </select>
                             </div>
                             <div>
@@ -289,18 +325,25 @@ require_once __DIR__ . '/includes/header.php';
                                     <input type="text" name="account_number" placeholder="0000000000" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none">
                                 </div>
                             </div>
-                            <div id="usdFields" class="hidden grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div id="usdFields" class="hidden space-y-6">
                                 <div>
-                                    <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Routing Number</label>
-                                    <input type="text" name="routing_number" placeholder="Routing / Sort Code" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none">
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">USD Transfer Type</label>
-                                    <select name="usd_type" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none">
+                                    <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">USD Payout Method</label>
+                                    <select name="usd_type" id="usdTypeSelect" onchange="onUsdTypeChange()" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none">
                                         <option value="ach">ACH</option>
                                         <option value="fedwire">FED WIRE</option>
                                         <option value="swift">SWIFT</option>
                                     </select>
+                                </div>
+                                <div id="achNotice" class="p-4 bg-amber-50 rounded-2xl border border-amber-100 hidden">
+                                    <p class="text-[10px] font-bold text-amber-800 uppercase leading-relaxed">Please note: We only support SWIFT payouts to individuals outside US who are classified as either Contractors or Employees.</p>
+                                </div>
+                                <div id="swiftCountryGroup" class="hidden">
+                                    <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Country / region of recipient's account*</label>
+                                    <select name="recipient_country" id="swiftCountrySelect" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none border-2 border-transparent focus:border-billpay-green"></select>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Routing Number / SWIFT Code</label>
+                                    <input type="text" name="routing_number" placeholder="Enter routing or swift code" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none">
                                 </div>
                             </div>
                             <div>
@@ -321,6 +364,13 @@ require_once __DIR__ . '/includes/header.php';
                         <div id="cryptoFields" class="hidden space-y-6">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
+                                    <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Select Crypto Currency</label>
+                                    <select name="crypto_asset" id="cryptoAssetSelect" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none border-2 border-transparent focus:border-billpay-green">
+                                        <option value="USDT">Tether (USDT)</option>
+                                        <option value="USDC">USD Coin (USDC)</option>
+                                    </select>
+                                </div>
+                                <div>
                                     <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Network</label>
                                     <select name="network" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none border-2 border-transparent focus:border-billpay-green">
                                         <option value="trc20">TRON (TRC20)</option>
@@ -329,10 +379,10 @@ require_once __DIR__ . '/includes/header.php';
                                         <option value="solana">SOLANA</option>
                                     </select>
                                 </div>
-                                <div>
-                                    <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Wallet Address</label>
-                                    <input type="text" name="address" placeholder="Enter crypto address" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none">
-                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Wallet Address</label>
+                                <input type="text" name="address" placeholder="Enter crypto address" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none">
                             </div>
                         </div>
 
@@ -342,8 +392,29 @@ require_once __DIR__ . '/includes/header.php';
                                 <input type="text" name="description" placeholder="What is this for?" class="w-full p-5 bg-gray-50 rounded-[24px] font-bold text-sm outline-none" required>
                             </div>
                             <div>
-                                <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Fund Password</label>
-                                <input type="password" name="fund_password" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none" required>
+                                <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest px-1">Security PIN (Fund Password)</label>
+                                <?php if (empty($currentUser['fundPassword'])): ?>
+                                    <div class="flex items-center gap-3">
+                                        <a href="/login-settings" class="flex-1 p-5 bg-orange-50 text-orange-600 rounded-[24px] font-black text-xs uppercase text-center border border-orange-100">Set Security PIN First</a>
+                                    </div>
+                                <?php else: ?>
+                                    <input type="password" name="fund_password" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none" required>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
+                        <div id="transferSummary" class="hidden p-6 bg-gray-50 rounded-[32px] border border-gray-100 space-y-4">
+                            <div class="flex justify-between items-center text-[10px] font-black uppercase text-gray-400">
+                                <span>Service Fee</span>
+                                <span id="summaryFee">₦0.00</span>
+                            </div>
+                            <div class="flex justify-between items-center text-[10px] font-black uppercase text-gray-400">
+                                <span>Receiver Gets</span>
+                                <span id="summaryReceiver" class="text-gray-900">0.00</span>
+                            </div>
+                            <div class="pt-4 border-t border-gray-200 flex justify-between items-center text-xs font-black uppercase text-gray-900">
+                                <span>Total Wallet Charge</span>
+                                <span id="summaryTotal" class="text-billpay-green text-lg">0.00</span>
                             </div>
                         </div>
 
@@ -352,7 +423,10 @@ require_once __DIR__ . '/includes/header.php';
                             <label for="saveBen" class="text-[10px] font-black uppercase text-gray-500">Save to Beneficiaries</label>
                         </div>
 
-                        <button type="submit" class="w-full bg-gray-900 text-white font-black py-6 rounded-[32px] shadow-xl hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-widest">Execute Transfer</button>
+                        <button type="submit" class="submit-btn w-full bg-gray-900 text-white font-black py-6 rounded-[32px] shadow-xl hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-widest flex items-center justify-center gap-3">
+                            <span class="btn-text">Execute Transfer</span>
+                            <div class="btn-loader hidden w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        </button>
                     </form>
 
                     <!-- Beneficiaries List -->
@@ -430,7 +504,10 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
                         </div>
 
-                        <button type="submit" id="btnSwapSubmit" class="w-full bg-billpay-green text-white font-black py-6 rounded-[32px] shadow-xl uppercase tracking-widest hidden">Confirm Swap</button>
+                        <button type="submit" id="btnSwapSubmit" class="submit-btn w-full bg-billpay-green text-white font-black py-6 rounded-[32px] shadow-xl uppercase tracking-widest hidden flex items-center justify-center gap-3">
+                            <span class="btn-text">Confirm Swap</span>
+                            <div class="btn-loader hidden w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        </button>
                     </form>
                 </div>
 
@@ -466,7 +543,10 @@ require_once __DIR__ . '/includes/header.php';
                                 <input type="password" name="fund_password" placeholder="••••••" class="w-full p-5 bg-gray-50 rounded-[24px] font-black text-sm outline-none" required>
                             </div>
                         </div>
-                        <button type="submit" class="w-full bg-gray-900 text-white font-black py-6 rounded-[32px] shadow-xl uppercase tracking-widest">Generate Link</button>
+                        <button type="submit" class="submit-btn w-full bg-gray-900 text-white font-black py-6 rounded-[32px] shadow-xl uppercase tracking-widest flex items-center justify-center gap-3">
+                            <span class="btn-text">Generate Link</span>
+                            <div class="btn-loader hidden w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        </button>
                     </form>
                 </div>
 
@@ -589,28 +669,92 @@ require_once __DIR__ . '/includes/header.php';
         loadBeneficiaries(type);
     }
 
+    let transferInterval;
+    function updateTransferSummary() {
+        const curr = document.getElementById('transferCurrency').value;
+        const amount = parseFloat(document.querySelector('input[name="amount"]').value) || 0;
+
+        let fee = 0;
+        if (amount > 0) {
+            if (['USDT', 'USDC'].includes(curr)) {
+                const chargePct = <?php echo getApiCharge($pdo, 'crypto_withdraw'); ?>;
+                fee = (amount * chargePct / 100);
+            } else {
+                fee = (curr === 'NGN' ? 10 : 0);
+            }
+        }
+
+        const summary = document.getElementById('transferSummary');
+        if (amount > 0) {
+            summary.classList.remove('hidden');
+            document.getElementById('summaryFee').innerText = fee.toLocaleString(undefined, {style: 'currency', currency: curr});
+            document.getElementById('summaryReceiver').innerText = amount.toLocaleString(undefined, {minimumFractionDigits: 2}) + ' ' + curr;
+            document.getElementById('summaryTotal').innerText = (amount + fee).toLocaleString(undefined, {minimumFractionDigits: 2}) + ' ' + curr;
+
+            // Auto-refresh every 30s
+            clearInterval(transferInterval);
+            transferInterval = setInterval(updateTransferSummary, 30000);
+        } else {
+            summary.classList.add('hidden');
+            clearInterval(transferInterval);
+        }
+    }
+
+    document.querySelector('input[name="amount"]').addEventListener('input', updateTransferSummary);
+
     function onTransferCurrencyChange() {
         const curr = document.getElementById('transferCurrency').value;
         const bankFields = document.getElementById('bankFields');
         const internalFields = document.getElementById('internalFields');
         const cryptoFields = document.getElementById('cryptoFields');
 
-        // Default hide
+        // Default hide all special fields
         [bankFields, internalFields, cryptoFields].forEach(f => f.classList.add('hidden'));
 
         if (['USDT', 'USDC'].includes(curr)) {
             setTransferType('crypto');
+            document.getElementById('cryptoAssetSelect').value = curr;
+            document.getElementById('cryptoFields').classList.remove('hidden');
         } else if (curr === 'CAD') {
             setTransferType('interac');
-            document.getElementById('internalFields').classList.remove('hidden'); // CAD often uses internal-like interac email
+            document.getElementById('internalFields').classList.remove('hidden');
         } else {
             setTransferType('bank');
             document.getElementById('bankFields').classList.remove('hidden');
-            document.getElementById('bankSelectGroup').classList.toggle('hidden', !['NGN'].includes(curr));
+
+            // Per Network/Currency logic
+            const isNgn = (curr === 'NGN');
+            const isUsd = (curr === 'USD');
+            const isGbp = (curr === 'GBP');
+
+            document.getElementById('bankSelectGroup').classList.toggle('hidden', !isNgn);
             document.getElementById('bankNameGroup').classList.toggle('hidden', !['GBP', 'EUR', 'USD'].includes(curr));
-            document.getElementById('usdFields').classList.toggle('hidden', curr !== 'USD');
-            if (curr === 'NGN') fetchBanks('NG');
+            document.getElementById('usdFields').classList.toggle('hidden', !isUsd);
+
+            if (isUsd) onUsdTypeChange();
+
+            // Map currency to country for bank fetching
+            const countryMap = { 'NGN': 'NG', 'USD': 'US', 'GBP': 'GB', 'EUR': 'EU', 'CAD': 'CA' };
+            if (countryMap[curr] && isNgn) fetchBanks(countryMap[curr]);
         }
+    }
+
+    function onUsdTypeChange() {
+        const type = document.getElementById('usdTypeSelect').value;
+        document.getElementById('achNotice').classList.toggle('hidden', type !== 'ach');
+        document.getElementById('swiftCountryGroup').classList.toggle('hidden', type !== 'swift');
+        if (type === 'swift') fetchSwiftCountries();
+    }
+
+    function fetchSwiftCountries() {
+        const sel = document.getElementById('swiftCountrySelect');
+        if (sel.options.length > 0) return;
+        fetch('?ajax=getCountries')
+            .then(r => r.json())
+            .then(res => {
+                sel.innerHTML = '<option value="">Select Country</option>';
+                res.data.forEach(c => sel.innerHTML += `<option value="${c.code}">${c.name}</option>`);
+            });
     }
 
     function fetchBanks(country) {
@@ -680,15 +824,52 @@ require_once __DIR__ . '/includes/header.php';
             .then(r => r.json())
             .then(res => {
                 btn.disabled = false;
-                if (res.status === 'success' || res.status === true || res.id || res.data) {
+                if (res.status === 'success' || res.status === true || res.id || res.data || res.quote_id) {
                     const data = res.data || res;
-                    const targetAmount = data.target_amount || (amount * (data.rate || 1));
-                    document.getElementById('toAmountDisplay').innerText = targetAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                    document.getElementById('quoteId').value = data.id;
+                    const symbol = (data.symbol || '').toUpperCase();
+                    let rate = parseFloat(data.rate) || 1;
 
-                    // Display Rate
-                    const rate = data.rate || (targetAmount / amount);
-                    document.getElementById('liveRateText').innerText = `Rate: 1 ${from} ~ ${rate.toFixed(4)} ${to}`;
+                    // JuicyWay Robust Rate Detection:
+                    // 1. If target_amount is present, use it directly (divided by 100 for minor units).
+                    // 2. If not, interpret rate based on symbol.
+                    //    A rate of 1500 for NGN-USD symbol usually means 1 USD = 1500 NGN.
+                    //    We want to find how many units of TO we get for 1 unit of FROM.
+
+                    let targetAmount;
+                    if (data.target_amount !== undefined && data.target_amount > 0) {
+                        targetAmount = data.target_amount / 100;
+
+                        // SANITY CHECK: If NGN -> USD and target > source, JuicyWay might have returned NGN amount in minor units as target.
+                        // e.g. 5000 NGN -> 739 million USD (Incorrect)
+                        // Correct: 5000 NGN -> ~3.33 USD
+                        if (from === 'NGN' && ['USD', 'GBP', 'EUR', 'USDT', 'USDC'].includes(to) && targetAmount > amount) {
+                             if (data.rate) {
+                                 let r = parseFloat(data.rate);
+                                 targetAmount = (r > 50) ? (amount / r) : (amount * r);
+                             } else {
+                                 targetAmount = amount / 1500; // Emergency fallback rate
+                             }
+                        }
+                    } else {
+                        // Symbol logic: if symbol is "TO-FROM" (e.g. USD-NGN) and we are NGN->USD, rate is FROM/TO.
+                        // So 1 FROM = 1/Rate TO.
+                        let isReverse = (symbol.includes(to) && symbol.includes(from) && symbol.indexOf(to) < symbol.indexOf(from));
+
+                        // Heuristic: if rate > 50 and we are going NGN to USD/GBP/EUR/USDT/USDC, it's definitely reversed.
+                        if (from === 'NGN' && ['USD', 'GBP', 'EUR', 'USDT', 'USDC'].includes(to) && rate > 50) {
+                            isReverse = true;
+                        }
+
+                        let effectiveRate = isReverse ? (1 / rate) : rate;
+                        targetAmount = amount * effectiveRate;
+                    }
+
+                    document.getElementById('toAmountDisplay').innerText = targetAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 6});
+                    document.getElementById('quoteId').value = data.id || data.quote_id || data.reference;
+
+                    // Display Rate (Always 1 SOURCE ~ X TARGET)
+                    const displayRate = targetAmount / amount;
+                    document.getElementById('liveRateText').innerText = `Rate: 1 ${from} ~ ${displayRate.toFixed(6)} ${to}`;
                     document.getElementById('rateDisplay').classList.remove('hidden');
 
                     document.getElementById('quoteInfo').classList.remove('hidden');
@@ -715,7 +896,7 @@ require_once __DIR__ . '/includes/header.php';
                         }
                     }, 1000);
 
-                    // 10-second auto-refresh of rate if active
+                    // 30-second auto-refresh of rate if active (as requested)
                     clearInterval(rateInterval);
                     rateInterval = setInterval(() => {
                         if (isCountingDown && seconds > 5) {
@@ -724,17 +905,20 @@ require_once __DIR__ . '/includes/header.php';
                                 .then(r => r.json())
                                 .then(refresh => {
                                     const rData = refresh.data || refresh;
-                                    const rRate = rData.rate || ((rData.target_amount || targetAmount) / amount);
+                                    let rTarget = (rData.target_amount !== undefined) ? (rData.target_amount / 100) : (amount * (rData.rate || 1));
+
+                                    const rRate = rData.rate || (rTarget / amount);
                                     document.getElementById('liveRateText').innerText = `Rate: 1 ${from} ~ ${rRate.toFixed(4)} ${to}`;
-                                    // Update target display if quote didn't change ID but rate did (though locked usually doesn't)
-                                    if (rData.target_amount) document.getElementById('toAmountDisplay').innerText = rData.target_amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                                    document.getElementById('toAmountDisplay').innerText = rTarget.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
                                 });
                         }
-                    }, 10000);
+                    }, 30000);
 
                 } else {
                     btn.innerText = 'Preview Conversion';
-                    alert(res.message || 'Conversion Not Found. Please check currencies.');
+                    let msg = res.message || 'Conversion Not Found. Please check currencies.';
+                    if (res.errors) msg += "\n" + JSON.stringify(res.errors);
+                    alert(msg);
                 }
             })
             .catch(err => {
@@ -743,6 +927,20 @@ require_once __DIR__ . '/includes/header.php';
                 alert('Connection Error. Please try again.');
             });
     }
+
+    document.querySelectorAll('form').forEach(form => {
+        form.addEventListener('submit', function() {
+            const btn = this.querySelector('.submit-btn');
+            if (!btn) return;
+            const text = btn.querySelector('.btn-text');
+            const loader = btn.querySelector('.btn-loader');
+
+            btn.disabled = true;
+            btn.classList.add('opacity-70', 'cursor-not-allowed');
+            if (text) text.innerText = 'Processing...';
+            if (loader) loader.classList.remove('hidden');
+        });
+    });
 </script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

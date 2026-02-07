@@ -49,4 +49,24 @@ if (isLoggedIn()) {
         header("Location: $loginPath");
         exit;
     }
+
+    // Security Compliance Enforcement
+    $ls = $settings['loginSecuritySettings'] ?? [];
+    $configured = is_array($currentUser['configuredSecurityMethods']) ? $currentUser['configuredSecurityMethods'] : json_decode($currentUser['configuredSecurityMethods'] ?? '[]', true);
+    $missingForced = [];
+
+    if (!empty($ls['biometric']['forced']) && !in_array('biometric', $configured)) $missingForced[] = 'Biometric Login';
+    if (!empty($ls['pin']['forced']) && !in_array('pin', $configured)) $missingForced[] = 'Security PIN';
+    if (!empty($ls['email']['forced']) && !in_array('email', $configured)) $missingForced[] = 'Email Auth';
+    if (!empty($ls['google2fa']['forced']) && !in_array('google2fa', $configured)) $missingForced[] = 'Google 2FA';
+
+    if (!empty($missingForced) && $currentUser['role'] !== 'admin') {
+        $currentFile = basename($_SERVER['PHP_SELF']);
+        $allowedFiles = ['dashboard.php', 'profile.php', 'login-settings.php', 'logout.php'];
+        if (!in_array($currentFile, $allowedFiles)) {
+            header('Location: /dashboard?error=security_compliance');
+            exit;
+        }
+        define('SECURITY_COMPLIANCE_ERROR', "Action Required: Please configure the following security methods to unlock all services: " . implode(', ', $missingForced));
+    }
 }
