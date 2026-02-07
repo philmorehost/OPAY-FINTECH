@@ -49,7 +49,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $stmt->execute([$id, $currentUser['id'], $amount, $method, $charge]);
 
         // Notify user
-        sendMail($pdo, $currentUser['email'], "Deposit Request Received", "Hi {$currentUser['fullName']},<br><br>We have received your deposit request of " . formatCurrency($amount) . " via " . strtoupper($method) . ".<br><br>Reference: $id<br>Status: Pending Approval.");
+        $statusBadge = "<span class='status-badge' style='background-color: #fef3c7; color: #92400e;'>Pending Approval</span>";
+        sendMail($pdo, $currentUser['email'], "Deposit Request Received", "Hi {$currentUser['fullName']},<br><br>$statusBadge<br><br>We have received your deposit request of " . formatCurrency($amount) . " via " . strtoupper($method) . ".<br><br>Reference: $id<br>Status: Pending Approval.");
 
         $success = true;
         if ($method === 'paystack') {

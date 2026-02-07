@@ -224,4 +224,23 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Dashboard';
             </div>
             <?php endif; ?>
 
+            <?php
+            // Login Security Enforcement
+            $missingSecurity = getMissingLoginSecurity($settings, $currentUser);
+            if (!empty($missingSecurity)):
+            ?>
+            <div class="mx-6 lg:mx-12 mt-6 p-6 bg-red-500 rounded-[32px] shadow-xl shadow-red-500/10 flex flex-col md:flex-row items-center justify-between gap-6 border-b-4 border-red-700 animate-slide-down">
+                <div class="flex items-center gap-6">
+                    <div class="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center text-white shrink-0">
+                        <i data-lucide="shield-lock" class="w-8 h-8"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-black text-white uppercase tracking-tight">Login Security Required</h4>
+                        <p class="text-[10px] font-bold text-white/80 uppercase mt-1 leading-relaxed">Admin has enabled advanced login security. Please configure your <span class="text-white underline"><?php echo implode(', ', array_map('ucfirst', $missingSecurity)); ?></span> to secure your account.</p>
+                    </div>
+                </div>
+                <a href="/login-settings" class="px-8 py-4 bg-white text-red-500 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:scale-105 active:scale-95 transition-all whitespace-nowrap">Configure Now</a>
+            </div>
+            <?php endif; ?>
+
             <div class="px-4 py-6 lg:p-12 lg:max-w-6xl mx-auto w-full">

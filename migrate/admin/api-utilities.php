@@ -4,8 +4,35 @@ if (!isAdmin()) redirect('/login');
 
 $pageTitle = 'Utility API Settings';
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'test') {
+    header('Content-Type: application/json');
+    echo json_encode(testUtilityProvider($pdo, $_POST['provider']));
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrfToken($_POST['csrf_token'])) die('CSRF Failed');
+
+    if (isset($_POST['action']) && $_POST['action'] === 'bulk_apply') {
+        $bulkApiDisc = (float)$_POST['bulk_api_discount'];
+        $bulkUserDisc = (float)$_POST['bulk_user_discount'];
+
+        $fields = ['electricProviders', 'cableProviders', 'bettingProviders'];
+        foreach ($fields as $field) {
+            $items = $settings[$field] ?? [];
+            if (is_string($items)) $items = json_decode($items, true) ?: [];
+            foreach ($items as &$item) {
+                $item['apiDiscount'] = $bulkApiDisc;
+                $item['userDiscount'] = $bulkUserDisc;
+                $item['discountPercent'] = $bulkUserDisc;
+            }
+            $stmt = $pdo->prepare("UPDATE settings SET $field = ? WHERE id = 1");
+            $stmt->execute([json_encode($items)]);
+        }
+
+        $success = "Bulk discounts applied to all utility services!";
+        $settings = fetchSettings($pdo);
+    } else {
 
     $utilSettings = [
         'vtpass' => [
@@ -13,7 +40,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'secretKey' => $_POST['vt_secretKey'],
             'publicKey' => $_POST['vt_publicKey'],
             'username' => $_POST['vt_username'],
-            'password' => $_POST['vt_password']
+            'password' => $_POST['vt_password'],
+            'liveMode' => isset($_POST['vt_liveMode']) ? 1 : 0
         ],
         'nellobyte' => [
             'userId' => $_POST['nb_userId'],
@@ -31,6 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->execute([json_encode($utilSettings)]);
     $success = "Utility settings updated!";
     $settings = fetchSettings($pdo);
+    }
 }
 
 $us = $settings['utilitySettings'] ?? [];
@@ -57,12 +86,36 @@ require_once __DIR__ . '/header.php';
     <form method="POST" class="space-y-10">
         <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
 
+        <!-- Bulk Discount Section -->
+        <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
+            <div class="flex justify-between items-center mb-8">
+                <h3 class="text-sm font-black uppercase tracking-widest flex items-center gap-3 text-indigo-600">
+                    <i data-lucide="percent" class="w-5 h-5"></i> Bulk Utility Pricing
+                </h3>
+                <button type="submit" name="action" value="bulk_apply" class="text-[10px] font-black uppercase bg-indigo-50 text-indigo-600 px-6 py-2.5 rounded-xl border border-indigo-100 hover:bg-indigo-100 transition-all">Apply to All Utilities</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Bulk API Disc (%)</label>
+                    <input type="number" step="0.01" name="bulk_api_discount" placeholder="e.g. 1.5" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Bulk User Disc (%)</label>
+                    <input type="number" step="0.01" name="bulk_user_discount" placeholder="e.g. 1.0" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
+                </div>
+            </div>
+            <p class="text-[9px] font-bold text-gray-400 mt-4 uppercase italic">* This will apply the same discounts to all Electric, Cable TV, and Betting providers.</p>
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
             <!-- VTPass -->
             <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-                <h3 class="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-3 text-blue-600">
-                    <i data-lucide="zap" class="w-5 h-5"></i> VTPass Integration
-                </h3>
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-sm font-black uppercase tracking-widest flex items-center gap-3 text-blue-600">
+                        <i data-lucide="zap" class="w-5 h-5"></i> VTPass Integration
+                    </h3>
+                    <button type="button" onclick="testProvider('vtpass')" class="text-[9px] font-black uppercase bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg border border-blue-100 hover:bg-blue-100 transition-all">Test API</button>
+                </div>
                 <div class="space-y-4">
                     <div>
                         <label class="text-[10px] font-black text-gray-400 uppercase ml-1">API Key</label>
@@ -75,6 +128,10 @@ require_once __DIR__ . '/header.php';
                     <div>
                         <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Public Key</label>
                         <input type="text" name="vt_publicKey" value="<?php echo $us['vtpass']['publicKey'] ?? ''; ?>" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
+                    </div>
+                    <div class="flex items-center gap-3 p-4 bg-gray-50 rounded-2xl">
+                        <input type="checkbox" name="vt_liveMode" value="1" <?php echo !empty($us['vtpass']['liveMode']) ? 'checked' : ''; ?> class="w-5 h-5 accent-billpay-green">
+                        <label class="text-[10px] font-black uppercase">Live Mode</label>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
@@ -91,9 +148,12 @@ require_once __DIR__ . '/header.php';
 
             <!-- Nellobyte Utilities -->
             <div class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-                <h3 class="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-3 text-orange-500">
-                    <i data-lucide="database" class="w-5 h-5"></i> Nellobyte Utilities
-                </h3>
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-sm font-black uppercase tracking-widest flex items-center gap-3 text-orange-500">
+                        <i data-lucide="database" class="w-5 h-5"></i> Nellobyte Utilities
+                    </h3>
+                    <button type="button" onclick="testProvider('nellobyte')" class="text-[9px] font-black uppercase bg-orange-50 text-orange-600 px-3 py-1.5 rounded-lg border border-orange-100 hover:bg-orange-100 transition-all">Test API</button>
+                </div>
                 <div class="space-y-4">
                     <div>
                         <label class="text-[10px] font-black text-gray-400 uppercase ml-1">User ID</label>
@@ -130,4 +190,28 @@ require_once __DIR__ . '/header.php';
     </form>
 </div>
 
+<script>
+async function testProvider(provider) {
+    const btn = event.currentTarget;
+    const originalText = btn.innerText;
+    btn.innerText = 'Testing...';
+    btn.disabled = true;
+
+    try {
+        const formData = new FormData();
+        formData.append('action', 'test');
+        formData.append('provider', provider);
+        formData.append('csrf_token', '<?php echo $csrf_token; ?>');
+
+        const res = await fetch('', { method: 'POST', body: formData });
+        const data = await res.json();
+        alert(data.message);
+    } catch (e) {
+        alert('Test failed: ' + e.message);
+    } finally {
+        btn.innerText = originalText;
+        btn.disabled = false;
+    }
+}
+</script>
 <?php require_once __DIR__ . '/footer.php'; ?>

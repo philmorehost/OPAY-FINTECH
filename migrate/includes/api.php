@@ -35,7 +35,9 @@ function callApi($url, $method = 'GET', $data = [], $headers = []) {
         $opts[CURLOPT_SSL_VERIFYHOST] = 0;
     }
 
-    if ($method === 'POST' || $method === 'PATCH' || $method === 'PUT') $opts[CURLOPT_POSTFIELDS] = $payload;
+    if (in_array($method, ['POST', 'PATCH', 'PUT', 'DELETE'])) {
+        $opts[CURLOPT_POSTFIELDS] = $payload;
+    }
     if (!empty($headers)) $opts[CURLOPT_HTTPHEADER] = $headers;
 
     curl_setopt_array($curl, $opts);
@@ -45,17 +47,23 @@ function callApi($url, $method = 'GET', $data = [], $headers = []) {
     curl_close($curl);
 
     if ($err || $info['http_code'] == 0 || $info['http_code'] >= 400) {
+        $headerStr = implode("\r\n", $headers);
         $contextOpts = [
             'http' => [
                 'method' => $method,
-                'header' => implode("\r\n", $headers) . "\r\nContent-Length: " . strlen($payload),
-                'content' => $payload,
+                'header' => $headerStr,
                 'timeout' => 30,
                 'ignore_errors' => true,
                 'user_agent' => 'Mozilla/5.0 (BillPay Fintech; Fallback Hub v4)'
             ],
             'ssl' => ['verify_peer' => false, 'verify_peer_name' => false]
         ];
+
+        if (in_array($method, ['POST', 'PATCH', 'PUT', 'DELETE']) && !empty($payload)) {
+            $contextOpts['http']['header'] .= "\r\nContent-Length: " . strlen($payload);
+            $contextOpts['http']['content'] = $payload;
+        }
+
         $res = @file_get_contents($url, false, stream_context_create($contextOpts));
         if ($res !== false) {
             $decoded = json_decode($res, true);
@@ -74,6 +82,34 @@ function testJuicywayConnection($pdo) {
     $res = juicywayGetWallets($pdo);
     if (isset($res['data'])) return ['status' => 'success', 'message' => 'Connection successful! Found ' . count($res['data']) . ' wallets.'];
     return ['status' => 'error', 'message' => $res['message'] ?? 'Connection failed. Check API key and mode.'];
+}
+}
+
+if (!function_exists('testUtilityProvider')) {
+function testUtilityProvider($pdo, $provider) {
+    $settings = fetchSettings($pdo);
+    $us = $settings['utilitySettings'] ?? [];
+    $creds = $us[$provider] ?? [];
+
+    switch ($provider) {
+        case 'vtpass':
+            // Check balance as a test
+            $res = callVtpass($pdo, '', ['endpoint' => '/balance']);
+            if (isset($res['contents']['balance'])) {
+                return ['status' => 'success', 'message' => 'VTPass Connected! Balance: ₦' . number_format($res['contents']['balance'], 2)];
+            }
+            return ['status' => 'error', 'message' => 'VTPass Error: ' . ($res['response_description'] ?? 'Authentication failed'), 'debug' => $res];
+
+        case 'nellobyte':
+            $userId = $creds['userId'] ?? '';
+            $apiKey = $creds['apiKey'] ?? '';
+            $res = callApi("https://nellobytesystems.com/api/profile?userid=$userId&apikey=$apiKey");
+            if (isset($res['status']) && $res['status'] === 'success') {
+                return ['status' => 'success', 'message' => 'Nellobyte Connected! Wallet Balance: ' . ($res['wallet_balance'] ?? 'N/A')];
+            }
+            return ['status' => 'error', 'message' => $res['msg'] ?? 'Nellobyte Connection Failed.', 'debug' => $res];
+    }
+    return ['status' => 'error', 'message' => 'Unknown Provider'];
 }
 }
 
@@ -148,16 +184,30 @@ if (!function_exists('callVtpass')) {
 function callVtpass($pdo, $serviceId, $data) {
     $settings = fetchSettings($pdo);
     $creds = $settings['utilitySettings']['vtpass'] ?? [];
-    if (!isset($data['request_id'])) $data['request_id'] = date('YmdHi') . bin2hex(random_bytes(3));
+    if (!isset($data['request_id'])) {
+        // VTpass Request ID: YYYYMMDDHHII + unique string (min 12 chars)
+        $data['request_id'] = date('YmdHi') . bin2hex(random_bytes(4));
+    }
     $data['serviceID'] = $serviceId;
     $headers = ["Content-Type: application/json"];
-    if (!empty($creds['apiKey'])) {
+
+    // Priority: Username/Password (Basic Auth) as requested by user
+    if (!empty($creds['username']) && !empty($creds['password'])) {
+        $headers[] = "Authorization: Basic " . base64_encode($creds['username'] . ":" . $creds['password']);
+    } elseif (!empty($creds['apiKey'])) {
         $headers[] = "api-key: " . $creds['apiKey'];
         $headers[] = "secret-key: " . ($creds['secretKey'] ?? '');
-    } elseif (!empty($creds['username']) && !empty($creds['password'])) {
-        $headers[] = "Authorization: Basic " . base64_encode($creds['username'] . ":" . $creds['password']);
     }
-    return callApi("https://vtpass.com/api/pay", 'POST', $data, $headers);
+
+    if (!empty($creds['publicKey'])) {
+        $headers[] = "public-key: " . $creds['publicKey'];
+    }
+
+    $baseUrl = !empty($creds['liveMode']) ? "https://vtpass.com/api" : "https://sandbox.vtpass.com/api";
+    $endpoint = isset($data['endpoint']) ? $data['endpoint'] : "/pay";
+    unset($data['endpoint']);
+
+    return callApi($baseUrl . $endpoint, 'POST', $data, $headers);
 }
 }
 
@@ -174,15 +224,17 @@ function callBybit($pdo, $endpoint, $method = 'GET', $params = []) {
 
     $timestamp = round(microtime(true) * 1000);
     $recvWindow = 5000;
+    $method = strtoupper($method);
 
-    $queryString = "";
     if ($method === 'GET') {
-        $queryString = http_build_query($params);
-        $fullUrl = $baseUrl . $endpoint . "?" . $queryString;
+        $queryString = !empty($params) ? http_build_query($params) : "";
+        $fullUrl = $baseUrl . $endpoint . ($queryString ? "?" . $queryString : "");
         $signData = $timestamp . $apiKey . $recvWindow . $queryString;
+        $payload = "";
     } else {
         $fullUrl = $baseUrl . $endpoint;
-        $signData = $timestamp . $apiKey . $recvWindow . json_encode($params);
+        $payload = !empty($params) ? json_encode($params) : "";
+        $signData = $timestamp . $apiKey . $recvWindow . $payload;
     }
 
     $signature = hash_hmac('sha256', $signData, $secret);
@@ -195,15 +247,66 @@ function callBybit($pdo, $endpoint, $method = 'GET', $params = []) {
         "Content-Type: application/json"
     ];
 
-    return callApi($fullUrl, $method, $method === 'GET' ? [] : $params, $headers);
+    $res = callApi($fullUrl, $method, $payload, $headers);
+
+    // If we get a raw string (maybe 403 Forbidden from Cloudflare or similar), wrap it
+    if (is_string($res) && !empty($res)) {
+        return ['retCode' => -1, 'retMsg' => 'Bybit Raw Response: ' . substr(strip_tags($res), 0, 200), 'debug' => $res];
+    }
+
+    return $res;
+}
+}
+
+if (!function_exists('testAirtimeProvider')) {
+function testAirtimeProvider($pdo, $provider) {
+    $settings = fetchSettings($pdo);
+    $as = $settings['airtimeSettings'] ?? [];
+    $creds = $as['providers'][$provider] ?? [];
+
+    switch ($provider) {
+        case 'datagifting':
+            $apiKey = $creds['apiKey'] ?? '';
+            $res = callApi("https://v6.datagifting.com.ng/web/api/profile.php?api_key=$apiKey");
+            if (isset($res['status']) && $res['status'] === 'success') {
+                return ['status' => 'success', 'message' => 'Connection Successful! Wallet Balance: ' . ($res['wallet_balance'] ?? 'N/A')];
+            }
+            return ['status' => 'error', 'message' => $res['msg'] ?? 'Connection Failed or Invalid API Key.', 'debug' => $res];
+
+        case 'nellobyte':
+            $userId = $creds['userId'] ?? '';
+            $apiKey = $creds['apiKey'] ?? '';
+            $res = callApi("https://nellobytesystems.com/api/profile?userid=$userId&apikey=$apiKey");
+            if (isset($res['status']) && $res['status'] === 'success') {
+                return ['status' => 'success', 'message' => 'Connection Successful! Wallet Balance: ' . ($res['wallet_balance'] ?? 'N/A')];
+            }
+            return ['status' => 'error', 'message' => $res['msg'] ?? 'Connection Failed or Invalid Credentials.', 'debug' => $res];
+
+        case 'hdkdata':
+            $token = $creds['token'] ?? '';
+            $res = callApi("https://hdkdata.com/api/user/", 'GET', [], ["Authorization: Token $token"]);
+            if (isset($res['user']['wallet_balance'])) {
+                return ['status' => 'success', 'message' => 'Connection Successful! Wallet Balance: ' . ($res['user']['wallet_balance'] ?? 'N/A')];
+            }
+            return ['status' => 'error', 'message' => $res['msg'] ?? 'Connection Failed. Check Token.', 'debug' => $res];
+    }
+    return ['status' => 'error', 'message' => 'Unknown Provider'];
 }
 }
 
 if (!function_exists('testBybitConnection')) {
 function testBybitConnection($pdo) {
     $res = callBybit($pdo, '/v5/user/query-api', 'GET');
-    if (isset($res['retCode']) && $res['retCode'] == 0) return ['status' => 'success', 'message' => 'Bybit Connection Successful!'];
-    return ['status' => 'error', 'message' => 'Bybit Failed: ' . ($res['retMsg'] ?? 'Unknown Error')];
+    if (is_array($res) && isset($res['retCode']) && $res['retCode'] == 0) return ['status' => 'success', 'message' => 'Bybit Connection Successful!'];
+
+    $msg = 'Unknown Error';
+    if (is_array($res)) {
+        $msg = $res['retMsg'] ?? ($res['message'] ?? 'Unknown Error');
+    } elseif (is_string($res)) {
+        $msg = (strlen($res) > 100) ? substr(strip_tags($res), 0, 100) . '...' : strip_tags($res);
+    }
+
+    return ['status' => 'error', 'message' => 'Bybit Failed: ' . trim($msg), 'debug' => $res];
 }
 }
 
@@ -218,22 +321,145 @@ function bybitGetMarketPrice($pdo, $symbol = 'BTCUSDT') {
 }
 
 if (!function_exists('bybitGetBalances')) {
-function bybitGetBalances($pdo) {
-    return callBybit($pdo, '/v5/account/wallet-balance', 'GET', ['accountType' => 'UNIFIED']);
+function bybitGetBalances($pdo, $accountType = 'UNIFIED') {
+    return callBybit($pdo, '/v5/account/wallet-balance', 'GET', ['accountType' => strtoupper($accountType)]);
 }
 }
 
 if (!function_exists('bybitWithdraw')) {
-function bybitWithdraw($pdo, $coin, $amount, $address, $tag = '') {
+function bybitWithdraw($pdo, $coin, $amount, $address, $chain = 'TRC20', $tag = '') {
+    // Normalize chain name for Bybit (they often use TRX for TRC20)
+    $network = strtoupper($chain);
+    if ($network === 'TRC20') $network = 'TRX';
+    if ($network === 'ERC20') $network = 'ETH';
+
     $params = [
         'coin' => strtoupper($coin),
-        'chain' => 'TRX', // Default to TRC20 for USDT/USDC if not specified
+        'chain' => $network,
         'address' => $address,
         'amount' => (string)$amount,
         'timestamp' => round(microtime(true) * 1000)
     ];
     if ($tag) $params['tag'] = $tag;
     return callBybit($pdo, '/v5/asset/withdraw/create', 'POST', $params);
+}
+}
+
+/**
+ * Trade: Create Order (SPOT, Linear, Inverse, Option)
+ */
+if (!function_exists('bybitCreateOrder')) {
+function bybitCreateOrder($pdo, $category, $symbol, $side, $orderType, $qty, $price = null, $extra = []) {
+    $params = array_merge([
+        'category' => strtolower($category),
+        'symbol' => strtoupper($symbol),
+        'side' => ucfirst(strtolower($side)),
+        'orderType' => ucfirst(strtolower($orderType)),
+        'qty' => (string)$qty,
+        'timeInForce' => 'GTC'
+    ], $extra);
+    if ($price) $params['price'] = (string)$price;
+    return callBybit($pdo, '/v5/order/create', 'POST', $params);
+}
+}
+
+/**
+ * Trade: Get Positions (Contracts)
+ */
+if (!function_exists('bybitGetPositions')) {
+function bybitGetPositions($pdo, $category, $symbol = '') {
+    $params = ['category' => strtolower($category)];
+    if ($symbol) $params['symbol'] = strtoupper($symbol);
+    return callBybit($pdo, '/v5/position/list', 'GET', $params);
+}
+}
+
+/**
+ * Trade: Get Open Orders
+ */
+if (!function_exists('bybitGetOrders')) {
+function bybitGetOrders($pdo, $category, $symbol = '') {
+    $params = ['category' => strtolower($category)];
+    if ($symbol) $params['symbol'] = strtoupper($symbol);
+    return callBybit($pdo, '/v5/order/realtime', 'GET', $params);
+}
+}
+
+/**
+ * Wallet: Internal/Account Transfer
+ */
+if (!function_exists('bybitTransfer')) {
+function bybitTransfer($pdo, $coin, $amount, $fromAccountType, $toAccountType) {
+    $params = [
+        'transferId' => uniqid('bp_'),
+        'coin' => strtoupper($coin),
+        'amount' => (string)$amount,
+        'fromAccountType' => strtoupper($fromAccountType),
+        'toAccountType' => strtoupper($toAccountType),
+    ];
+    return callBybit($pdo, '/v5/asset/transfer/inter-transfer', 'POST', $params);
+}
+}
+
+if (!function_exists('bybitSubAccountTransfer')) {
+function bybitSubAccountTransfer($pdo, $coin, $amount, $subMemberId, $type = 'OUT') {
+    $params = [
+        'transferId' => uniqid('bp_sub_'),
+        'coin' => strtoupper($coin),
+        'amount' => (string)$amount,
+        'subMemberId' => $subMemberId,
+        'type' => strtoupper($type) // IN (from sub to main), OUT (from main to sub)
+    ];
+    return callBybit($pdo, '/v5/asset/transfer/save-transfer', 'POST', $params);
+}
+
+}
+
+/**
+ * Exchange: Convert (Quote + Execution)
+ */
+if (!function_exists('bybitConvert')) {
+function bybitConvert($pdo, $fromCoin, $toCoin, $amount) {
+    // 1. Get Quote
+    $quoteRes = callBybit($pdo, '/v5/asset/exchange/quote-apply', 'POST', [
+        'fromCoin' => strtoupper($fromCoin),
+        'toCoin' => strtoupper($toCoin),
+        'fromAmount' => (string)$amount
+    ]);
+
+    if (isset($quoteRes['result']['quoteId'])) {
+        // 2. Execute Convert
+        return callBybit($pdo, '/v5/asset/exchange/convert', 'POST', [
+            'quoteId' => $quoteRes['result']['quoteId']
+        ]);
+    }
+    return $quoteRes;
+}
+}
+
+if (!function_exists('bybitGetConvertHistory')) {
+function bybitGetConvertHistory($pdo) {
+    return callBybit($pdo, '/v5/asset/exchange/order-record', 'GET');
+}
+}
+
+/**
+ * Earn: Flexible Savings Products & Purchase
+ */
+if (!function_exists('bybitGetEarnProducts')) {
+function bybitGetEarnProducts($pdo, $coin = '') {
+    $params = [];
+    if ($coin) $params['coin'] = strtoupper($coin);
+    return callBybit($pdo, '/v5/earn/v1/flexible-savings/product/list', 'GET', $params);
+}
+}
+
+if (!function_exists('bybitEarnPurchase')) {
+function bybitEarnPurchase($pdo, $productId, $amount) {
+    return callBybit($pdo, '/v5/earn/v1/flexible-savings/order/purchase', 'POST', [
+        'productId' => $productId,
+        'amount' => (string)$amount
+    ]);
 }
 }
 
@@ -246,10 +472,18 @@ function callJuicyWay($pdo, $endpoint, $method = 'POST', $data = []) {
     $creds = $settings['financialSettings']['juicyway'] ?? [];
     $apiKey = $creds['apiKey'] ?? '';
     $baseUrl = !empty($creds['liveMode']) ? "https://api.spendjuice.com" : "https://api-sandbox.spendjuice.com";
-    return callApi("$baseUrl/$endpoint", $method, $data, [
+
+    $res = callApi("$baseUrl/$endpoint", $method, $data, [
         "Authorization: " . $apiKey,
         "Content-Type: application/json"
     ]);
+
+    // If we get a raw string (error), wrap it with more debug info
+    if (is_string($res) && !empty($res)) {
+        return ['status' => 'error', 'message' => 'JuicyWay Raw Response: ' . substr(strip_tags($res), 0, 200), 'debug' => $res];
+    }
+
+    return $res;
 }
 }
 
@@ -269,20 +503,37 @@ if (!function_exists('juicywayGetQuote')) {
 function juicywayGetQuote($pdo, $amount, $from, $to) {
     $from = strtoupper($from);
     $to = strtoupper($to);
-    // GET request to singular endpoint with query params
-    return callJuicyWay($pdo, "exchange/quote?source_currency=$from&target_currency=$to&lock=true", 'GET');
+    $minorAmount = (int)($amount * 100);
+    // Include both major and minor units to be safe across different API versions
+    $query = http_build_query([
+        'source_currency' => $from,
+        'target_currency' => $to,
+        'amount' => $minorAmount,
+        'source_amount' => $amount,
+        'lock' => 'true'
+    ]);
+    return callJuicyWay($pdo, "exchange/quote?$query", 'GET');
 }
 }
 
 if (!function_exists('juicywaySwap')) {
 function juicywaySwap($pdo, $amount, $from, $to, $quoteId = null) {
+    $from = strtoupper($from);
+    $to = strtoupper($to);
     $minorAmount = (int)($amount * 100);
+
+    // Minimal payload as per docs to avoid conflicts
     $data = [
         'amount' => $minorAmount,
-        'source_currency' => strtoupper($from),
-        'target_currency' => strtoupper($to)
+        'source_currency' => $from,
+        'target_currency' => $to,
+        'reference' => 'SW-' . time() . '-' . rand(1000, 9999)
     ];
-    if ($quoteId) $data['quote_id'] = $quoteId;
+
+    if (!empty($quoteId)) {
+        $data['quote_id'] = $quoteId;
+    }
+
     return callJuicyWay($pdo, "exchange/swap", 'POST', $data);
 }
 }
@@ -354,5 +605,57 @@ function sendKudiSms($pdo, $senderId, $message, $to) {
 if (!function_exists('getCryptoPrices')) {
 function getCryptoPrices() {
     return callApi("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,binancecoin,solana,tether&vs_currencies=ngn,usd&include_24hr_change=true");
+}
+}
+
+/**
+ * RELOADLY GIFT CARDS
+ */
+if (!function_exists('getReloadlyToken')) {
+function getReloadlyToken($pdo) {
+    $settings = fetchSettings($pdo);
+    $creds = $settings['otherApiSettings']['reloadly'] ?? [];
+    $clientId = $creds['clientId'] ?? '';
+    $clientSecret = $creds['clientSecret'] ?? '';
+
+    $res = callApi("https://auth.reloadly.com/oauth/token", 'POST', [
+        'client_id' => $clientId,
+        'client_secret' => $clientSecret,
+        'grant_type' => 'client_credentials',
+        'audience' => 'https://giftcards.reloadly.com'
+    ], ["Content-Type: application/json"]);
+
+    return $res['access_token'] ?? null;
+}
+}
+
+if (!function_exists('getReloadlyGiftCards')) {
+function getReloadlyGiftCards($pdo) {
+    $token = getReloadlyToken($pdo);
+    if (!$token) return ['status' => 'error', 'message' => 'Failed to authenticate with Reloadly'];
+
+    return callApi("https://giftcards.reloadly.com/products", 'GET', [], [
+        "Authorization: Bearer $token",
+        "Accept: application/com.reloadly.giftcards-v1+json"
+    ]);
+}
+}
+
+if (!function_exists('purchaseReloadlyGiftCard')) {
+function purchaseReloadlyGiftCard($pdo, $productId, $amount, $recipientEmail) {
+    $token = getReloadlyToken($pdo);
+    if (!$token) return ['status' => 'error', 'message' => 'Failed to authenticate with Reloadly'];
+
+    return callApi("https://giftcards.reloadly.com/orders", 'POST', [
+        'productId' => $productId,
+        'amount' => $amount,
+        'quantity' => 1,
+        'recipientEmail' => $recipientEmail,
+        'customIdentifier' => uniqid('GC-')
+    ], [
+        "Authorization: Bearer $token",
+        "Content-Type: application/json",
+        "Accept: application/com.reloadly.giftcards-v1+json"
+    ]);
 }
 }

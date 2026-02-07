@@ -10,6 +10,9 @@ $statusDetails = null;
 $dataNetworks = $settings['dataNetworks'];
 if (is_string($dataNetworks)) $dataNetworks = json_decode($dataNetworks, true) ?: [];
 
+$allPlans = $settings['dataProducts'] ?? [];
+if (is_string($allPlans)) $allPlans = json_decode($allPlans, true) ?: [];
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'purchase') {
     if (!verifyCsrfToken($_POST['csrf_token'])) die('CSRF Failed');
 
@@ -18,8 +21,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $networkName = sanitize($_POST['networkName']);
 
     $selectedPlan = null;
-    $allPlans = $settings['dataProducts'] ?? [];
-    if (is_string($allPlans)) $allPlans = json_decode($allPlans, true) ?: [];
     foreach ($allPlans as $p) {
         if ($p['id'] == $planId) { $selectedPlan = $p; break; }
     }
@@ -74,7 +75,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     $stmt = $pdo->prepare("SELECT walletBalance FROM users WHERE id = ?"); $stmt->execute([$currentUser['id']]);
                     $currentUser['walletBalance'] = $stmt->fetchColumn();
 
-                    sendMail($pdo, $currentUser['email'], "Data Receipt", "Request processed for $networkName. Total: " . formatCurrency($totalCost));
+                    $statusBadge = ($successCount > 0) ? "<span class='status-badge status-success'>Successful</span>" : "<span class='status-badge status-failed'>Failed</span>";
+                    sendMail($pdo, $currentUser['email'], "Data Receipt", "$statusBadge<br><br>Request processed for $networkName. Total: " . formatCurrency($totalCost));
                     claimDailyRewardIfEligible($pdo, $currentUser['id']);
                     $pdo->commit();
 

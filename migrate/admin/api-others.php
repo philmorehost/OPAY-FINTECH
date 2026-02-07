@@ -7,6 +7,22 @@ $pageTitle = 'Other API Settings';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrfToken($_POST['csrf_token'])) die('CSRF Failed');
 
+    if (isset($_POST['action']) && $_POST['action'] === 'bulk_apply') {
+        $bulkApiDisc = (float)$_POST['bulk_api_discount'];
+        $bulkUserDisc = (float)$_POST['bulk_user_discount'];
+
+        $os = $settings['otherApiSettings'] ?? [];
+        if (is_string($os)) $os = json_decode($os, true) ?: [];
+
+        $os['smsApiDiscount'] = $bulkApiDisc;
+        $os['smsUserDiscount'] = $bulkUserDisc;
+
+        $stmt = $pdo->prepare("UPDATE settings SET otherApiSettings = ? WHERE id = 1");
+        $stmt->execute([json_encode($os)]);
+        $success = "Bulk SMS discounts applied!";
+        $settings = fetchSettings($pdo);
+    } else {
+
     $otherSettings = [
         'kudisms' => [
             'token' => $_POST['ks_token'],
@@ -26,6 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->execute([json_encode($otherSettings)]);
     $success = "Other API settings updated!";
     $settings = fetchSettings($pdo);
+    }
 }
 
 $os = $settings['otherApiSettings'] ?? [];
@@ -52,6 +69,26 @@ require_once __DIR__ . '/header.php';
 
     <form method="POST" class="space-y-10">
         <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+
+        <!-- Bulk Discount Section -->
+        <div class="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
+            <div class="flex justify-between items-center mb-8">
+                <h3 class="text-sm font-black uppercase tracking-widest flex items-center gap-3 text-indigo-600">
+                    <i data-lucide="percent" class="w-5 h-5"></i> Bulk SMS Pricing
+                </h3>
+                <button type="submit" name="action" value="bulk_apply" class="text-[10px] font-black uppercase bg-indigo-50 text-indigo-600 px-6 py-2.5 rounded-xl border border-indigo-100 hover:bg-indigo-100 transition-all">Apply to Bulk SMS</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Bulk API Disc (%)</label>
+                    <input type="number" step="0.01" name="bulk_api_discount" placeholder="e.g. 0.5" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Bulk User Disc (%)</label>
+                    <input type="number" step="0.01" name="bulk_user_discount" placeholder="e.g. 0.0" class="w-full p-4 bg-gray-50 rounded-2xl font-bold mt-1 outline-none border border-transparent focus:border-billpay-green">
+                </div>
+            </div>
+        </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
             <!-- KudiSMS -->

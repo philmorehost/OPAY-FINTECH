@@ -49,4 +49,26 @@ if (isLoggedIn()) {
         header("Location: $loginPath");
         exit;
     }
+
+    // Login Security Compliance Enforcement
+    if ($currentUser['role'] !== 'admin' && !isset($_SESSION['original_admin_id'])) {
+        $missing = getMissingLoginSecurity($settings, $currentUser);
+        if (!empty($missing)) {
+            $allowedFiles = ['login-settings.php', 'logout.php', 'login-verify.php', 'maintenance.php', '2fa-verify.php', 'kyc.php', 'security.php', 'index.php', 'profile.php', 'dashboard.php'];
+            $currentFile = basename($_SERVER['SCRIPT_NAME']);
+
+            // Special case: If trying to access any service page, redirect to settings
+            $servicePages = ['airtime.php', 'data.php', 'cable.php', 'electric.php', 'betting.php', 'exam.php', 'giftcards.php', 'finance.php', 'transfer.php', 'sms.php', 'vcard.php', 'services.php', 'crypto.php', 'pay-hub.php'];
+
+            if (in_array($currentFile, $servicePages)) {
+                header("Location: /login-settings?error=security_required");
+                exit;
+            }
+
+            if (!in_array($currentFile, $allowedFiles)) {
+                header("Location: /dashboard");
+                exit;
+            }
+        }
+    }
 }

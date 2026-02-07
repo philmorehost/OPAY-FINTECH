@@ -9,7 +9,11 @@ $success = '';
 
 // Fetch all available gift cards from Reloadly
 $gcRes = getReloadlyGiftCards($pdo);
-$allCards = $gcRes['content'] ?? [];
+$allCards = (is_array($gcRes) && isset($gcRes['content'])) ? $gcRes['content'] : [];
+
+if (empty($allCards) && is_string($gcRes)) {
+    $error = "Failed to fetch gift cards: " . $gcRes;
+}
 
 // Color presets for cards
 $cardColors = [

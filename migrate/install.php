@@ -68,6 +68,8 @@ if ($stage === 2 && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 marketingEmailsEnabled BOOLEAN DEFAULT TRUE,
                 smsAlertsEnabled BOOLEAN DEFAULT FALSE,
                 lastPurchaseDate DATETIME,
+                loginSecurityPin VARCHAR(255),
+                configuredSecurityMethods TEXT,
                 createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
             )",
             "CREATE TABLE IF NOT EXISTS transactions (
@@ -150,7 +152,8 @@ if ($stage === 2 && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 electricProviders TEXT,
                 bettingProviders TEXT,
                 airtimeDiscounts TEXT,
-                dataProducts TEXT
+                dataProducts TEXT,
+                loginSecuritySettings TEXT
             )",
             "CREATE TABLE IF NOT EXISTS support_tickets (
                 id VARCHAR(50) PRIMARY KEY,

@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     // API Info for Profit
     $as = $settings['airtimeSettings'] ?? [];
     $provider = $as['routing'][$network] ?? 'datagifting';
-    $apiDiscount = (float)($as['providers'][$provider]['discount'] ?? 0);
+    $apiDiscount = (float)($as['networkApiDiscounts'][$network] ?? ($as['providers'][$provider]['discount'] ?? 0));
     $unitApiCost = $amount * (1 - $apiDiscount / 100);
     $unitProfit = $unitCost - $unitApiCost;
 
@@ -75,7 +75,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $stmt = $pdo->prepare("SELECT walletBalance FROM users WHERE id = ?"); $stmt->execute([$currentUser['id']]);
                 $currentUser['walletBalance'] = $stmt->fetchColumn();
 
-                $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Airtime purchase processed.<br>Network: $network<br>Total: " . formatCurrency($totalCost);
+                $statusBadge = ($successCount > 0) ? "<span class='status-badge status-success'>Successful</span>" : "<span class='status-badge status-failed'>Failed</span>";
+                $receiptMsg = "Hi {$currentUser['fullName']},<br><br>$statusBadge<br><br>Airtime purchase processed.<br>Network: $network<br>Total: " . formatCurrency($totalCost);
                 sendMail($pdo, $currentUser['email'], "Airtime Receipt", $receiptMsg);
                 claimDailyRewardIfEligible($pdo, $currentUser['id']);
                 $pdo->commit();

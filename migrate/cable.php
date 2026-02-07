@@ -41,8 +41,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $profit = $amount * 0.01; // Placeholder 1% profit
                 $apiAmount = $amount - $profit;
                 logTransaction($pdo, $currentUser['id'], 'Cable TV', $amount, 'successful', "Cable Subscription ($providerId) for $iucNumber", $iucNumber, $providerId, null, $apiAmount, $profit);
+
                 // Receipt Email
-                $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Your cable subscription was successful.<br><br>Provider: $providerId<br>IUC: $iucNumber<br>Amount: " . formatCurrency($amount);
+                $statusBadge = "<span class='status-badge status-success'>Successful</span>";
+                $receiptMsg = "Hi {$currentUser['fullName']},<br><br>$statusBadge<br><br>Your cable subscription was successful.<br><br>Provider: $providerId<br>IUC: $iucNumber<br>Amount: " . formatCurrency($amount);
                 sendMail($pdo, $currentUser['email'], "Cable TV Receipt", $receiptMsg);
                 claimDailyRewardIfEligible($pdo, $currentUser['id']);
                 $success = true;

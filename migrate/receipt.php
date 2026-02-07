@@ -27,13 +27,27 @@ require_once __DIR__ . '/includes/header.php';
         </div>
         <!-- Modern Receipt Design -->
         <div class="bg-white rounded-[50px] shadow-2xl overflow-hidden border border-gray-100 relative">
-            <div class="bg-billpay-green p-12 text-white text-center relative">
+            <?php
+                $statusColor = 'bg-billpay-green';
+                $statusIcon = 'check-circle-2';
+                $statusText = 'Successful';
+                if ($tx['status'] === 'failed') {
+                    $statusColor = 'bg-red-500';
+                    $statusIcon = 'x-circle';
+                    $statusText = 'Failed';
+                } elseif ($tx['status'] === 'pending') {
+                    $statusColor = 'bg-amber-500';
+                    $statusIcon = 'clock';
+                    $statusText = 'Pending';
+                }
+            ?>
+            <div class="<?php echo $statusColor; ?> p-12 text-white text-center relative">
                 <div class="text-[10px] font-black uppercase tracking-[0.3em] mb-4 opacity-60 lg:block hidden"><?php echo $settings['senderName'] ?? 'Billpay'; ?></div>
                 <div class="w-20 h-20 bg-white/20 backdrop-blur-md rounded-[30px] flex items-center justify-center mx-auto mb-6 border border-white/30">
-                    <i data-lucide="check-circle-2" class="w-10 h-10"></i>
+                    <i data-lucide="<?php echo $statusIcon; ?>" class="w-10 h-10"></i>
                 </div>
-                <h2 class="text-3xl font-black uppercase tracking-tighter mb-2">Success</h2>
-                <div class="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Transaction Confirmed</div>
+                <h2 class="text-3xl font-black uppercase tracking-tighter mb-2"><?php echo $statusText; ?></h2>
+                <div class="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Transaction <?php echo ucfirst($tx['status']); ?></div>
 
                 <!-- Decorative Circles -->
                 <div class="absolute -left-4 -bottom-4 w-8 h-8 bg-gray-50 rounded-full"></div>
@@ -62,6 +76,12 @@ require_once __DIR__ . '/includes/header.php';
                     <div class="flex justify-between items-center">
                         <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Date & Time</span>
                         <span class="text-sm font-bold text-gray-600"><?php echo date('M d, Y • H:i', strtotime($tx['date'])); ?></span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</span>
+                        <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest <?php echo $tx['status'] === 'successful' ? 'bg-green-50 text-green-600' : ($tx['status'] === 'failed' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'); ?>">
+                            <?php echo $tx['status']; ?>
+                        </span>
                     </div>
 
                     <?php if ($tx['type'] === 'Electricity' && $tx['token']): ?>

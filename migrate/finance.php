@@ -142,8 +142,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $quoteId = sanitize($_POST['quote_id']);
 
             $res = juicywaySwap($pdo, $amount, $from, $to, $quoteId);
-            $resData = $res['data'] ?? $res;
-            if ((isset($resData['status']) && $resData['status'] === 'failed') || (isset($res['status']) && $res['status'] === 'error')) throw new Exception($res['message'] ?? $resData['message'] ?? 'Conversion failed');
+            $resData = is_array($res) ? ($res['data'] ?? $res) : [];
+
+            if (empty($res) || (isset($res['status']) && $res['status'] === 'error') || (isset($resData['status']) && $resData['status'] === 'failed')) {
+                $errMsg = $resData['message'] ?? $res['message'] ?? (is_string($res) ? $res : 'Invalid API Response');
+
+                // If there are detailed validation errors (common for 422 Unprocessable Entity)
+                if (isset($res['errors']) && is_array($res['errors'])) {
+                    $details = [];
+                    foreach ($res['errors'] as $field => $errors) {
+                        $details[] = "$field: " . (is_array($errors) ? implode(', ', $errors) : $errors);
+                    }
+                    $errMsg .= " (" . implode('; ', $details) . ")";
+                } elseif (isset($res['debug']) && is_array($res['debug'])) {
+                    $errMsg .= " (Code: " . ($res['debug']['http_code'] ?? '???') . ")";
+                }
+
+                throw new Exception("Conversion failed: " . $errMsg);
+            }
 
             logTransaction($pdo, $currentUser['id'], "Currency Conversion", $amount, 'successful', "Converted $from to $to", 'System');
             $success = "Successfully converted $from to $to!";
@@ -682,12 +698,25 @@ require_once __DIR__ . '/includes/header.php';
                 btn.disabled = false;
                 if (res.status === 'success' || res.status === true || res.id || res.data) {
                     const data = res.data || res;
-                    const targetAmount = data.target_amount || (amount * (data.rate || 1));
-                    document.getElementById('toAmountDisplay').innerText = targetAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    // JuicyWay returns target_amount as an object with amount in minor units.
+                    let targetVal = 0;
+                    if (data.target_amount) {
+                        const amt = typeof data.target_amount === 'object' ? data.target_amount.amount : data.target_amount;
+                        targetVal = amt / 100;
+                    } else if (data.rate) {
+                        // If rate > 100 and we are going NGN -> USD, it's likely inverted (NGN per 1 USD)
+                        if (amount > 0 && data.rate > 100 && (from === 'NGN' || from === 'KES' || from === 'GHS')) {
+                             targetVal = amount / data.rate;
+                        } else {
+                             targetVal = amount * data.rate;
+                        }
+                    }
+
+                    document.getElementById('toAmountDisplay').innerText = targetVal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
                     document.getElementById('quoteId').value = data.id;
 
-                    // Display Rate
-                    const rate = data.rate || (targetAmount / amount);
+                    // Display Rate (Normalize to 1 unit)
+                    const rate = data.rate || (targetVal / amount);
                     document.getElementById('liveRateText').innerText = `Rate: 1 ${from} ~ ${rate.toFixed(4)} ${to}`;
                     document.getElementById('rateDisplay').classList.remove('hidden');
 
@@ -724,10 +753,11 @@ require_once __DIR__ . '/includes/header.php';
                                 .then(r => r.json())
                                 .then(refresh => {
                                     const rData = refresh.data || refresh;
-                                    const rRate = rData.rate || ((rData.target_amount || targetAmount) / amount);
-                                    document.getElementById('liveRateText').innerText = `Rate: 1 ${from} ~ ${rRate.toFixed(4)} ${to}`;
-                                    // Update target display if quote didn't change ID but rate did (though locked usually doesn't)
-                                    if (rData.target_amount) document.getElementById('toAmountDisplay').innerText = rData.target_amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                                    const rAmt = rData.target_amount ? (typeof rData.target_amount === 'object' ? rData.target_amount.amount : rData.target_amount) : 0;
+                                    const rRate = rData.rate || (rAmt ? (rAmt / 100) / amount : 0);
+                                    if (rRate) document.getElementById('liveRateText').innerText = `Rate: 1 ${from} ~ ${rRate.toFixed(4)} ${to}`;
+                                    // Update target display
+                                    if (rAmt) document.getElementById('toAmountDisplay').innerText = (rAmt / 100).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
                                 });
                         }
                     }, 10000);
