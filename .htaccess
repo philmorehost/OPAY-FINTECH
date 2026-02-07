@@ -1,0 +1,17 @@
+RewriteEngine On
+
+# If the request is for the root, let index.php handle it
+RewriteRule ^$ index.php [L]
+
+# For everything else, if it's not a real file/directory in the root
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+# Check if it exists in migrate/ as a .php file
+RewriteCond %{DOCUMENT_ROOT}/migrate/$1.php -f
+RewriteRule ^(.*)$ migrate/$1.php [L,QSA]
+
+# Check if it exists in migrate/ as a real file (like assets/uploads)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{DOCUMENT_ROOT}/migrate/$1 -f
+RewriteRule ^(.*)$ migrate/$1 [L,QSA]
