@@ -414,26 +414,57 @@ if ($stage === 3 && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 </form>
 
             <?php elseif ($stage === 4): ?>
-                <div class="text-center space-y-6 py-4">
-                    <div class="w-20 h-20 bg-green-50 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 13l4 4L19 7" />
-                        </svg>
-                    </div>
-                    <h2 class="text-2xl font-black text-gray-800">Installation Complete!</h2>
-                    <p class="text-sm text-gray-500 font-medium leading-relaxed px-4">Your platform is ready. You can now login to the admin panel to configure your API gateways and branding.</p>
-
-                    <div class="p-6 bg-amber-50 rounded-[32px] border border-amber-100 text-left">
-                        <h4 class="text-[10px] font-black text-amber-700 uppercase tracking-widest mb-2">Important Next Steps:</h4>
-                        <ul class="text-[10px] font-bold text-amber-600 space-y-2 list-disc ml-4 uppercase">
-                            <li>Delete the <span class="text-amber-800">install.php</span> file for security.</li>
-                            <li>Configure SMTP settings in Admin -> Settings.</li>
-                            <li>Set your API Keys in Admin -> API Hub.</li>
-                        </ul>
+                <div class="animate-fade-in space-y-8 py-2">
+                    <div class="flex flex-col items-center text-center space-y-4">
+                        <div class="w-24 h-24 bg-green-50 text-green-500 rounded-[32px] flex items-center justify-center shadow-inner relative overflow-hidden group">
+                            <div class="absolute inset-0 bg-green-400/10 scale-0 group-hover:scale-150 transition-transform duration-700 rounded-full"></div>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 13l4 4L19 7" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 class="text-3xl font-black text-gray-900 tracking-tight uppercase">Great Success!</h2>
+                            <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mt-2">Platform configured & ready for deployment</p>
+                        </div>
                     </div>
 
-                    <div class="pt-6">
-                        <a href="/login" class="block w-full py-5 bg-gray-900 text-white rounded-[24px] font-black uppercase tracking-widest shadow-xl shadow-gray-200">Go to Dashboard</a>
+                    <div class="bg-gray-50 p-8 rounded-[40px] border border-gray-100 space-y-6">
+                        <div class="flex items-center gap-3 border-b border-gray-200 pb-4">
+                            <div class="p-2 bg-amber-100 text-amber-600 rounded-xl"><i data-lucide="shield-alert" class="w-4 h-4"></i></div>
+                            <h4 class="text-[11px] font-black text-gray-800 uppercase tracking-widest">Mandatory Security Actions</h4>
+                        </div>
+
+                        <div class="grid grid-cols-1 gap-4">
+                            <div class="flex items-start gap-4 p-4 bg-white rounded-3xl shadow-sm border border-gray-100">
+                                <div class="w-6 h-6 rounded-full bg-red-50 text-red-500 flex items-center justify-center text-[10px] font-black">01</div>
+                                <div>
+                                    <div class="text-[10px] font-black text-gray-900 uppercase">Delete Installer</div>
+                                    <p class="text-[9px] font-bold text-gray-400 uppercase leading-relaxed mt-0.5">Remove <span class="text-red-500">install.php</span> from your server root immediately.</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-4 p-4 bg-white rounded-3xl shadow-sm border border-gray-100">
+                                <div class="w-6 h-6 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center text-[10px] font-black">02</div>
+                                <div>
+                                    <div class="text-[10px] font-black text-gray-900 uppercase">API Credentials</div>
+                                    <p class="text-[9px] font-bold text-gray-400 uppercase leading-relaxed mt-0.5">Navigate to Admin Hub -> API Manager to set your live gateway keys.</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-4 p-4 bg-white rounded-3xl shadow-sm border border-gray-100">
+                                <div class="w-6 h-6 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center text-[10px] font-black">03</div>
+                                <div>
+                                    <div class="text-[10px] font-black text-gray-900 uppercase">SMTP Settings</div>
+                                    <p class="text-[9px] font-bold text-gray-400 uppercase leading-relaxed mt-0.5">Configure mail settings in Global Settings for automated receipts.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-4">
+                        <a href="/login" class="group relative flex items-center justify-center w-full py-6 bg-gray-900 text-white rounded-[32px] font-black uppercase tracking-[0.2em] shadow-2xl hover:bg-black transition-all active:scale-95 overflow-hidden">
+                            <span class="relative z-10">Access Dashboard</span>
+                            <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                        </a>
+                        <p class="text-center text-[8px] font-black text-gray-300 uppercase tracking-widest mt-6 italic">Built with BillPay Fintech Core v3.0</p>
                     </div>
                 </div>
             <?php endif; ?>

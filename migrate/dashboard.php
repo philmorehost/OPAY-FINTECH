@@ -6,18 +6,14 @@ $pageTitle = 'Home';
 require_once __DIR__ . '/includes/header.php';
 
 $services = [
-    ['icon' => 'phone', 'label' => 'Airtime', 'path' => '/airtime', 'color' => 'text-blue-500'],
-    ['icon' => 'wifi', 'label' => 'Data', 'path' => '/data', 'color' => 'text-orange-500'],
-    ['icon' => 'message-circle', 'label' => 'Bulk SMS', 'path' => '/sms', 'color' => 'text-emerald-500'],
-    ['icon' => 'tv', 'label' => 'Cable TV', 'path' => '/cable', 'color' => 'text-red-500'],
-    ['icon' => 'zap', 'label' => 'Electricity', 'path' => '/electric', 'color' => 'text-yellow-500'],
-    ['icon' => 'trending-up', 'label' => 'Betting', 'path' => '/betting', 'color' => 'text-green-500'],
-    ['icon' => 'bitcoin', 'label' => 'Crypto', 'path' => '/crypto', 'color' => 'text-orange-600'],
-    ['icon' => 'arrow-right-left', 'label' => 'Transfer', 'path' => '/transfer', 'color' => 'text-indigo-500'],
+    ['icon' => 'layout-grid', 'label' => 'Pay Hub', 'path' => '/pay-hub', 'color' => 'text-billpay-green'],
+    ['icon' => 'crown', 'label' => 'Finance', 'path' => '/finance', 'color' => 'text-amber-500'],
+    ['icon' => 'bar-chart-3', 'label' => 'Crypto', 'path' => '/crypto', 'color' => 'text-orange-500'],
     ['icon' => 'credit-card', 'label' => 'Card', 'path' => '/vcard', 'color' => 'text-pink-500'],
-    ['icon' => 'shield-check', 'label' => 'Exam PIN', 'path' => '/exam', 'color' => 'text-purple-500'],
-    ['icon' => 'bar-chart-3', 'label' => 'Referrals', 'path' => '/referrals', 'color' => 'text-cyan-600'],
+    ['icon' => 'arrow-right-left', 'label' => 'Transfer', 'path' => '/transfer', 'color' => 'text-indigo-500'],
+    ['icon' => 'bar-chart-2', 'label' => 'Referrals', 'path' => '/referrals', 'color' => 'text-cyan-600'],
     ['icon' => 'gift', 'label' => 'Gift Cards', 'path' => '/giftcards', 'color' => 'text-pink-600'],
+    ['icon' => 'more-horizontal', 'label' => 'More', 'path' => '/services', 'color' => 'text-gray-400'],
 ];
 
 $offers = fetchActiveOffers($pdo);
@@ -254,11 +250,13 @@ $templateId = $settings['templateId'] ?? 1;
                </div>
             <?php else: ?>
                 <?php foreach ($offers as $offer): ?>
-                    <div class="min-w-[280px] h-36 rounded-[32px] p-6 relative overflow-hidden flex flex-col justify-center shadow-xl shadow-gray-200" style="background: linear-gradient(to bottom right, <?php echo $offer['gradientFrom']; ?>, <?php echo $offer['gradientTo']; ?>); color: <?php echo $offer['textColor']; ?>;">
-                        <?php if ($offer['image']): ?><img src="/<?php echo $offer['image']; ?>" class="absolute right-0 top-0 h-full w-1/2 object-cover opacity-20"><?php endif; ?>
+                    <div class="min-w-[280px] h-36 rounded-[32px] p-6 relative overflow-hidden flex flex-col justify-center shadow-xl shadow-gray-200 group" style="background: linear-gradient(to bottom right, <?php echo $offer['gradientFrom']; ?>, <?php echo $offer['gradientTo']; ?>); color: <?php echo $offer['textColor']; ?>;">
+                        <?php if ($offer['image']): ?>
+                            <img src="/<?php echo $offer['image']; ?>" class="absolute right-4 top-4 bottom-4 w-1/3 object-contain opacity-100 transition-transform group-hover:scale-110">
+                        <?php endif; ?>
                         <div class="relative z-10">
-                            <div class="text-lg font-black leading-tight max-w-[180px]"><?php echo $offer['title']; ?></div>
-                            <div class="text-[10px] font-medium opacity-80 mt-2"><?php echo $offer['content']; ?></div>
+                            <div class="text-lg font-black leading-tight max-w-[160px]"><?php echo $offer['title']; ?></div>
+                            <div class="text-[10px] font-medium opacity-90 mt-2 max-w-[160px]"><?php echo $offer['content']; ?></div>
                         </div>
                         <div class="absolute -right-8 -bottom-8 w-28 h-28 bg-white/10 rounded-full"></div>
                     </div>
@@ -334,11 +332,13 @@ $templateId = $settings['templateId'] ?? 1;
                </div>
             <?php else: ?>
                 <?php foreach ($offers as $offer): ?>
-                    <div class="min-w-[280px] h-36 rounded-[32px] p-6 relative overflow-hidden flex flex-col justify-center shadow-xl shadow-gray-200" style="background: linear-gradient(to bottom right, <?php echo $offer['gradientFrom']; ?>, <?php echo $offer['gradientTo']; ?>); color: <?php echo $offer['textColor']; ?>;">
-                        <?php if ($offer['image']): ?><img src="/<?php echo $offer['image']; ?>" class="absolute right-0 top-0 h-full w-1/2 object-cover opacity-20"><?php endif; ?>
+                    <div class="min-w-[280px] h-36 rounded-[32px] p-6 relative overflow-hidden flex flex-col justify-center shadow-xl shadow-gray-200 group" style="background: linear-gradient(to bottom right, <?php echo $offer['gradientFrom']; ?>, <?php echo $offer['gradientTo']; ?>); color: <?php echo $offer['textColor']; ?>;">
+                        <?php if ($offer['image']): ?>
+                            <img src="/<?php echo $offer['image']; ?>" class="absolute right-4 top-4 bottom-4 w-1/3 object-contain opacity-100 transition-transform group-hover:scale-110">
+                        <?php endif; ?>
                         <div class="relative z-10">
-                            <div class="text-lg font-black leading-tight max-w-[180px]"><?php echo $offer['title']; ?></div>
-                            <div class="text-[10px] font-medium opacity-80 mt-2"><?php echo $offer['content']; ?></div>
+                            <div class="text-lg font-black leading-tight max-w-[160px]"><?php echo $offer['title']; ?></div>
+                            <div class="text-[10px] font-medium opacity-90 mt-2 max-w-[160px]"><?php echo $offer['content']; ?></div>
                         </div>
                         <div class="absolute -right-8 -bottom-8 w-28 h-28 bg-white/10 rounded-full"></div>
                     </div>

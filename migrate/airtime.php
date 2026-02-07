@@ -5,13 +5,10 @@ if (!isLoggedIn()) redirect('/login');
 $pageTitle = 'Airtime';
 
 $error = '';
-$success = false;
 $statusDetails = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'purchase') {
-    if (!verifyCsrfToken($_POST['csrf_token'])) {
-        die('CSRF token validation failed');
-    }
+    if (!verifyCsrfToken($_POST['csrf_token'])) die('CSRF Failed');
 
     $isBulk = isset($_POST['isBulk']) && $_POST['isBulk'] === 'true';
     $network = sanitize($_POST['network']);
@@ -29,67 +26,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $recipients[] = sanitize($_POST['phoneNumber']);
     }
 
-    $totalCost = count($recipients) * $amount;
+    // Calculate Costs & Profit
+    $userDiscount = (float)($settings['airtimeDiscounts'][$network] ?? 0);
+    $unitCost = $amount * (1 - $userDiscount / 100);
+    $totalCost = count($recipients) * $unitCost;
+
+    // API Info for Profit
+    $as = $settings['airtimeSettings'] ?? [];
+    $provider = $as['routing'][$network] ?? 'datagifting';
+    $apiDiscount = (float)($as['providers'][$provider]['discount'] ?? 0);
+    $unitApiCost = $amount * (1 - $apiDiscount / 100);
+    $unitProfit = $unitCost - $unitApiCost;
 
     if (isKycRejected($currentUser)) {
         $error = 'Account restricted. Please update your KYC.';
-    } elseif ($amount < $settings['minAirtimePurchase']) {
-        $error = 'Minimum airtime is ' . formatCurrency($settings['minAirtimePurchase']);
+    } elseif ($amount < ($settings['minAirtimePurchase'] ?? 50)) {
+        $error = 'Minimum airtime is ' . formatCurrency($settings['minAirtimePurchase'] ?? 50);
     } elseif (empty($recipients)) {
         $error = 'Enter valid phone numbers';
     } elseif ($currentUser['walletBalance'] < $totalCost) {
         $error = 'Insufficient balance';
     } else {
-        // Daily Limit Check
         foreach ($recipients as $num) {
-            if (!checkDailyLimit($pdo, $currentUser['id'], $num, $settings['maxDailyTxPerId'])) {
-                $error = "Daily transaction limit reached for $num";
-                break;
+            if (!checkDailyLimit($pdo, $currentUser['id'], $num, $settings['maxDailyTxPerId'] ?? 50)) {
+                $error = "Daily limit reached for $num"; break;
             }
         }
 
-        if ($error) {
-            // Error already set
-        } else {
-        // Process purchase
-        $pdo->beginTransaction();
-        try {
-            updateWallet($pdo, $currentUser['id'], $totalCost, 'debit');
+        if (!$error) {
+            $pdo->beginTransaction();
+            try {
+                updateWallet($pdo, $currentUser['id'], $totalCost, 'debit');
 
-            $successCount = 0;
-            foreach ($recipients as $num) {
-                // Simulation: 98% success
-                $isSuccess = (mt_rand(1, 100) > 2);
-                if ($isSuccess) $successCount++;
+                $successCount = 0;
+                foreach ($recipients as $num) {
+                    $response = purchaseAirtime($pdo, $network, $amount, $num);
+                    $isSuccess = (isset($response['status']) && $response['status'] === 'success');
 
-                logTransaction($pdo, $currentUser['id'], 'Airtime', $amount, $isSuccess ? 'successful' : 'failed', "$network Airtime recharge for $num", $num, $network);
-            }
+                    if ($isSuccess) {
+                        $successCount++;
+                        logTransaction($pdo, $currentUser['id'], 'Airtime', $unitCost, 'successful', "$network Airtime for $num", $num, $network, null, $unitApiCost, $unitProfit);
+                    } else {
+                        updateWallet($pdo, $currentUser['id'], $unitCost, 'credit');
+                        logTransaction($pdo, $currentUser['id'], 'Airtime', $unitCost, 'failed', "$network Airtime failed for $num: " . ($response['message'] ?? 'Error'), $num, $network);
+                    }
+                }
 
-            // Receipt Email
-            $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Your airtime purchase was processed.<br><br>";
-            $receiptMsg .= "Network: $network<br>Amount: " . formatCurrency($totalCost) . "<br>Status: " . ($successCount > 0 ? 'Successful' : 'Failed');
-            sendMail($pdo, $currentUser['email'], ($settings['senderName'] ?? 'Billpay') . " - Airtime Receipt", $receiptMsg);
+                $stmt = $pdo->prepare("SELECT walletBalance FROM users WHERE id = ?"); $stmt->execute([$currentUser['id']]);
+                $currentUser['walletBalance'] = $stmt->fetchColumn();
 
-            claimDailyRewardIfEligible($pdo, $currentUser['id']);
-            $pdo->commit();
-            $success = true;
-            $statusDetails = [
-                'status' => 'success',
-                'amount' => $totalCost,
-                'count' => $successCount,
-                'total' => count($recipients),
-                'msg' => "Recharge of $successCount/" . count($recipients) . " was successful."
-            ];
+                $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Airtime purchase processed.<br>Network: $network<br>Total: " . formatCurrency($totalCost);
+                sendMail($pdo, $currentUser['email'], "Airtime Receipt", $receiptMsg);
+                claimDailyRewardIfEligible($pdo, $currentUser['id']);
+                $pdo->commit();
 
-            // Refresh currentUser balance
-            $stmt = $pdo->prepare("SELECT walletBalance FROM users WHERE id = ?");
-            $stmt->execute([$currentUser['id']]);
-            $currentUser['walletBalance'] = $stmt->fetchColumn();
-
-        } catch (Exception $e) {
-            $pdo->rollBack();
-            $error = 'Transaction failed: ' . $e->getMessage();
-        }
+                $statusDetails = ['status' => $successCount > 0 ? 'success' : 'failed', 'amount' => $totalCost, 'count' => $successCount, 'total' => count($recipients), 'msg' => $successCount > 0 ? "Processed $successCount/" . count($recipients) . " successfully." : "Purchase failed."];
+            } catch (Exception $e) { $pdo->rollBack(); $error = 'Internal Error: ' . $e->getMessage(); }
         }
     }
 }
@@ -97,16 +89,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 require_once __DIR__ . '/includes/header.php';
 ?>
 
-<div class="mx-auto min-h-screen bg-gray-50 flex flex-col pb-24">
+<div class="mx-auto min-h-screen bg-gray-50 flex flex-col pb-24 text-gray-900">
     <div class="bg-white p-4 flex items-center gap-4 sticky top-0 z-10 border-b shadow-sm">
         <a href="/dashboard"><i data-lucide="arrow-left" class="w-6 h-6 text-gray-900"></i></a>
         <h1 class="text-lg font-black text-gray-900 uppercase tracking-tight">Airtime Service</h1>
     </div>
 
     <div class="p-4 flex-1">
-        <?php if ($error): ?>
-            <div class="mb-6 p-4 bg-red-50 text-red-500 rounded-2xl text-xs font-black border border-red-100 text-center uppercase"><?php echo $error; ?></div>
-        <?php endif; ?>
+        <?php if ($error): ?><div class="mb-6 p-4 bg-red-50 text-red-800 rounded-2xl text-xs font-black border border-red-100 text-center uppercase"><?php echo $error; ?></div><?php endif; ?>
 
         <form method="POST" id="airtimeForm" class="bg-white p-6 rounded-[40px] shadow-sm space-y-8 border border-gray-100">
             <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
@@ -135,12 +125,7 @@ require_once __DIR__ . '/includes/header.php';
                 <label class="block text-[10px] font-black text-gray-400 mb-3 px-1 uppercase tracking-widest">Network Provider</label>
                 <div class="grid grid-cols-4 gap-4">
                     <?php
-                    $networks = [
-                        ['name' => 'MTN', 'code' => '01'],
-                        ['name' => 'Airtel', 'code' => '04'],
-                        ['name' => 'Glo', 'code' => '02'],
-                        ['name' => '9mobile', 'code' => '03']
-                    ];
+                    $networks = ['MTN', 'Airtel', 'Glo', '9mobile'];
                     $networkColors = [
                         'MTN' => ['bg' => 'bg-yellow-400', 'text' => 'text-black', 'hex' => '#FFCC00'],
                         'Airtel' => ['bg' => 'bg-red-600', 'text' => 'text-white', 'hex' => '#ED1C24'],
@@ -148,13 +133,13 @@ require_once __DIR__ . '/includes/header.php';
                         '9mobile' => ['bg' => 'bg-emerald-800', 'text' => 'text-white', 'hex' => '#006600']
                     ];
                     foreach ($networks as $n):
-                        $conf = $networkColors[$n['name']] ?? ['bg' => 'bg-billpay-green', 'text' => 'text-white', 'hex' => $settings['primaryColor']];
+                        $conf = $networkColors[$n] ?? ['bg' => 'bg-billpay-green', 'text' => 'text-white', 'hex' => $settings['primaryColor']];
                     ?>
-                    <button type="button" onclick="setNetwork('<?php echo $n['name']; ?>')" id="net_<?php echo $n['name']; ?>" data-color="<?php echo $conf['bg']; ?>" data-text="<?php echo $conf['text']; ?>" class="network-btn p-3 rounded-2xl border-2 font-black text-[10px] transition-all border-transparent bg-gray-50 text-gray-400 flex flex-col items-center gap-2">
+                    <button type="button" onclick="setNetwork('<?php echo $n; ?>')" id="net_<?php echo $n; ?>" data-color="<?php echo $conf['bg']; ?>" data-text="<?php echo $conf['text']; ?>" class="network-btn p-3 rounded-2xl border-2 font-black text-[10px] transition-all border-transparent bg-gray-50 text-gray-400 flex flex-col items-center gap-2">
                         <div class="w-8 h-8 rounded-full shadow-sm flex items-center justify-center text-[10px] text-white font-black" style="background-color: <?php echo $conf['hex']; ?>;">
-                            <?php echo substr($n['name'], 0, 1); ?>
+                            <?php echo substr($n, 0, 1); ?>
                         </div>
-                        <?php echo $n['name']; ?>
+                        <?php echo $n; ?>
                     </button>
                     <?php endforeach; ?>
                 </div>
@@ -166,20 +151,17 @@ require_once __DIR__ . '/includes/header.php';
                 <input type="number" name="amount" id="amountInput" placeholder="Enter amount" min="50" class="w-full p-5 bg-gray-50 rounded-2xl font-black text-lg outline-none focus:ring-2 focus:ring-billpay-green/10" required>
             </div>
 
-            <button type="submit" class="w-full bg-billpay-green text-white font-black py-5 rounded-[24px] shadow-xl active:scale-95 transition-all">CONFIRM & BUY</button>
+            <button type="submit" class="w-full bg-billpay-green text-white font-black py-5 rounded-[24px] shadow-xl active:scale-95 transition-all uppercase">Confirm Purchase</button>
         </form>
     </div>
 </div>
 
 <?php if ($statusDetails): ?>
-<div class="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-6">
+<div class="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-6 text-gray-900">
     <div class="bg-white w-full max-w-sm rounded-[40px] overflow-hidden animate-slide-up shadow-2xl">
-        <div class="p-8 text-white flex flex-col items-center text-center bg-billpay-green">
-            <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 shadow-lg text-billpay-green">
-                <i data-lucide="check-circle-2" class="w-10 h-10"></i>
-            </div>
-            <h3 class="text-xl font-black uppercase tracking-tight text-white">Request Processed</h3>
-            <div class="text-3xl font-black mt-2 text-white"><?php echo formatCurrency($statusDetails['amount']); ?></div>
+        <div class="p-8 text-white flex flex-col items-center text-center <?php echo $statusDetails['status'] === 'success' ? 'bg-billpay-green' : 'bg-red-500'; ?>">
+            <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 shadow-lg <?php echo $statusDetails['status'] === 'success' ? 'text-billpay-green' : 'text-red-500'; ?>"><i data-lucide="<?php echo $statusDetails['status'] === 'success' ? 'check-circle-2' : 'x-circle'; ?>" class="w-10 h-10"></i></div>
+            <h3 class="text-xl font-black uppercase tracking-tight text-white"><?php echo $statusDetails['status'] === 'success' ? 'Success' : 'Failed'; ?></h3>
         </div>
         <div class="p-8 space-y-6 text-center">
             <p class="text-sm font-bold text-gray-500 leading-relaxed uppercase"><?php echo $statusDetails['msg']; ?></p>
@@ -194,30 +176,16 @@ require_once __DIR__ . '/includes/header.php';
         document.getElementById('isBulkInput').value = isBulk;
         document.getElementById('singlePhoneGroup').classList.toggle('hidden', isBulk);
         document.getElementById('bulkPhoneGroup').classList.toggle('hidden', !isBulk);
-
-        document.getElementById('tabSingle').classList.toggle('bg-white', !isBulk);
-        document.getElementById('tabSingle').classList.toggle('shadow-md', !isBulk);
-        document.getElementById('tabSingle').classList.toggle('text-billpay-green', !isBulk);
-        document.getElementById('tabSingle').classList.toggle('text-gray-400', isBulk);
-
-        document.getElementById('tabBulk').classList.toggle('bg-white', isBulk);
-        document.getElementById('tabBulk').classList.toggle('shadow-md', isBulk);
-        document.getElementById('tabBulk').classList.toggle('text-billpay-green', isBulk);
-        document.getElementById('tabBulk').classList.toggle('text-gray-400', !isBulk);
+        document.getElementById('tabSingle').className = !isBulk ? 'flex-1 py-3.5 rounded-xl text-[10px] font-black uppercase transition-all bg-white shadow-md text-billpay-green' : 'flex-1 py-3.5 rounded-xl text-[10px] font-black uppercase transition-all text-gray-400';
+        document.getElementById('tabBulk').className = isBulk ? 'flex-1 py-3.5 rounded-xl text-[10px] font-black uppercase transition-all bg-white shadow-md text-billpay-green' : 'flex-1 py-3.5 rounded-xl text-[10px] font-black uppercase transition-all text-gray-400';
     }
-
     function setNetwork(name) {
         document.getElementById('networkInput').value = name;
         document.querySelectorAll('.network-btn').forEach(btn => {
-            btn.classList.remove('border-billpay-green', 'shadow-md', 'bg-yellow-400', 'bg-red-600', 'bg-green-600', 'bg-emerald-800', 'text-white', 'text-black', 'text-gray-900');
-            btn.classList.add('border-transparent', 'bg-gray-50', 'text-gray-400');
+            btn.className = 'network-btn p-3 rounded-2xl border-2 font-black text-[10px] transition-all border-transparent bg-gray-50 text-gray-400 flex flex-col items-center gap-2';
         });
         const activeBtn = document.getElementById('net_' + name);
-        const bgColor = activeBtn.getAttribute('data-color');
-        const textColor = activeBtn.getAttribute('data-text');
-
-        activeBtn.classList.add('border-billpay-green', 'shadow-md', bgColor, textColor);
-        activeBtn.classList.remove('border-transparent', 'bg-gray-50', 'text-gray-400');
+        activeBtn.className = 'network-btn p-3 rounded-2xl border-2 font-black text-[10px] transition-all border-billpay-green shadow-md ' + activeBtn.dataset.color + ' ' + activeBtn.dataset.text + ' flex flex-col items-center gap-2';
     }
 </script>
 

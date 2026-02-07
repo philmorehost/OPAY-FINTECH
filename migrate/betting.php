@@ -20,34 +20,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $error = 'Account restricted. Please update your KYC.';
     } elseif ($currentUser['walletBalance'] < $amount) {
         $error = 'Insufficient balance';
-    } elseif (!checkDailyLimit($pdo, $currentUser['id'], $customerId, $settings['maxDailyTxPerId'])) {
+    } elseif (!checkDailyLimit($pdo, $currentUser['id'], $customerId, $settings['maxDailyTxPerId'] ?? 50)) {
         $error = "Daily transaction limit reached for $customerId";
     } else {
         $pdo->beginTransaction();
         try {
             updateWallet($pdo, $currentUser['id'], $amount, 'debit');
-            logTransaction($pdo, $currentUser['id'], 'Betting', $amount, 'successful', "Betting Wallet Fund ($providerId) for ID: $customerId", $customerId, $providerId);
 
-            // Receipt Email
-            $receiptMsg = "Hi {$currentUser['fullName']},<br><br>Your betting account funding was successful.<br><br>Provider: $providerId<br>Customer ID: $customerId<br>Amount: " . formatCurrency($amount);
-            sendMail($pdo, $currentUser['email'], "Betting Funding Receipt", $receiptMsg);
+            $vtRes = callVtpass($pdo, $providerId, [
+                'billersCode' => $customerId,
+                'amount' => $amount,
+                'phone' => $currentUser['phone']
+            ]);
 
-            claimDailyRewardIfEligible($pdo, $currentUser['id']);
+            $isSuccess = isset($vtRes['code']) && $vtRes['code'] === '000';
+
+            if ($isSuccess) {
+                $profit = $amount * 0.01; // Placeholder 1% profit
+                $apiAmount = $amount - $profit;
+                logTransaction($pdo, $currentUser['id'], 'Betting', $amount, 'successful', "Betting Wallet Fund ($providerId) for ID: $customerId", $customerId, $providerId, null, $apiAmount, $profit);
+                sendMail($pdo, $currentUser['email'], "Betting Funding Receipt", "Successful funding for $customerId. Amount: " . formatCurrency($amount));
+                claimDailyRewardIfEligible($pdo, $currentUser['id']);
+                $success = true;
+            } else {
+                updateWallet($pdo, $currentUser['id'], $amount, 'credit');
+                logTransaction($pdo, $currentUser['id'], 'Betting', $amount, 'failed', "Betting failed: " . ($vtRes['response_description'] ?? 'API Error'), $customerId, $providerId);
+                $error = 'Transaction failed: ' . ($vtRes['response_description'] ?? 'Provider Error');
+            }
+
             $pdo->commit();
-            $success = true;
+            // Refresh balance
             $stmt = $pdo->prepare("SELECT walletBalance FROM users WHERE id = ?");
             $stmt->execute([$currentUser['id']]);
             $currentUser['walletBalance'] = $stmt->fetchColumn();
         } catch (Exception $e) {
             $pdo->rollBack();
-            $error = 'Transaction failed: ' . $e->getMessage();
+            $error = 'Internal Error: ' . $e->getMessage();
         }
     }
 }
 
 require_once __DIR__ . '/includes/header.php';
 ?>
-<div class="mx-auto min-h-screen bg-gray-50 flex flex-col pb-24">
+<div class="mx-auto min-h-screen bg-gray-50 flex flex-col pb-24 text-gray-900">
     <div class="bg-white p-4 flex items-center gap-4 sticky top-0 z-10 border-b shadow-sm">
         <a href="/dashboard"><i data-lucide="arrow-left" class="w-6 h-6 text-gray-900"></i></a>
         <h1 class="text-lg font-black text-gray-900 uppercase tracking-tight">Betting</h1>
@@ -64,7 +79,7 @@ require_once __DIR__ . '/includes/header.php';
                 <label class="block text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest ml-1">Select Provider</label>
                 <div class="grid grid-cols-4 gap-3">
                     <?php foreach ($bettingProviders as $p): ?>
-                    <button type="button" onclick="setProvider('<?php echo $p['id']; ?>')" id="prov_<?php echo $p['id']; ?>" class="prov-btn flex flex-col items-center gap-2 p-2 rounded-2xl border-2 transition-all border-transparent bg-gray-50 <?php echo !$p['enabled'] ? 'opacity-30 pointer-events-none' : ''; ?>">
+                    <button type="button" onclick="setProvider('<?php echo $p['id']; ?>')" id="prov_<?php echo $p['id']; ?>" class="prov-btn flex flex-col items-center gap-2 p-2 rounded-2xl border-2 transition-all border-transparent bg-gray-50 <?php echo !($p['enabled'] ?? true) ? 'opacity-30 pointer-events-none' : ''; ?>">
                         <div class="w-10 h-10 rounded-full bg-gray-900 flex items-center justify-center text-white text-[10px] font-black"><?php echo substr($p['name'], 0, 2); ?></div>
                         <span class="text-[8px] font-black uppercase text-gray-800"><?php echo $p['name']; ?></span>
                     </button>
